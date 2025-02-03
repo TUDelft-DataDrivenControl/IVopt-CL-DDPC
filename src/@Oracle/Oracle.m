@@ -115,14 +115,18 @@ classdef Oracle < handle
             try
                 % try to solve regular problem
                 obj.QP.stat = 0;  % <- indicates unsuccessful solve(s)
+                solve_timer = tic;
                 obj.QP.res = obj.QP.get_res1(x_k1,u_k0,obj.rf);
+                tSolve = toc(solve_timer);
                 obj.QP.stat = 1;  % indicating solver used
             catch
                 try
                     % try to solve original problem with softened constraints
                     % -> solve relaxed problem
                     obj.QP.stat = 2;
+                    solve_timer = tic;
                     obj.QP.res = obj.QP.get_res2(x_k1,u_k0,obj.rf);
+                    tSolve = toc(solve_timer);
                     obj.QP.stat = 3;
                 catch Error
                     disp(['No feasible solution found. Solution status:', num2str(obj.QP.stat) ])
@@ -132,6 +136,7 @@ classdef Oracle < handle
             uf     = obj.QP.res2uf(obj.QP.res);
             yf_hat = obj.QP.res2yf(obj.QP.res);
             varargout{1} = obj.QP.stat; % solution status
+            varargout{2} = tSolve;
         end
     end
 end

@@ -54,8 +54,8 @@ con.du_max = du_max;
 
 % initialize data arrays
 Cz = cell(3,1);
-[u_CL,y_CL,x_CL,Cost,stat] = deal(Cz);
-[eLu,eLy,eGu,eObX] = deal(cell(2,1));
+[u_CL,y_CL,x_CL,Cost,stat,tSolves] = deal(Cz);
+[eLu,eLy,eGu,eObX,PE_stat] = deal(cell(2,1));
 
 % 1) DeePC with IV
 Cz{1} =    DeePC(u_ol,y_ol,p,f,N_OL,Q,R,dR,constr=con);
@@ -73,15 +73,17 @@ for k_c = 1:3
     y_CLr = nan(ny,CL_sim_steps);
     cost  = nan(1,CL_sim_steps);
     stat_r= cost;
+    tSolves_r = cost;
+    PE_stat_r = cost;
     if k_c < 3
         [eLu_r,eLy_r,eGu_r,eObX_r] = deal(cost);
     end
 
     % get first CL input
     if k_c < 3
-        [uf_k,~,stat_r(1)] = Cz{k_c}.solve(rf=ref(:,1:f));
+        [uf_k,~,stat_r(1),tSolves_r(1), PE_stat_r(1)] = Cz{k_c}.solve(rf=ref(:,1:f));
     else
-        [uf_k,~,stat_r(1)] = Cz{k_c}.solve(x_CLr(:,1),u_ol(:,end),rf=ref(:,1:f));
+        [uf_k,~,stat_r(1),tSolves_r(1)] = Cz{k_c}.solve(x_CLr(:,1),u_ol(:,end),rf=ref(:,1:f));
     end
     % add disturbance input
     u_CLr(:,1) = uf_k(:,1)+du_CL(:,1);
@@ -97,9 +99,9 @@ for k_c = 1:3
         % get input
         try
             if k_c < 3
-                [uf_k,~,stat_r(k)] = Cz{k_c}.step( u_CLr(:,k-1), y_CLr(:,k-1), rf=ref(:,k:k+f-1));
+                [uf_k,~,stat_r(k),tSolves_r(k), PE_stat_r(k)] = Cz{k_c}.step( u_CLr(:,k-1), y_CLr(:,k-1), rf=ref(:,k:k+f-1));
             else
-                [uf_k,~,stat_r(k)] = Cz{k_c}.solve(x_CLr(:,k),   u_CLr(:,k-1), rf=ref(:,k:k+f-1));
+                [uf_k,~,stat_r(k),tSolves_r(k)] = Cz{k_c}.solve(x_CLr(:,k),   u_CLr(:,k-1), rf=ref(:,k:k+f-1));
             end
         catch Error
             disp(['k_var =',num2str(k_var),'; k_e = ',num2str(k_e),' k1 = ',num2str(k)]);
@@ -131,12 +133,14 @@ for k_c = 1:3
         eLy{k_c}  = eLy_r;
         eGu{k_c}  = eGu_r;
         eObX{k_c} = eObX_r;
+        PE_stat{k_c} = PE_stat_r;
     end
     stat{k_c} = stat_r;
+    tSolves{k_c} = tSolves_r;
 
 end % end for k_c
 system("echo Saving loop var results");
-save(save_str,'y_OL','x_OL','u_CL','y_CL','x_CL','Cost','eLu','eLy','eGu','eObX','stat','-append')
+save(save_str,'y_OL','x_OL','u_CL','y_CL','x_CL','Cost','eLu','eLy','eGu','eObX','stat','tSolves','PE_stat','-append')
 end
 
 %% Helper functions

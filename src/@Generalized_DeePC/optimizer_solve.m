@@ -13,8 +13,10 @@ switch obj.options.Framework
     case 2 % using CasADi with Opti
         [uf,yf_hat] = CasADiOpti_solver(obj);
     case 3 % using CasADi without Opti
-        [uf,yf_hat,sol_stat] = CasADi_solver(obj);
+        [uf,yf_hat,sol_stat,tSolve,PE_stat] = CasADi_solver(obj);
         varargout{1} = sol_stat;
+        varargout{2} = tSolve;
+        varargout{3} = PE_stat;
 end
 end
 
@@ -61,7 +63,9 @@ obj.Prob.res.x  = [zeros(obj.nu*obj.f,1);yf0];
 try
     % try to solve regular problem
     obj.Prob.stat = 0;  % <- indicates unsuccessful solve(s)
+    solve_timer = tic;
     res = obj.Prob.p2res(par_vec);
+    tSolve = toc(solve_timer);
     obj.Prob.res = res; % saving result
     obj.Prob.stat = 1;  % indicating solver used
 catch
@@ -69,7 +73,9 @@ catch
         % try to solve original problem with softened constraints
         % -> solve relaxed problem
         obj.Prob.stat = 2;
+        solve_timer = tic;
         res = obj.Prob.backup.p2res(par_vec);
+        tSolve = toc(solve_timer);
         obj.Prob.res  = res;
         obj.Prob.stat = 3;
     catch Error
@@ -86,4 +92,15 @@ obj.Prob.uf = uf;
 
 % indicate solution status
 varargout{1} = obj.Prob.stat;
+varargout{2} = tSolve;
+
+% Persistency of excitation - rank check
+Z = [obj.Upf; obj.Yp];
+if rank(Z) < min(size(Z)) % not full rank
+    PE_stat = 0;
+else % full rank
+    PE_stat = 1;
+end
+varargout{3} = PE_stat;
+
 end

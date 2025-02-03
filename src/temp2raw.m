@@ -48,6 +48,8 @@ results.eLu   = cell(num_e,2);
 results.eLy   = cell(num_e,2);
 results.eGu   = cell(num_e,2);
 results.stat  = cell(num_e,num_c);
+results.tSolves = cell(num_e,num_c);
+results.PE_stat = cell(num_e,2);
 
 % Get a list of all .mat files in the directory
 matFiles = dir(fullfile(run_dir, 'k*.mat'));
@@ -77,7 +79,7 @@ for k_e = 1:num_e
     fn1=sprintf('k%s_%d_ke_%d_ks_%d',letter,kvar,k_e,k_s);
     fn2=append(fn1,'.mat');
     temp_loc = fullfile(run_dir,fn2);
-    load(temp_loc,'e','du_CL','u_OL','y_OL','x_OL','u_CL','y_CL','x_CL','Cost','eLu','eLy','eGu','eObX','stat');
+    load(temp_loc,'e','du_CL','u_OL','y_OL','x_OL','u_CL','y_CL','x_CL','Cost','eLu','eLy','eGu','eObX','stat','tSolves','PE_stat');
     results.noise{k_e,1} = e;
     results.du_CL{k_e,1} = du_CL;
     results.u_OL{k_e,1}  = u_OL;
@@ -92,6 +94,8 @@ for k_e = 1:num_e
     results.eGu(k_e,:)   = eGu;
     results.eObX(k_e,:)  = eObX;
     results.stat(k_e,:)  = stat;
+    results.tSolves(k_e,:) = tSolves;
+    results.PE_stat(k_e,:) = PE_stat;
 end
 switch match
     case 'Nbar'

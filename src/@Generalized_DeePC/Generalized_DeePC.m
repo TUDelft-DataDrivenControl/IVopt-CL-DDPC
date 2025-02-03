@@ -269,9 +269,15 @@ classdef Generalized_DeePC < handle
 %             end
 
             % solve optimization problem
-            [uf, yf_hat, stat] = obj.solve();
-            if nargout == 3
+            [uf, yf_hat, stat, tSolve, PE_stat] = obj.solve();
+            if nargout >= 3
                 varargout{1} = stat;
+            end
+            if nargout >= 4
+                varargout{2} = tSolve;
+            end
+            if nargout >= 5
+                varargout{3} = PE_stat;
             end
         end
         
