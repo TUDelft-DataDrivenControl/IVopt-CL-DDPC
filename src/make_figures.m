@@ -114,3 +114,19 @@ matches = regexp(dirname,'Varying_Nbar_(\d+-\d+-\d+)_p_(.*)','tokens','once');
 figname = append('Consistency_Nbar_',matches{1},'_p_',matches{2},'.pdf');
 exportgraphics(fig6,figname,'ContentType','vector');
 cd(main_dir);
+
+%% Figure 10: Computation time vs p=f
+clearvars -except main_dir dec_pat
+dirname = 'Varying_pf_20-100-41_Nbar_1199_Re_0.25_Ru_1_Rdu_0_Q_100_R_0_dR_10';
+cd(fullfile('data','raw',dirname));
+d_pf_processing_tSolve;
+fig10 = gcf;
+ax10 = gca;
+ax10.XScale = 'lin';
+ax10.YScale = 'lin';
+leg10 = legend(ax10);
+leg10.Position(1) = leg10.Position(1)+0.02;
+set(fig10,'Color','w');
+cd(fullfile('..','..','..','results','figures'))
+exportgraphics(fig10,append(dirname,'_tSolve.pdf'),'ContentType','vector');
+cd(main_dir);
