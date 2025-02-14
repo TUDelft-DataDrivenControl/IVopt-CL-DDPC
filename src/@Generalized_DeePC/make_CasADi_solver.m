@@ -145,58 +145,12 @@ if ~isempty(usr_con.dy_max)
 end
 
 %% remove yf from optimization variable -> integrate into cost, constraints
-% clear obj.Prob.yf_
-% yf_past = obj.Prob.Lu_*obj.Prob.up_(:)+obj.Prob.Ly_*obj.Prob.yp_(:);
-% obj.Prob.yf_ = reshape(obj.Prob.Gu_*obj.Prob.uf_(:)+yf_past,obj.ny,obj.f);
-% obj.Prob.x2yf = @(x,p) reshape(...
-%      obj.Prob.p2Gu(p)*x(1:obj.nu*obj.f,1)...
-%     +obj.Prob.p2Lu(p)*p(1:obj.nu*obj.p)...
-%     +obj.Prob.p2Ly(p)*p(obj.nu*obj.p+1:obj.p*(obj.nu+obj.ny)),...
-%     obj.ny,obj.f);
-% 
-% % adjust matrices & bounds for lba <= A <= uba, lbx <= x <= ubx
-% idx_yf  = obj.f*obj.nu+1:obj.f*(obj.nu+obj.ny); % indexes van yf in X
-% mask_yf = 1:length(obj.Prob.x_);
-% mask_yf = (mask_yf>obj.f*obj.nu) & (mask_yf<= obj.f*(obj.nu+obj.ny)); % true/false location of yf in X
-% 
-% % adjust optimization vector x
-% obj.Prob.x_ = obj.Prob.x_(1:obj.nu*obj.f);
-% zero_x = zeros(size(obj.Prob.x_));
-% 
-% % lbx & ubx
-% lbx_yf = lbx(idx_yf,1);
-% ubx_yf = ubx(idx_yf,1);
-% lbx = lbx(~mask_yf);
-% ubx = ubx(~mask_yf);
-% 
-% % A matrix
-% Ayf = A(:,idx_yf);
-% Auf = A(:,1:obj.f*obj.nu);
-% Auf = Auf+Ayf*obj.Prob.Gu_;
-% A = [Auf;obj.Prob.Gu_];
-% 
-% % lba & uba
-% lba = lba-Ayf*yf_past;
-% uba = uba-Ayf*yf_past;
-% lba = [lba;lbx_yf-yf_past];
-% uba = [uba;ubx_yf-yf_past];
-
 er_ = obj.Prob.yf_ - obj.Prob.rf_; % error w.r.t. reference
 du_ = horzcat(obj.Prob.uf_(:,1)    -obj.Prob.up_(:,end), ...
               obj.Prob.uf_(:,2:end)-obj.Prob.uf_(:,1:end-1)); % u_{k+1}-u_k
 obj.Prob.cost =   er_(:).'*obj.Prob.Q *er_(:) ...
        + obj.Prob.uf_(:).'*obj.Prob.R *obj.Prob.uf_(:) ...
                 + du_(:).'*obj.Prob.dR*du_(:);
-
-%% QP cost function components
-% 
-% % casadi symbols
-% H = hessian(obj.Prob.cost,obj.Prob.x_);
-% c = jacobian(obj.Prob.cost-1/2*obj.Prob.x_.'*H*obj.Prob.x_,obj.Prob.x_).';
-% c = casadi.substitute(c,obj.Prob.x_,zero_x);
-% H = casadi.DM(H);
-% obj.Prob.H = H;
-% obj.Prob.c = c;
 
 %% Constraints - Dynamics
 if obj.options.ExplicitPredictor
@@ -270,16 +224,6 @@ obj.Prob.res2ufyf = @(res) deal(full(obj.Prob.x2uf(res.x)),full(obj.Prob.x2yf(re
 % specify solver method
 obj.solve = @obj.optimizer_solve;
 
-%% backup using IPOPT
-% ipopt_opts   = struct('solver','ipopt','options',struct('ipopt',struct('print_level',0,'warm_start_init_point','yes','nlp_scaling_method','none','max_iter',20),'print_time',0));
-% obj.Prob.QP2= casadi.nlpsol('solver',ipopt_opts.solver,prob,ipopt_opts.options);
-
-% obj.Prob.p2res2 = @(p) obj.Prob.QP2('p',p,...
-%     'x0',obj.Prob.get_x0(),...
-%     'lam_x0',obj.Prob.get_lam_x0(),'lam_g0',obj.Prob.get_lam_a0(),...
-%     'lbg',obj.Prob.get_lba(p),'ubg',obj.Prob.get_uba(p),...
-%     'lbx',obj.Prob.get_lbx(p),'ubx',obj.Prob.get_ubx(p));
-
 %% create backup solver for when QP is infeasible
 obj.Prob.backup = struct;
 
@@ -298,7 +242,6 @@ lbx(mask_ulbx) = -Inf(np,1); lbx = [lbx;-Inf(npa,1)];
 
 obj.Prob.backup.sigma_ = obj.make_var(npa,1,'sigma');
 obj.Prob.backup.x_     = vertcat(obj.Prob.x_,obj.Prob.backup.sigma_);
-% zero_x = zeros(size(obj.Prob.backup.x_));
 
 if obj.options.ExplicitPredictor
     Adyn = [Adyn,sparse(obj.ny*obj.f,npa)];
