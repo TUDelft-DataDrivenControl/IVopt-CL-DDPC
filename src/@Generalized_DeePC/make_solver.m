@@ -1,9 +1,51 @@
 function make_solver(obj,usr_con)
 
-%% parsing usr_con fields
+%% parsing user-defined constraints
 usr_con = parse_usr_con(obj, usr_con);
+
+%% specify how to make parameters/variables
+obj.make_var = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
+obj.make_par = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
+
+%% make variables/parameters up, yp, rf, uf, yf
+
+if isfield(usr_con,'u0')
+    obj.Prob.up_ = [obj.make_par(obj.nu,obj.p-1,'up_endmin1'),usr_con.u0];
+else
+    obj.Prob.up_ = obj.make_par(obj.nu,obj.p,'up');
+end
+if isfield(usr_con,'y0')
+    obj.Prob.yp_ = [obj.make_par(obj.ny,obj.p-1,'yp_endmin1'),usr_con.y0];
+else
+    obj.Prob.yp_ = obj.make_par(obj.ny,obj.p,'yp');
+end
+if isfield(usr_con,'rf')
+    obj.Prob.rf_ = usr_con.rf;
+else
+    obj.Prob.rf_ = obj.make_par(obj.ny,obj.f,'rf');
+end
+if isfield(usr_con,'uf')
+    obj.Prob.uf_ = usr_con.uf;
+else
+    obj.Prob.uf_ = obj.make_var(obj.nu,obj.f,'uf');
+end
+if isfield(usr_con,'yf')
+    obj.Prob.yf_ = usr_con.yf;
+else
+    obj.Prob.yf_ = obj.make_var(obj.ny,obj.f,'yf');
+end
+
+%% Construct solver
+obj.make_CasADi_solver(usr_con)
+
+end
+
+%% Helper functions
+% =================== parsing user-defined constraints ====================
 function usr_con = parse_usr_con(obj, usr_con)
-% -> renames fields & checks dimensions & checks possible classes
+% parses user-defined constraints:
+% -> removes empty fields
+% -> checks dimensions & possible classes
 
 % two types of constraint specifications possible using below fields
 str1 = {'uf','yf','rf','u0','y0'}; %-> fns should contain expr field too if used
@@ -25,7 +67,7 @@ if ~isempty(fns_unrec)
     error('Unrecognized constraint field(s): %s\nAllowed constraint fields are: %s',str_unrec ,str_rec);
 end
 
-% ================ for each of the entries in str1, st2: ==================
+% ---------------- for each of the entries in str1, st2: ------------------
 % -> delete empty fields
 % -> check class/dimensions
 
@@ -118,42 +160,4 @@ if strcmp(expr_flag,'SX') && strcmp(str1_flag,'none')
 elseif ~strcmp(expr_flag,str1_flag)
     error('Inconsistent use of specified parameter/variable type and expression.');
 end
-
-end
-
-%% specify how to make parameters/variables
-obj.make_var = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
-obj.make_par = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
-
-%% make variables/parameters up, yp, rf, uf, yf
-
-if isfield(usr_con,'u0')
-    obj.Prob.up_ = [obj.make_par(obj.nu,obj.p-1,'up_endmin1'),usr_con.u0];
-else
-    obj.Prob.up_ = obj.make_par(obj.nu,obj.p,'up');
-end
-if isfield(usr_con,'y0')
-    obj.Prob.yp_ = [obj.make_par(obj.ny,obj.p-1,'yp_endmin1'),usr_con.y0];
-else
-    obj.Prob.yp_ = obj.make_par(obj.ny,obj.p,'yp');
-end
-if isfield(usr_con,'rf')
-    obj.Prob.rf_ = usr_con.rf;
-else
-    obj.Prob.rf_ = obj.make_par(obj.ny,obj.f,'rf');
-end
-if isfield(usr_con,'uf')
-    obj.Prob.uf_ = usr_con.uf;
-else
-    obj.Prob.uf_ = obj.make_var(obj.nu,obj.f,'uf');
-end
-if isfield(usr_con,'yf')
-    obj.Prob.yf_ = usr_con.yf;
-else
-    obj.Prob.yf_ = obj.make_var(obj.ny,obj.f,'yf');
-end
-
-%% Construct solver
-obj.make_CasADi_solver(usr_con)
-
 end
