@@ -12,17 +12,17 @@ submit_job_array() {
 #!/bin/bash
 #SBATCH --job-name=d_pf${index}
 #SBATCH --partition=compute
-#SBATCH --time=00:10:00
+#SBATCH --time=00:15:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
-#SBATCH --account=research-3me-dcsc
+#SBATCH --account=research-ME-dcsc
 #SBATCH --output=./Job${index}/d_pf.%A_%a.out
 #SBATCH --error=./Job${index}/d_pf.%A_%a.err
 #SBATCH --array=1-120
 
 # Load any necessary modules or set environment variables
-module load matlab
+module load matlab/R2021b
 
 # Your commands or script for each job array
 matlab -nosplash -nodesktop -r "varying_p_and_f(${index},\$SLURM_ARRAY_TASK_ID),quit"
