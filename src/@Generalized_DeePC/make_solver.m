@@ -30,43 +30,39 @@ lbx = []; ubx = []; A = []; lba = []; uba = [];
 %% parsing user-defined constraints
 usr_con = parse_usr_con(obj, usr_con,str1,str2);
 
-%% specify how to make parameters/variables
-obj.make_var = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
-obj.make_par = @(dim1,dim2,name) casadi.SX.sym(name,dim1,dim2);
-
 %% make variables/parameters up, yp, rf, uf, yf
 
 if isfield(usr_con,'u0')
-    obj.Prob.up_ = [obj.make_par(obj.nu,obj.p-1,'up_endmin1'),usr_con.u0];
+    obj.Prob.up_ = [casadi.SX.sym('up_endmin1', obj.nu, obj.p-1),usr_con.u0];
 else
-    obj.Prob.up_ = obj.make_par(obj.nu,obj.p,'up');
+    obj.Prob.up_ = casadi.SX.sym('up', obj.nu, obj.p);
 end
 if isfield(usr_con,'y0')
-    obj.Prob.yp_ = [obj.make_par(obj.ny,obj.p-1,'yp_endmin1'),usr_con.y0];
+    obj.Prob.yp_ = [casadi.SX.sym('yp_endmin1', obj.ny, obj.p-1),usr_con.y0];
 else
-    obj.Prob.yp_ = obj.make_par(obj.ny,obj.p,'yp');
+    obj.Prob.yp_ = casadi.SX.sym('yp', obj.ny, obj.p);
 end
 if isfield(usr_con,'rf')
     obj.Prob.rf_ = usr_con.rf;
 else
-    obj.Prob.rf_ = obj.make_par(obj.ny,obj.f,'rf');
+    obj.Prob.rf_ = casadi.SX.sym('rf', obj.ny, obj.f);
 end
 if isfield(usr_con,'uf')
     obj.Prob.uf_ = usr_con.uf;
 else
-    obj.Prob.uf_ = obj.make_var(obj.nu,obj.f,'uf');
+    obj.Prob.uf_ = casadi.SX.sym('uf', obj.nu, obj.f);
 end
 if isfield(usr_con,'yf')
     obj.Prob.yf_ = usr_con.yf;
 else
-    obj.Prob.yf_ = obj.make_var(obj.ny,obj.f,'yf');
+    obj.Prob.yf_ = casadi.SX.sym('yf', obj.ny, obj.f);
 end
 
 %% parameters - up, yp, rf, Lu, Ly, Gu -> p
 if obj.options.ExplicitPredictor
-    obj.Prob.Lu_ = obj.make_par(obj.f*obj.ny, obj.p*obj.nu,'Lu');
-    obj.Prob.Ly_ = obj.make_par(obj.f*obj.ny, obj.p*obj.ny,'Ly');
-    obj.Prob.Gu_ = obj.make_par(obj.f*obj.ny, obj.f*obj.nu,'Gu');
+    obj.Prob.Lu_ = casadi.SX.sym('Lu', obj.f*obj.ny, obj.p*obj.nu);
+    obj.Prob.Ly_ = casadi.SX.sym('Ly', obj.f*obj.ny, obj.p*obj.ny);
+    obj.Prob.Gu_ = casadi.SX.sym('Gu', obj.f*obj.ny, obj.f*obj.nu);
     obj.Prob.p_ = [obj.Prob.up_(:); obj.Prob.yp_(:); obj.Prob.rf_(:); obj.Prob.Lu_(:); obj.Prob.Ly_(:); obj.Prob.Gu_(:)];
     obj.Prob.get_p = casadi.Function('get_p',... function to optain parameters
         {obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_,obj.Prob.Lu_,obj.Prob.Ly_,obj.Prob.Gu_},... parameters
@@ -82,7 +78,7 @@ else
         m1 = obj.N;
     end
     m2 = m1 + obj.fid*obj.ny;
-    obj.Prob.LHS_ = obj.make_par(m2,m1,'LHS');
+    obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, m1);
     obj.Prob.p_ = [obj.Prob.up_(:); obj.Prob.yp_(:); obj.Prob.rf_(:); obj.Prob.LHS_(:)];
     obj.Prob.get_p = casadi.Function('get_p',... function to optain parameters
         {obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_,obj.Prob.LHS_},... parameters
@@ -95,7 +91,7 @@ zero_p = zeros(size(obj.Prob.p_));
 if obj.options.ExplicitPredictor
     obj.Prob.x_ = [obj.Prob.uf_(:); obj.Prob.yf_(:)];
 else
-    obj.Prob.G_ = obj.make_par(m1,obj.nGcols,'G');
+    obj.Prob.G_ = casadi.SX.sym('G', m1, obj.nGcols);
     obj.Prob.x_ = [obj.Prob.uf_(:); obj.Prob.yf_(:); obj.Prob.G_(:)];
     
     % make functions to get results
@@ -294,7 +290,7 @@ uba = [ubx(mask_ulbx);uba];
 ubx(mask_ulbx) =  Inf(np,1); ubx = [ubx; Inf(npa,1)];
 lbx(mask_ulbx) = -Inf(np,1); lbx = [lbx;-Inf(npa,1)];
 
-obj.Prob.backup.sigma_ = obj.make_var(npa,1,'sigma');
+obj.Prob.backup.sigma_ = casadi.SX.sym('sigma', npa, 1);
 obj.Prob.backup.x_     = vertcat(obj.Prob.x_,obj.Prob.backup.sigma_);
 
 if obj.options.ExplicitPredictor

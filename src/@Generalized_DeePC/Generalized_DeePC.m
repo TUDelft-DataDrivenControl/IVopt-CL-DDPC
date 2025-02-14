@@ -48,8 +48,6 @@ classdef Generalized_DeePC < handle
         fid
         pfid
         nGcols
-        make_var
-        make_par
     end
     
     methods
@@ -218,11 +216,11 @@ classdef Generalized_DeePC < handle
             m1 = obj.pfid*obj.nu + obj.p*obj.ny;
             m2 = m1 + obj.fid*obj.ny;
             if obj.options.use_IV
-                obj.Prob.G_   = obj.make_var(m1, obj.nGcols,'G');
-                obj.Prob.LHS_ = obj.make_par(m2, m1,        'LHS');
+                obj.Prob.G_   = casadi.SX.sym('G', m1, obj.nGcols);
+                obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, m1);
             else
-                obj.Prob.G_   = obj.make_var(obj.N, obj.nGcols,'G');
-                obj.Prob.LHS_ = obj.make_par(m2,    obj.N,     'LHS');
+                obj.Prob.G_   = casadi.SX.sym('G', obj.N, obj.nGcols);
+                obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, obj.N);
             end
             
             % make constraints governing dynamics
