@@ -11,7 +11,7 @@ classdef Generalized_DeePC < handle
         ny
 
         options = struct('use_IV',[],'adaptive',[],'ExplicitPredictor',false)
-        solve            % method has yalmip optimizer/optimize variant
+        solve
         step_data_update % method has adaptive/non-adaptive variant
 
         % data
@@ -66,7 +66,6 @@ classdef Generalized_DeePC < handle
                 options.adaptive logical = true
                 options.useAnalytic logical = true  % use analytic solution if there are no constraints
                 options.ExplicitPredictor logical = true
-                options.UseOptimizer logical = true
                 options.RunMakeSolver logical = true % false -> postphone making the solver (useful for use in subclasses)
                 options.opts = []
                 con_user.constr  = [] %struct = struct('u0',[],'uf',[],'y0',[],'yf',[]);
