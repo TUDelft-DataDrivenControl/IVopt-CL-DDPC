@@ -50,16 +50,16 @@ zero_x = zeros(size(obj.Prob.x_));
 %% process usr_con.expr
 if isfield(usr_con,'expr')
     % obtain con_LHS & con_gleq from usr_con.expr
-    if ~isvector(usr_con.expr) && ismatrix(usr_con.expr)
-        con_LHS  = usr_con.expr(:,1);
-        con_gleq = usr_con.expr(:,2);
-    elseif isvector(usr_con.expr)
+    if isvector(usr_con.expr)
         con_LHS  = usr_con.expr(1:2:end); con_LHS = con_LHS(:);
         con_gleq = usr_con.expr(2:2:end); con_gleq= con_gleq(:);
+    elseif ismatrix(usr_con.expr)
+        con_LHS  = usr_con.expr(:,1);
+        con_gleq = usr_con.expr(:,2);
     end
     
     for k = 1:numel(con_LHS)
-        lhs = con_LHS{k};
+        lhs = con_LHS{k}(:);
 
         Ax_new = casadi.DM(jacobian(lhs,obj.Prob.x_));
         % simple check for identity matrix -> use lbx, ubx

@@ -35,9 +35,6 @@ classdef DeePC < Generalized_DeePC
             obj.Prob.con_dyn = obj.Prob.yf_(:) == obj.Prob.Lu_*obj.Prob.up_(:) + ...
                                                obj.Prob.Ly_*obj.Prob.yp_(:) + ...
                                                obj.Prob.Gu_*obj.Prob.uf_(:);
-            if obj.options.Framework == 2
-                obj.Prob.con_dyn = {obj.Prob.con_dyn};
-            end
         end
 
         % ================ get explicit predictor matrices ================

@@ -68,11 +68,10 @@ classdef Generalized_DeePC < handle
                 options.adaptive logical = true
                 options.useAnalytic logical = true  % use analytic solution if there are no constraints
                 options.ExplicitPredictor logical = true
-                options.Framework double = []
                 options.UseOptimizer logical = true
                 options.RunMakeSolver logical = true % false -> postphone making the solver (useful for use in subclasses)
                 options.opts = []
-                con_user.constr  = [] %struct = struct('expr',[],'u0',[],'uf',[],'y0',[],'yf',[]);
+                con_user.constr  = [] %struct = struct('u0',[],'uf',[],'y0',[],'yf',[]);
             end
             obj.nu = min(size(u)); if size(u,2) < size(u,1); u=u.'; end
             obj.ny = min(size(y)); if size(y,2) < size(y,1); y=y.'; end
@@ -215,15 +214,9 @@ classdef Generalized_DeePC < handle
         % ============ make constraints governing dynamics ================
         function make_con_dyn_4Optimization(obj)
             % dynamics are defined by equation of the from: LHS * G = Hf
-            if obj.options.Framework == 1 % use YALMIP
-                obj.Prob.Hf_= ...
-                    [obj.make_sdp_Hankel([obj.Prob.up_ obj.Prob.uf_],obj.pfid,obj.nGcols);...
-                    obj.make_sdp_Hankel([obj.Prob.yp_ obj.Prob.yf_],obj.pfid,obj.nGcols)];
-            else % use CasADi
-                obj.Prob.Hf_= ...
-                    [obj.make_CasADi_Hankel([obj.Prob.up_ obj.Prob.uf_],obj.pfid,obj.nGcols,'u');...
-                    obj.make_CasADi_Hankel([obj.Prob.yp_ obj.Prob.yf_],obj.pfid,obj.nGcols,'y')];
-            end
+            obj.Prob.Hf_= ...
+                [obj.make_CasADi_Hankel([obj.Prob.up_ obj.Prob.uf_],obj.pfid,obj.nGcols,'u');...
+                obj.make_CasADi_Hankel([obj.Prob.yp_ obj.Prob.yf_],obj.pfid,obj.nGcols,'y')];
             % define G & LHS matrix
             m1 = obj.pfid*obj.nu + obj.p*obj.ny;
             m2 = m1 + obj.fid*obj.ny;
@@ -236,13 +229,9 @@ classdef Generalized_DeePC < handle
             end
             
             % make constraints governing dynamics
-            if obj.options.Framework == 1
-                obj.Prob.con_dyn = obj.Prob.LHS_*obj.Prob.G_==obj.Prob.Hf_;
-            else
-                obj.Prob.con_dyn = cell(1,obj.nGcols);
-                for con_num = 1:obj.nGcols
-                    obj.Prob.con_dyn{con_num} = obj.Prob.LHS_*obj.Prob.G_(:,con_num)==obj.Prob.Hf_(:,con_num);
-                end
+            obj.Prob.con_dyn = cell(1,obj.nGcols);
+            for con_num = 1:obj.nGcols
+                obj.Prob.con_dyn{con_num} = obj.Prob.LHS_*obj.Prob.G_(:,con_num)==obj.Prob.Hf_(:,con_num);
             end
         end
         
@@ -305,107 +294,23 @@ classdef Generalized_DeePC < handle
         
         %% optimization
         function makeOptimizer(obj)
-            if obj.options.Framework == 1 % use YALMIP
-                constraints = [obj.Prob.con_dyn;...
-                               obj.Prob.con_usr];
-                if obj.options.ExplicitPredictor
-                    obj.Prob.Optimizer = ...
-                    optimizer(constraints,obj.Prob.cost,obj.Prob.sdp_opts,...
-                             {obj.Prob.Lu_,obj.Prob.Ly_,obj.Prob.Gu_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                             {obj.Prob.uf_,obj.Prob.yf_});  % Outputs
-                else
-                    obj.Prob.Optimizer = ...
-                    optimizer(constraints,obj.Prob.cost,obj.Prob.sdp_opts,...
-                            {obj.Prob.LHS_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                            {obj.Prob.uf_,obj.Prob.yf_});  % Outputs
-                end
-            else % use CasADi
-                if obj.options.ExplicitPredictor
-                    obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
-                        {obj.Prob.Lu_,obj.Prob.Ly_,obj.Prob.Gu_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                        {obj.Prob.uf_,obj.Prob.yf_}); % Outputs
-                else
-                    obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
-                        {obj.Prob.LHS_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                        {obj.Prob.uf_,obj.Prob.yf_});  % Outputs
-                end
+            if obj.options.ExplicitPredictor
+                obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
+                    {obj.Prob.Lu_,obj.Prob.Ly_,obj.Prob.Gu_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
+                    {obj.Prob.uf_,obj.Prob.yf_}); % Outputs
+            else
+                obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
+                    {obj.Prob.LHS_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
+                    {obj.Prob.uf_,obj.Prob.yf_});  % Outputs
             end
         end
         
         % ==================== solve using 'optimizer' ====================
         [uf,yf_hat,varargout] = optimizer_solve(obj,opt);        
-        % ===================== solve using 'optimize' ====================
-        function [uf, yf_hat] = optimize_solve(obj,opt)
-            % solve problem using regular yalmip call to 'optimize'
-            arguments
-                obj
-                opt.rf (:,:) double = []
-            end
-            if ~isempty(opt.rf)
-                obj.rf = opt.rf;
-            end
-            
-            if obj.options.Framework == 1
-                % fill in LHS matrix to enable solution with mosek
-                if ~obj.options.ExplicitPredictor
-                    con_dyn = replace(obj.Prob.con_dyn,obj.Prob.LHS_,obj.LHS);
-                else
-                    [Lu,Ly,Gu] = obj.getPredictorMatrices();
-                    con_dyn = replace(obj.Prob.con_dyn,obj.Prob.Lu_,Lu);
-                    con_dyn = replace(con_dyn,obj.Prob.Ly_,Ly);
-                    con_dyn = replace(con_dyn,obj.Prob.Gu_,Gu);
-                end
-                constraints = [con_dyn;...
-                               obj.Prob.con_usr;...
-                               obj.Prob.rf_==obj.rf;...
-                               obj.Prob.up_==obj.up;...
-                               obj.Prob.yp_==obj.yp];
-    
-                % solve optimization problem
-                diagnostics = optimize(constraints,obj.Prob.cost,obj.Prob.sdp_opts);
-                if diagnostics.problem ~= 0
-                    disp(yalmiperror(diagnostics.problem))
-                end
-                
-                uf     = value(obj.Prob.uf_);
-                yf_hat = value(obj.Prob.yf_);
-
-            elseif obj.options.Framework == 2
-                if obj.options.ExplicitPredictor
-                    [Lu,Ly,Gu] = obj.getPredictorMatrices(true);
-                    obj.Prob.Opti.set_value(obj.Prob.Lu_,Lu);
-                    obj.Prob.Opti.set_value(obj.Prob.Ly_,Ly);
-                    obj.Prob.Opti.set_value(obj.Prob.Gu_,Gu);
-                else
-                    obj.Prob.Opti.set_value(obj.Prob.LHS_,obj.LHS);
-                end
-                obj.Prob.Opti.set_value(obj.Prob.up_,obj.up);
-                obj.Prob.Opti.set_value(obj.Prob.yp_,obj.yp);
-                obj.Prob.Opti.set_value(obj.Prob.rf_,obj.rf);
-
-                % solve optimization problem
-                sol = obj.Prob.Opti.solve();
-                uf = sol.value(obj.Prob.uf_);
-                yf_hat = sol.value(obj.Prob.yf_);
-            end
-        end
      end
     
     %% Static methods
     methods(Static)
-        function Hankel = make_sdp_Hankel(sdp_var,dim1,dim2)
-            % construct RHS for equality governing dynamics
-            sdp_dim1 = size(sdp_var,1);
-
-            % -> construct RHS for u
-            sdp_cell = cell(sdp_dim1,1);
-            Hankel = sdpvar(sdp_dim1*dim1,dim2,'full');
-            for k_var = 1:sdp_dim1
-                sdp_cell{k_var,1} = hankel(sdp_var(k_var,1:dim1),sdp_var(k_var,dim1:dim1-1+dim2));
-                Hankel(k_var:sdp_dim1:end,:) = sdp_cell{k_var,1};
-            end
-        end
-
         function Hankel = make_CasADi_Hankel(CasADi_var,dim1,dim2,u_or_y)
             % construct RHS for equality governing dynamics
             var_dim1 = size(CasADi_var,1);

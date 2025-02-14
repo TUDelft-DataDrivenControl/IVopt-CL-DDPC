@@ -39,37 +39,21 @@ classdef CL_DeePC < Generalized_DeePC
             obj.Prob.Gu_ = obj.make_par(obj.f*obj.ny,obj.nu,'Gu_'); %only 1st block-column
 
             % make complete Gu
-            if obj.options.Framework == 1 % using YALMIP
-                Gu_all_ = sdpvar(obj.f*obj.ny,obj.f*obj.nu,'full');
-                shape_Gu = kron(tril(toeplitz(ones(1,obj.f),1:obj.f)),ones(obj.ny,obj.nu));
-                Gu_all_ = Gu_all_.*shape_Gu;
-                Gu_all_(:,1:obj.nu) = obj.Prob.Gu_;
-                for kc = 2:obj.f
-                    r1 = obj.ny*(kc-1)+1;
-                    c1 = obj.nu*(kc-1)+1;
-                    c2 = obj.nu*kc;
-                    Gu_all_(r1:end,c1:c2)=obj.Prob.Gu_(1:end-obj.ny*(kc-1),:);
-                end
-            else % using CasADi
-                Gu_c1 = casadi.MX.sym('Gu1',obj.f*obj.ny,obj.nu);
-                Gu = cell(1,obj.f);
-                Gu{1} = Gu_c1;
-                for kc = 2:obj.f
-                    Gu{kc}=[zeros((kc-1)*obj.ny,obj.nu);Gu_c1(1:end-obj.ny*(kc-1),:)];
-                end
-                Gu_all_ = horzcat(Gu{:});
-
-                % turn into function
-                obj.Prob.GuBlkCol2Full = casadi.Function('Gu',{Gu_c1},{Gu_all_},{'Gu_BlkCol'},{'Gu_all'});
-                clear Gu_c1 Gu Gu_all_;
-                Gu_all_ = obj.Prob.GuBlkCol2Full(obj.Prob.Gu_);
+            Gu_c1 = casadi.MX.sym('Gu1',obj.f*obj.ny,obj.nu);
+            Gu = cell(1,obj.f);
+            Gu{1} = Gu_c1;
+            for kc = 2:obj.f
+                Gu{kc}=[zeros((kc-1)*obj.ny,obj.nu);Gu_c1(1:end-obj.ny*(kc-1),:)];
             end
+            Gu_all_ = horzcat(Gu{:});
+
+            % turn into function
+            obj.Prob.GuBlkCol2Full = casadi.Function('Gu',{Gu_c1},{Gu_all_},{'Gu_BlkCol'},{'Gu_all'});
+            clear Gu_c1 Gu Gu_all_;
+            Gu_all_ = obj.Prob.GuBlkCol2Full(obj.Prob.Gu_);
             obj.Prob.con_dyn = obj.Prob.yf_(:) == obj.Prob.Lu_*obj.Prob.up_(:) + ...
                                                obj.Prob.Ly_*obj.Prob.yp_(:) +...
                                                Gu_all_*obj.Prob.uf_(:);
-            if obj.options.Framework == 2
-                obj.Prob.con_dyn = {obj.Prob.con_dyn};
-            end
         end
 
         % ================ get explicit predictor matrices ================

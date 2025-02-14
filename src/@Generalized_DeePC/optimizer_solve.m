@@ -7,43 +7,10 @@ end
 if ~isempty(opt.rf)
     obj.rf = opt.rf;
 end
-switch obj.options.Framework
-    case 1 % using YALMIP
-        [uf, yf_hat] = yalmip_solver(obj);
-    case 2 % using CasADi with Opti
-        [uf,yf_hat] = CasADiOpti_solver(obj);
-    case 3 % using CasADi without Opti
-        [uf,yf_hat,sol_stat,tSolve,PE_stat] = CasADi_solver(obj);
-        varargout{1} = sol_stat;
-        varargout{2} = tSolve;
-        varargout{3} = PE_stat;
-end
-end
-
-%% Solve with YALMIP optimizer
-function [uf, yf_hat] = yalmip_solver(obj)
-if obj.options.ExplicitPredictor
-    [Lu,Ly,Gu] = obj.getPredictorMatrices();
-    [sol,errorcode] = obj.Prob.Optimizer(Lu,Ly,Gu,obj.up,obj.yp,obj.rf);
-else
-    [sol,errorcode] = obj.Prob.Optimizer(obj.LHS,obj.up,obj.yp,obj.rf);
-end
-if errorcode~=0 && (any(isnan(sol{1})) || any(isnan(sol{2})))
-    error(yalmiperror(errorcode))
-end
-[uf, yf_hat] = deal(sol{:});
-end
-
-%% Solve with CasADi + Opti
-function [uf,yf_hat] = CasADiOpti_solver(obj)
-if obj.options.ExplicitPredictor
-    [Lu,Ly,Gu] = obj.getPredictorMatrices(true);
-    [uf, yf_hat] = obj.Prob.Optimizer(Lu,Ly,Gu,obj.up,obj.yp,obj.rf);
-else
-    [uf,yf_hat] = obj.Prob.Optimizer(obj.LHS,obj.up,obj.yp,obj.rf);
-end
-uf     = full(uf);
-yf_hat = full(yf_hat);
+    [uf,yf_hat,sol_stat,tSolve,PE_stat] = CasADi_solver(obj);
+    varargout{1} = sol_stat;
+    varargout{2} = tSolve;
+    varargout{3} = PE_stat;
 end
 
 %% Solve with CasADi without Opti
