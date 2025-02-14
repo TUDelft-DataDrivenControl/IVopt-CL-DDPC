@@ -1,5 +1,5 @@
 function [uf, yf_hat,varargout] = optimizer_solve(obj,opt)
-% solve problem using call to yalmip Optimizer object
+% solve problem using call to optimizer
 arguments
     obj
     opt.rf (:,:) double = []
@@ -7,14 +7,7 @@ end
 if ~isempty(opt.rf)
     obj.rf = opt.rf;
 end
-    [uf,yf_hat,sol_stat,tSolve,PE_stat] = CasADi_solver(obj);
-    varargout{1} = sol_stat;
-    varargout{2} = tSolve;
-    varargout{3} = PE_stat;
-end
 
-%% Solve with CasADi without Opti
-function [uf,yf_hat,varargout] = CasADi_solver(obj)
 % get parameter vector
 if obj.options.ExplicitPredictor
     [obj.Prob.Lu,obj.Prob.Ly,obj.Prob.Gu] = obj.getPredictorMatrices(true); % true to ensure full Gu
@@ -50,16 +43,16 @@ catch
         error(Error.message);
     end
 end
+% indicate solution status
+varargout{1} = obj.Prob.stat;
+varargout{2} = tSolve;
+
 % get uf, yf_hat
 [uf, yf_hat] = obj.Prob.res2ufyf(res);
 
 % saving
 obj.Prob.yf = yf_hat;
 obj.Prob.uf = uf;
-
-% indicate solution status
-varargout{1} = obj.Prob.stat;
-varargout{2} = tSolve;
 
 % Persistency of excitation - rank check
 Z = [obj.Upf; obj.Yp];
@@ -69,5 +62,4 @@ else % full rank
     PE_stat = 1;
 end
 varargout{3} = PE_stat;
-
 end
