@@ -207,9 +207,6 @@ classdef Generalized_DeePC < handle
 
         %% help functions
         make_solver(obj,usr_con)
-        make_YALMIP_solver(obj,con_usr,expr_flag)
-        make_CasADi_solver(obj,con_usr)
-        make_CasADi_Opti_solver(obj,con_usr)
 
         % ============ make constraints governing dynamics ================
         function make_con_dyn_4Optimization(obj)
