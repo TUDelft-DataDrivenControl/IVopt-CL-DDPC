@@ -74,10 +74,12 @@ if obj.options.ExplicitPredictor
 else
     if obj.options.use_IV
         m1 = obj.pfid*obj.nu + obj.p*obj.ny;
+        m2 = m1 + obj.fid*obj.ny;
     else
         m1 = obj.N;
+        m2 = obj.pfid*(obj.nu+obj.ny);
     end
-    m2 = m1 + obj.fid*obj.ny;
+    
     obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, m1);
     obj.Prob.p_ = [obj.Prob.up_(:); obj.Prob.yp_(:); obj.Prob.rf_(:); obj.Prob.LHS_(:)];
     obj.Prob.get_p = casadi.Function('get_p',... function to optain parameters
@@ -210,8 +212,10 @@ else
     Hf_= [obj.make_CasADi_Hankel([obj.Prob.up_ obj.Prob.uf_],obj.pfid,obj.nGcols,'u');...
           obj.make_CasADi_Hankel([obj.Prob.yp_ obj.Prob.yf_],obj.pfid,obj.nGcols,'y')];
     x_small = [obj.Prob.uf_(:);obj.Prob.yf_(:)]; % x_ without G
-    Adyn = [casadi.DM(-jacobian(Hf_(:),x_small)),kron(speye(obj.nGcols),obj.Prob.LHS_) zeros(numel(Hf_),num_S)];
+    Adyn = [casadi.DM(-jacobian(Hf_(:),x_small)), kron(speye(obj.nGcols),obj.Prob.LHS_)];
     ulba_dyn = casadi.substitute(Hf_(:),x_small,zeros(size(x_small)));
+    
+    obj.Prob.get_Adyn = casadi.Function('get_Adyn',{obj.Prob.p_},{Adyn}); % needed for initial guess in optimizer_solve
 end
 
 %% make functions for regular solver
@@ -296,7 +300,7 @@ obj.Prob.backup.x_     = vertcat(obj.Prob.x_,obj.Prob.backup.sigma_);
 if obj.options.ExplicitPredictor
     Adyn = [Adyn,sparse(obj.ny*obj.f,npa)];
 else
-    %TODO
+    Adyn = [Adyn,sparse(obj.nGcols*(obj.nu+obj.ny)*obj.pfid,npa)];
 end
 
 obj.Prob.backup.cost = obj.Prob.cost+1e15*obj.Prob.backup.sigma_.'*obj.Prob.backup.sigma_;

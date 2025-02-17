@@ -8,17 +8,26 @@ if ~isempty(opt.rf)
     obj.rf = opt.rf;
 end
 
-% get parameter vector
 if obj.options.ExplicitPredictor
+    % get parameter vector
     [obj.Prob.Lu,obj.Prob.Ly,obj.Prob.Gu] = obj.getPredictorMatrices(true); % true to ensure full Gu
     par_vec = obj.Prob.get_p(obj.up,obj.yp,obj.rf,obj.Prob.Lu,obj.Prob.Ly,obj.Prob.Gu);
-else
-    par_vec = obj.Prob.get_p(obj.up,obj.yp,obj.rf,obj.LHS);
-end
 
-% -> initial guess: uf = 0, yf = Lu*up+Ly*yp
-yf0 = obj.Prob.Lu*obj.up(:)+obj.Prob.Ly*obj.yp(:);
-obj.Prob.res.x  = [zeros(obj.nu*obj.f,1);yf0];
+    % -> initial guess: uf = 0, yf = Lu*up+Ly*yp
+    yf0 = obj.Prob.Lu*obj.up(:)+obj.Prob.Ly*obj.yp(:);
+    obj.Prob.res.x  = [zeros(obj.nu*obj.f,1);yf0];
+else
+    % get parameter vector
+    par_vec = obj.Prob.get_p(obj.up,obj.yp,obj.rf,obj.LHS);
+    
+    % -> initial guess: uf = 0, Adyn*[uf(:);yf(:);G(:)] = ulba_dyn
+    Adyn = full(obj.Prob.get_Adyn(par_vec));
+    Adyn = Adyn(:,obj.nu*obj.f+1:end);
+    ulba_dyn = full(obj.Prob.get_uba(par_vec));
+    ulba_dyn = ulba_dyn(end-size(Adyn,1)+1:end,1);
+    sol1 = pinv(Adyn)*ulba_dyn;
+    obj.Prob.res.x = [zeros(obj.nu*obj.f,1);sol1];
+end
 
 try
     % try to solve regular problem
