@@ -24,17 +24,6 @@ classdef DeePC < Generalized_DeePC
             con_user= namedargs2cell(con_user);
             obj = obj@Generalized_DeePC(u,y,p,f,fid,N,Q,R,dR,options{:}, con_user{:});
         end
-        
-        % ============ make constraints governing dynamics ================
-        % using an explicit predictor: parameterized by Gu
-        function make_con_dyn_ExplicitPredictor(obj)
-            obj.Prob.Lu_ = casadi.SX.sym('Lu_',obj.f*obj.ny,obj.p*obj.nu);
-            obj.Prob.Ly_ = casadi.SX.sym('Ly_',obj.f*obj.ny,obj.p*obj.ny);
-            obj.Prob.Gu_ = casadi.SX.sym('Gu_',obj.f*obj.ny,obj.f*obj.nu);
-            obj.Prob.con_dyn = obj.Prob.yf_(:) == obj.Prob.Lu_*obj.Prob.up_(:) + ...
-                                               obj.Prob.Ly_*obj.Prob.yp_(:) + ...
-                                               obj.Prob.Gu_*obj.Prob.uf_(:);
-        end
 
         % ================ get explicit predictor matrices ================
         function [Lu,Ly,Gu] = getPredictorMatrices(obj,varargin)

@@ -23,11 +23,10 @@ classdef Generalized_DeePC < handle
 
         % optimization variables & functions
         Prob = struct('cost', [],'yf_',[],'uf_',[],'rf_',[],...
-                      'yp_',  [],'up_',[],... % 
+                      'yp_',  [],'up_',[],... 
                       'G_',   [],'Optimizer',[],...
                       'Hf_',[],'LHS_',[],...
-                      'con_usr',[],'con_dyn',[],...
-                      'sdp_opts',struct('solver','mosek','verbose',0),...
+                      'con_usr',[],...
                       'cas_opts',...
                                     ...struct('solver','qpoases','options',struct('printLevel','none','sparse',true)));
                                     ...struct('solver', 'osqp','options', struct('print_time',0)));
@@ -68,7 +67,7 @@ classdef Generalized_DeePC < handle
                 options.ExplicitPredictor logical = true
                 options.RunMakeSolver logical = true % false -> postphone making the solver (useful for use in subclasses)
                 options.opts = []
-                con_user.constr  = [] %struct = struct('u0',[],'uf',[],'y0',[],'yf',[]);
+                con_user.constr  = [] % see make_solver.m documentation
             end
             obj.nu = min(size(u)); if size(u,2) < size(u,1); u=u.'; end
             obj.ny = min(size(y)); if size(y,2) < size(y,1); y=y.'; end
@@ -204,30 +203,6 @@ classdef Generalized_DeePC < handle
 
         %% help functions
         make_solver(obj,usr_con)
-
-        % ============ make constraints governing dynamics ================
-        function make_con_dyn_4Optimization(obj)
-            % dynamics are defined by equation of the from: LHS * G = Hf
-            obj.Prob.Hf_= ...
-                [obj.make_CasADi_Hankel([obj.Prob.up_ obj.Prob.uf_],obj.pfid,obj.nGcols,'u');...
-                obj.make_CasADi_Hankel([obj.Prob.yp_ obj.Prob.yf_],obj.pfid,obj.nGcols,'y')];
-            % define G & LHS matrix
-            m1 = obj.pfid*obj.nu + obj.p*obj.ny;
-            m2 = m1 + obj.fid*obj.ny;
-            if obj.options.use_IV
-                obj.Prob.G_   = casadi.SX.sym('G', m1, obj.nGcols);
-                obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, m1);
-            else
-                obj.Prob.G_   = casadi.SX.sym('G', obj.N, obj.nGcols);
-                obj.Prob.LHS_ = casadi.SX.sym('LHS', m2, obj.N);
-            end
-            
-            % make constraints governing dynamics
-            obj.Prob.con_dyn = cell(1,obj.nGcols);
-            for con_num = 1:obj.nGcols
-                obj.Prob.con_dyn{con_num} = obj.Prob.LHS_*obj.Prob.G_(:,con_num)==obj.Prob.Hf_(:,con_num);
-            end
-        end
         
         %% step
         function [uf, yf_hat,varargout] = step(obj,u_k,y_k,opt)

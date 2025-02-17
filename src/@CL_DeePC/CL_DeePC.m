@@ -29,31 +29,6 @@ classdef CL_DeePC < Generalized_DeePC
             % extra options for CL DeePC
             obj.options.EstimateD = CL_opts.EstimateD;
         end
-        
-        % ============ make constraints governing dynamics ================
-        % using an explicit predictor: parameterized by 1st block-column of Gu      
-        function make_con_dyn_ExplicitPredictor(obj)
-            obj.Prob.Lu_ = casadi.SX.sym('Lu_',obj.f*obj.ny,obj.p*obj.nu);
-            obj.Prob.Ly_ = casadi.SX.sym('Ly_',obj.f*obj.ny,obj.p*obj.ny);
-            obj.Prob.Gu_ = casadi.SX.sym('Gu_',obj.f*obj.ny,obj.nu); %only 1st block-column
-
-            % make complete Gu
-            Gu_c1 = casadi.MX.sym('Gu1',obj.f*obj.ny,obj.nu);
-            Gu = cell(1,obj.f);
-            Gu{1} = Gu_c1;
-            for kc = 2:obj.f
-                Gu{kc}=[zeros((kc-1)*obj.ny,obj.nu);Gu_c1(1:end-obj.ny*(kc-1),:)];
-            end
-            Gu_all_ = horzcat(Gu{:});
-
-            % turn into function
-            obj.Prob.GuBlkCol2Full = casadi.Function('Gu',{Gu_c1},{Gu_all_},{'Gu_BlkCol'},{'Gu_all'});
-            clear Gu_c1 Gu Gu_all_;
-            Gu_all_ = obj.Prob.GuBlkCol2Full(obj.Prob.Gu_);
-            obj.Prob.con_dyn = obj.Prob.yf_(:) == obj.Prob.Lu_*obj.Prob.up_(:) + ...
-                                               obj.Prob.Ly_*obj.Prob.yp_(:) +...
-                                               Gu_all_*obj.Prob.uf_(:);
-        end
 
         % ================ get explicit predictor matrices ================
         function [Lu,Ly,Gu] = getPredictorMatrices(obj,varargin)
