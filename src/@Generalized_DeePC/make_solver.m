@@ -19,6 +19,9 @@ function make_solver(obj,usr_con)
 % - u0:     last past input         nu x 1 (casadi.SX)
 % - y0:     last past output        ny x 1 (casadi.SX)
 
+% specify solver method
+obj.solve = @obj.optimizer_solve;
+
 %% Preliminaries
 % possible constraint structure field types
 str1 = {'uf','yf','rf','u0','y0'}; %-> if present, so should be expr field
@@ -114,16 +117,18 @@ if isfield(usr_con,'expr')
         con_gleq = usr_con.expr(:,2);
     end
     
+    % initialize lbx, ubx
     for k = 1:numel(con_LHS)
         lhs = con_LHS{k}(:);
 
-        Ax_new = casadi.DM(jacobian(lhs,obj.Prob.x_));
-        % simple check for identity matrix -> use lbx, ubx
-        if isdiag(sparse(Ax_new)) && all(sparse(Ax_new)==1)
-            use_bx = true;
-        else
-            use_bx = false;
-        end
+        Ax_new = sparse(casadi.DM(jacobian(lhs,obj.Prob.x_)));
+        % simple check for identity matrix: constraint of form lbx <= x <= ubx
+        [i,j,a] = find(Ax_new);
+        i_counts = grouptransform(i,i,@numel);
+        bx_msk = i_counts == 1 & a == 1;
+        i_bx = i(bx_msk);
+        j_bx = j(bx_msk);
+        i_ax = unique(i(~bx_msk));
         
         Ap_new = casadi.DM(jacobian(lhs,obj.Prob.p_));
         const_new = casadi.substitute(lhs,obj.Prob.x_,zero_x);
@@ -145,14 +150,20 @@ if isfield(usr_con,'expr')
         else
             error('Constraint specified incorrectly.')
         end
-    
-        if ~use_bx
-            A   = [A;  Ax_new];
-            lba = [lba;lb_new];
-            uba = [uba;ub_new];
-        else
-            lbx = [lbx;lb_new];
-            ubx = [ubx;ub_new];
+        
+        % constraints of the form  lba <= Ax <= uba
+        if ~isempty(i_ax)
+            A   = [A;  Ax_new(i_ax,:)];
+            lba = [lba;lb_new(i_ax,1)];
+            uba = [uba;ub_new(i_ax,1)];
+        end
+        
+        % constraints of the form lbx <= x <= ubx
+        if ~isempty(i_bx)
+            ubx_new = casadi.SX.inf(size(obj.Prob.x_)); ubx_new(j_bx,1) = ub_new(i_bx,1);
+            lbx_new = -ubx_new;                         lbx_new(j_bx,1) = lb_new(i_bx,1);
+            lbx = [lbx lbx_new]; % will take max(<>,[],2)
+            ubx = [ubx ubx_new]; % will take min(<>,[],2)
         end
     end
 end
@@ -177,11 +188,11 @@ for k=1:length(str2)
     end
 end
 if obj.options.ExplicitPredictor
-    lbx = [lbx; repmat(usr_con.u_min,obj.f,1); repmat(usr_con.y_min,obj.f,1)];
-    ubx = [ubx; repmat(usr_con.u_max,obj.f,1); repmat(usr_con.y_max,obj.f,1)];
+    lbx = [lbx, [repmat(usr_con.u_min,obj.f,1); repmat(usr_con.y_min,obj.f,1)]];
+    ubx = [ubx, [repmat(usr_con.u_max,obj.f,1); repmat(usr_con.y_max,obj.f,1)]];
 else
-    lbx = [lbx; repmat(usr_con.u_min,obj.f,1); repmat(usr_con.y_min,obj.f,1);-inf(numel(obj.Prob.G_),1)];
-    ubx = [ubx; repmat(usr_con.u_max,obj.f,1); repmat(usr_con.y_max,obj.f,1); inf(numel(obj.Prob.G_),1)];
+    lbx = [lbx, [repmat(usr_con.u_min,obj.f,1); repmat(usr_con.y_min,obj.f,1);-inf(numel(obj.Prob.G_),1)]];
+    ubx = [ubx, [repmat(usr_con.u_max,obj.f,1); repmat(usr_con.y_max,obj.f,1); inf(numel(obj.Prob.G_),1)]];
 end
 if ~isempty(usr_con.du_max)
     lba = [lba; -usr_con.du_max+obj.Prob.up_(:,end); -repmat(usr_con.du_max,obj.f-1,1)];
@@ -253,8 +264,10 @@ end
 % make get functions
 obj.Prob.get_lba = casadi.Function('get_lba',{obj.Prob.p_},{[lba;ulba_dyn]});
 obj.Prob.get_uba = casadi.Function('get_uba',{obj.Prob.p_},{[uba;ulba_dyn]});
-obj.Prob.get_lbx = casadi.Function('get_lbx',{obj.Prob.p_},{lbx});
-obj.Prob.get_ubx = casadi.Function('get_ubx',{obj.Prob.p_},{ubx});
+get_lbx = casadi.Function('get_lbx',{obj.Prob.p_},{lbx});
+obj.Prob.get_lbx = @(p) max(full(get_lbx(p)),[],2);
+get_ubx = casadi.Function('get_ubx',{obj.Prob.p_},{ubx});
+obj.Prob.get_ubx = @(p) min(full(get_ubx(p)),[],2);
 
 % initializing result structure
 zero_g = zeros(size(A,1)+size(Adyn,1),1);
@@ -275,36 +288,52 @@ obj.Prob.p2res = @(p) obj.Prob.QP1('p',p,...
 
 obj.Prob.res2ufyf = @(res) deal(full(obj.Prob.x2uf(res.x)),full(obj.Prob.x2yf(res.x)));
 
-% specify solver method
-obj.solve = @obj.optimizer_solve;
-
 %% create backup solver for when QP is infeasible
 obj.Prob.backup = struct;
+nxLarge = size(obj.Prob.x_,1); % number of optimization variables
+na = size(A,1); % current number of constraints of form: lba <= Ax <= uba
 
-% turning constraints soft (except for dynamics)
-mask_ulbx = ~isinf(lbx) | ~isinf(ubx);
-nxLarge = size(obj.Prob.x_,1);
+% ---------- turning constraints soft (except for dynamics) ---------------
+% relaxing constraints on x of form: lbx <= x <= ubx
+ubx_zero = full(obj.Prob.get_ubx(zero_p)); % to see where inf
+lbx_zero = full(obj.Prob.get_lbx(zero_p)); % to see where -inf 
+mask_ulbx = ~isinf(lbx_zero) | ~isinf(ubx_zero);
+np = sum(mask_ulbx);             % # of to be relaxed constraints
+idx_relaxed = find(mask_ulbx); % row # of to be relaxed constraints
+
+% combining all relaxed constraints of form: lba <= Ax <= uba
+% -> new A matrix
 P = speye(nxLarge,nxLarge); P = P(mask_ulbx,:);
-na = size(A,1);
-np = sum(mask_ulbx);
 npa= na+np;
 A = [[P;A] speye(npa,npa)];
-lba = [lbx(mask_ulbx);lba];
-uba = [ubx(mask_ulbx);uba];
-ubx(mask_ulbx) =  Inf(np,1); ubx = [ubx; Inf(npa,1)];
-lbx(mask_ulbx) = -Inf(np,1); lbx = [lbx;-Inf(npa,1)];
+% -> new lba vector: [max(lbx(idx_relaxed,:),[],2),lba,ulba_dyn]
+lbx_relaxed = lbx(idx_relaxed,:); % lbx has multiple columns!
+get_lbx_relaxed = casadi.Function('get_lbx_relax',{obj.Prob.p_},{lbx_relaxed});
+get_lbx_relaxed2= @(p) max(full(get_lbx_relaxed(p)),[],2);
+get_lba_relaxed_part1 = casadi.Function('get_lba_relax_p1',{obj.Prob.p_},{[lba;ulba_dyn]});
+obj.Prob.backup.get_lba = @(p) [get_lbx_relaxed2(p); full(get_lba_relaxed_part1(p))];
+% -> new uba vector: [min(ubx(idx_relaxed,:),[],2),uba,ulba_dyn]
+ubx_relaxed = ubx(idx_relaxed,:); % ubx has multiple columns!
+get_ubx_relaxed = casadi.Function('get_ubx_relax',{obj.Prob.p_},{ubx_relaxed});
+get_ubx_relaxed2= @(p) min(full(get_ubx_relaxed(p)),[],2);
+get_uba_relaxed_part1 = casadi.Function('get_uba_relax_p1',{obj.Prob.p_},{[uba;ulba_dyn]});
+obj.Prob.backup.get_uba = @(p) [get_ubx_relaxed2(p); full(get_uba_relaxed_part1(p))];
 
+% enlarge optimization variable with slack variables to relax constraints
 obj.Prob.backup.sigma_ = casadi.SX.sym('sigma', npa, 1);
 obj.Prob.backup.x_     = vertcat(obj.Prob.x_,obj.Prob.backup.sigma_);
 
+% enlarge matrix for dynamics constraints
 if obj.options.ExplicitPredictor
     Adyn = [Adyn,sparse(obj.ny*obj.f,npa)];
 else
     Adyn = [Adyn,sparse(obj.nGcols*(obj.nu+obj.ny)*obj.pfid,npa)];
 end
 
+% alter cost: heavily penalize constraint violations
 obj.Prob.backup.cost = obj.Prob.cost+1e15*obj.Prob.backup.sigma_.'*obj.Prob.backup.sigma_;
 
+% set up relaxed optimization problem
 prob2    = struct('f', obj.Prob.backup.cost, 'x', obj.Prob.backup.x_, 'g', [A;Adyn]*obj.Prob.backup.x_,'p',obj.Prob.p_);
 if contains(obj.Prob.cas_opts.solver,qp_solvers)
     obj.Prob.backup.QP2 = casadi.qpsol( 'solver',obj.Prob.cas_opts.solver,prob2,obj.Prob.cas_opts.options);
@@ -314,16 +343,9 @@ else
     error('Unrecognized solver specified');
 end
 
-% make get functions
-obj.Prob.backup.get_lba = casadi.Function('get_lba',{obj.Prob.p_},{[lba;ulba_dyn]});
-obj.Prob.backup.get_uba = casadi.Function('get_uba',{obj.Prob.p_},{[uba;ulba_dyn]});
-obj.Prob.backup.get_lbx = casadi.Function('get_lbx',{obj.Prob.p_},{lbx});
-obj.Prob.backup.get_ubx = casadi.Function('get_ubx',{obj.Prob.p_},{ubx});
-
+% create simple function to get result from parameters
 obj.Prob.backup.p2res = @(p) obj.Prob.backup.QP2('p',p,...
-    'lbg',obj.Prob.backup.get_lba(p),'ubg',obj.Prob.backup.get_uba(p),...
-    'lbx',obj.Prob.backup.get_lbx(p),'ubx',obj.Prob.backup.get_ubx(p));
-
+    'lbg',obj.Prob.backup.get_lba(p),'ubg',obj.Prob.backup.get_uba(p));
 end
 
 %% Helper functions
