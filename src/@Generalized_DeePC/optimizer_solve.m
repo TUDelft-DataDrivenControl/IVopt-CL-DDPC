@@ -52,9 +52,6 @@ catch
         error(Error.message);
     end
 end
-% indicate solution status
-varargout{1} = obj.Prob.stat;
-varargout{2} = tSolve;
 
 % get uf, yf_hat
 [uf, yf_hat] = obj.Prob.res2ufyf(res);
@@ -63,12 +60,21 @@ varargout{2} = tSolve;
 obj.Prob.yf = yf_hat;
 obj.Prob.uf = uf;
 
-% Persistency of excitation - rank check
-Z = [obj.Upf; obj.Yp];
-if rank(Z) < min(size(Z)) % not full rank
-    PE_stat = 0;
-else % full rank
-    PE_stat = 1;
+for k_varargout = 1:nargout-2
+    switch k_varargout
+        case 1
+            varargout{1} = obj.Prob.stat;
+        case 2
+            varargout{2} = tSolve;
+        case 3
+            % Persistency of excitation - rank check
+            Z = [obj.Upf; obj.Yp];
+            if rank(Z) < min(size(Z)) % not full rank
+                PE_stat = 0;
+            else % full rank
+                PE_stat = 1;
+            end
+            varargout{3} = PE_stat;
+    end
 end
-varargout{3} = PE_stat;
 end
