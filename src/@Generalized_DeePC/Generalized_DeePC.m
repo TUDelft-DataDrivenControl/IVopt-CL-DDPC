@@ -261,19 +261,7 @@ classdef Generalized_DeePC < handle
             obj.up = circshift(obj.up,[0,-1]); obj.up(:,end) = u_k;
         end
         
-        %% optimization
-        function makeOptimizer(obj)
-            if obj.options.ExplicitPredictor
-                obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
-                    {obj.Prob.Lu_,obj.Prob.Ly_,obj.Prob.Gu_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                    {obj.Prob.uf_,obj.Prob.yf_}); % Outputs
-            else
-                obj.Prob.Optimizer = obj.Prob.Opti.to_function('Optimizer',...
-                    {obj.Prob.LHS_,obj.Prob.up_,obj.Prob.yp_,obj.Prob.rf_},... Parameters
-                    {obj.Prob.uf_,obj.Prob.yf_});  % Outputs
-            end
-        end
-        
+        %% optimization       
         % ==================== solve using 'optimizer' ====================
         [uf,yf_hat,varargout] = optimizer_solve(obj,opt);        
      end
