@@ -1,7 +1,5 @@
-# CL-DeePC and its equivalence with CL-SPC
-This repository contains the necessary components of the Automatica article titled "Closed-loop Data-Enabled Predictive Control and its equivalence with Closed-loop Subspace Predictive Control".
-
-N.B.: Supplied MATLAB classes are still subject to further development. Classes are currently only meant to function with the implemented settings, as supplied.
+# Data-driven predictive control with optimal IVs
+This repository contains the necessary components of a data-driven predictive control implementation that employs optimal IVs
 
 ## Project organization
 - PG = project-generated
@@ -25,21 +23,6 @@ N.B.: Supplied MATLAB classes are still subject to further development. Classes 
 └── src                         <- Source code for this project (HW)
 
 ```
-## Configuration & use:
-The generated data was obtained by varying either one of three parameters:
-- Nbar: number of samples used
-- p=f:  window sizes
-- Re:   innovation noise variance
-The functions to generate the relevant data and a sample script for submission of multiple jobs to a Slurm cluster can be found in the corresponding directories src/d_{Nbar,pf,Re}.
-
-The data that is used in the article can be obtained in one of two ways:
-1. Download it from [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10573875.svg)](https://doi.org/10.5281/zenodo.10573875)
- and place it in the data\raw directory.
-2. Generate the data from this GitHub repository: [![DOI](https://zenodo.org/badge/748709881.svg)](https://zenodo.org/doi/10.5281/zenodo.10573259). To do this follow the below steps:\
-    Step 1: Generate the the necessary data using the Slurm submission script (or make a similar Matlab script) to run different simulation cases with the functions 'varying_{...}.m' found in the relevant aformentioned directory.\
-    Step 2: The generated data should automatically be placed in a descriptively named folder in the data/raw directory. Go to this new folder with the new data and run 'src/dirs2res.m'.
-
-To generate the figures in the paper run the script 'src/make_figures.m'. The figures will be placed inside the results/figures directory.
 
 ## License
 
