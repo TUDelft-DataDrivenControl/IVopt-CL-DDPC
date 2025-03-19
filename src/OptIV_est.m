@@ -54,60 +54,6 @@ model_DoubleTank; R_e = 1e0*Re;
 % create system with noise
 sys2 = ss(A,[B K],C,[D eye(ny)],-1);
 
-% --------------------- create actual matrices ----------------------------
-At = A-K*C;
-Bt = B-K*D;
-
-pf_max = max(p,f);
-
-% Yf =  Gf * X0 +  Tf_u * Uf +              Tf_e * Ef
-% Yf = tGf * X0 + tTf_u * Uf + tTf_y * Yf +        Ef
-
-% make extended observability matrices
-G = make_ext_obsv(C,A,pf_max);
-Gp = G(1:p*ny,:);
-Gf = G(1:f*ny,:); clear G;
-tGf = make_ext_obsv(C,At,f);
-
-% make extended reversed controllability matrices
-tKp_u = make_ext_rev_ctrb(At,Bt,p);
-tKp_y = make_ext_rev_ctrb(At,K,p);
-
-% make block-lower toeplitz matrices
-T_u = make_blk_tril_toeplitz(A,B,C,D,pf_max);
-Tf_u = T_u(1:f*ny,1:f*nu); 
-Tp_u = T_u(1:p*ny,1:p*nu); clear T_u;
-tT_u= make_blk_tril_toeplitz(At,Bt,C,D,pf_max);
-tTf_u = tT_u(1:f*ny,1:f*nu); 
-tTp_u = tT_u(1:p*ny,1:p*nu); clear tT_u;
-tTf_y = make_blk_tril_toeplitz(At,K,C,zeros(ny,ny),f);
-T_e = make_blk_tril_toeplitz(A,K,C,eye(ny,ny),pf_max);
-Tp_e = T_e(1:p*ny,1:p*ny);
-Tf_e = T_e(1:f*ny,1:f*ny); clear T_e;
-% note: inv(I - tTf_y) * [tGf tTf_u eye(ny*f)] == [Gf Tf_u Tf_e]
-% (eye(ny*f)-tTf_y)\[tGf tTf_u eye(ny*f)]-[Gf Tf_u Tf_e] % <- check ==0
-
-% useful constants
-Atp_pinvGp = At^p*pinv(Gp);
-Up2X0 = tKp_u-Atp_pinvGp*Tp_u; % Up -> X0
-Yp2X0 = tKp_y+Atp_pinvGp;      % Yp -> X0
-Ep2X0 = -Atp_pinvGp*Tp_e;      % Ep -> X0
-
-% predictor form matrices:
-Up2Yf_pred = tGf*Up2X0;
-Uf2Yf_pred = tTf_u;
-Yp2Yf_pred = tGf*Yp2X0;
-Yf2Yf_pred = tTf_y;
-Ep2Yf_pred = tGf*Ep2X0;
-Ef2Yf_pred = eye(ny*f,ny*f);
-
-% innovation form matrices:
-Up2Yf_inno = Gf*Up2X0;
-Uf2Yf_inno = Tf_u;
-Yp2Yf_inno = Gf*Yp2X0;
-Ep2Yf_inno = Gf*Ep2X0;
-Ef2Yf_inno = Tf_e;
-
 % ------------------- calculate optimal steady state ----------------------
 % P0 = C*((eye(nx)-A)\B)+D;
 P0 = dcgain(sys2); P0 = P0(:,1:nu);
@@ -154,16 +100,8 @@ x1_0 = A*x(:,end) + B*u(:,end) + K*e(:,end); % initial state
 [~,Up_r1,Uf_r1] = make_Hankel(u1,p,fid);
 [~,Yp_r1,Yf_r1] = make_Hankel(y1,p,fid);
 [~,Ep_r1,Ef_r1] = make_Hankel(e1,p,fid);
-[~,Rp,Rf] = make_Hankel(ref(:,1:Nbar),p,fid);
-
-%% -------------------- Get system estimate using IV -----------------------
-% creating IV matrix
-Ziv = [Up_r1;Yp_r1;Rf];
-
-for kiv = 1:5
-figure(10);
-imagesc(Ef_r1*Ziv.');
-colorbar;
+% --------------------- create actual matrices ----------------------------
+get_actual_matrices;
 
 % estimate predictor markov parameters
 L1est = Yf_r1*Ziv.'*pinv([Up_r1;Yp_r1;Uf_r1]*Ziv.');
