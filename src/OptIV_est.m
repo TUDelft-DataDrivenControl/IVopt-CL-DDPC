@@ -7,6 +7,8 @@ clear;
 close all;
 rng default;
 
+addpath('..\bin');
+
 %% problem parameters
 f = 10;
 fid = 1;
@@ -22,79 +24,13 @@ Rk = 0*eye(nu);   R = kron(speye(f),Rk);
 Qk = 1e3*eye(ny); Q = kron(speye(f),Qk);
 
 % reference
-ref = sign(sin((1:Nbar*3+f)*2*pi/(Nbar/3)));
-ref = repmat(ref,ny,1);
+y_ref = idinput(Nbar-fid+2*f-1,'prbs',[],[-1 1]).';
+% y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
+% y_ref = y_ref(:,1:end-1);
+y_ref = repmat(y_ref,ny,1);
 
-% making controller matrices
-uf_ = casadi.SX.sym('uf',nu,f);
-rf_ = casadi.SX.sym('rf',ny,f);
-up_ = casadi.SX.sym('up',nu,p);
-yp_ = casadi.SX.sym('yp',ny,p);
-
-CtKpu_ = casadi.SX.sym('CtKp_u',ny,p*nu);
-D_ = casadi.SX.sym('D',ny,nu);
-CtKpy_ = casadi.SX.sym('CtKp_y',ny,p*ny);
-yf_ = casadi.SX.zeros(ny,f);
-u_all = [up_ uf_];
-y_all = [yp_ yf_];
-for k = 1:f
-    up_k = u_all(:,k:k+p-1); up_k = up_k(:);
-    yp_k = y_all(:,k:k+p-1); yp_k = yp_k(:);
-    yf_(:,k) = CtKpu_*up_k + D_*uf_(:,k) + CtKpy_*yp_k;
-    y_all(:,k+p) = yf_(:,k);
-end
-Lest_ = [CtKpu_ CtKpy_ D_ ];
-Gf_tKp_u_ = jacobian(yf_(:),up_(:));
-Gf_tKp_y_ = jacobian(yf_(:),yp_(:));
-Tf_u_     = jacobian(yf_(:),uf_(:));
-
-% make casadi Functions
-get_Gf_tKp_u_ = casadi.Function('get_Gf_tKp_u',{Lest_},{Gf_tKp_u_});
-get_Gf_tKp_y_ = casadi.Function('get_Gf_tKp_y',{Lest_},{Gf_tKp_u_});
-get_Tf_u_ = casadi.Function('get_Tf_u',{Lest_},{Tf_u_});
-
-% make anonymous functions
-get_Gf_tKp_u  = @(Lest_fid1) full(get_Gf_tKp_u_(Lest_fid1));
-get_Gf_tKp_y  = @(Lest_fid1) full(get_Gf_tKp_y_(Lest_fid1));
-get_Tf_u  = @(Lest_fid1) full(get_Tf_u_(Lest_fid1));
-
-par = [up_(:); yp_(:); Lest_(:); rf_(:)];
-
-% construct cost function
-er_y = rf_(:) - yf_(:);
-duf = uf_ - [up_(:,end) uf_(:,2:end)];                         % u_k - u_{k-1}
-cost = er_y.'*Q*er_y + uf_(:).'*R*uf_(:) + duf(:).'*dR*duf(:); % total cost
-
-% construct QP:
-H = hessian(cost,uf_(:));
-get_H = casadi.Function('get_H',{par},{H});
-cost_lin = cost - 0.5*uf_(:).'*H*uf_(:);
-ct = jacobian(cost_lin,uf_(:));
-get_ct = casadi.Function('get_ct',{par,uf_},{ct});
-ct = get_ct(par,zeros(nu,f));
-get_ct = casadi.Function('get_ct',{par},{ct});
-uf_sol = -H\ct.';
-u_sol = uf_sol(1:nu,1);
-
-% get solver
-calc_u_v1 = casadi.Function('get_uk_analytic',{par},{u_sol});
-calc_u_v2 = @(up,yp,Lest,rf) full(calc_u_v1([up(:);yp(:);Lest(:);rf(:)]));
-
-% break down solver into contributions
-% -> contribution from up
-calc_up2usol_v0 = jacobian(u_sol,up_(:));
-calc_up2usol_v1 = casadi.Function('get_upfac',{Lest_(:)},{calc_up2usol_v0});
-up2usol = @(Lest) full(calc_up2usol_v1(Lest(:)));
-
-% -> contribution from yp
-calc_yp2usol_v0 = jacobian(u_sol,yp_(:));
-calc_yp2usol_v1 = casadi.Function('get_ypfac',{Lest_(:)},{calc_yp2usol_v0});
-yp2usol = @(Lest) full(calc_yp2usol_v1(Lest(:)));
-
-% -> contribution from rf
-calc_rf2usol_v0 = jacobian(u_sol,rf_(:));
-calc_rf2usol_v1 = casadi.Function('get_rffac',{Lest_(:)},{calc_rf2usol_v0});
-rf2usol = @(Lest) full(calc_rf2usol_v1(Lest(:)));
+% get solver: uf_ref, yf_ref, up, yp -> u_k
+get_solver;
 
 %% ============================= make system ==============================
 % make nominal system
@@ -172,9 +108,9 @@ Ep2Yf_inno = Gf*Ep2X0;
 Ef2Yf_inno = Tf_e;
 
 % ------------------- calculate optimal steady state ----------------------
-P0 = C*((eye(nx)-A)\B)+D;
-u_ss = ((P0.'*Qk*P0+Rk)\P0.')*Qk.'*ref(:,1:Nbar);
-y_ss = P0*u_ss;
+% P0 = C*((eye(nx)-A)\B)+D;
+P0 = dcgain(sys2); P0 = P0(:,1:nu);
+u_ref = P0\y_ref;
 
 %% ================= Run #0: initial simulation (OL) ======================
 R_u = eye(nu)*1e2; % set OL-input variance
@@ -187,7 +123,7 @@ e = mvnrnd(zeros(ny,1),R_e,Nbar).';
 [Upf_r0,Up_r0,Uf_r0] = make_Hankel(u,p,fid);
 [Ypf_r0,Yp_r0,Yf_r0] = make_Hankel(y,p,fid);
 
-L1est_r0 = Yf_r0*pinv([Up_r0;Yp_r0;Uf_r0]);
+Lest_r0 = Yf_r0*pinv([Up_r0;Yp_r0;Uf_r0]);
 % [~, ~, ~, ~, Gf_tKp_u_r0,Tf_u_r0,Gf_tKp_y_r0,~] = L1est2mats(L1est_r0,p,f,nu);
 
 % make estimate causal: block-lower triangularize Tf_u (influence uf -> yf)
@@ -200,7 +136,7 @@ L1est_r0 = Yf_r0*pinv([Up_r0;Yp_r0;Uf_r0]);
 % rf2u = rf2u(1:nu,:);
 % up2u = -rf2u*Gf_tKp_u_r0;
 % yp2u = -rf2u*Gf_tKp_y_r0;
-Cz0 = @(up,yp,rf) calc_u_v2(up,yp,L1est_r0,rf);
+Cz0 = @(up,yp,yrf,urf) calc_u_v2(up,yp,Lest_r0,yrf,urf);
 
 %% ================= Run #1: Closed-loop data collection ==================
 
