@@ -34,21 +34,22 @@ get_solver;
 
 %% ============================= make system ==============================
 % make nominal system
-nx = 2;
-sys = drss(nx,ny,nu);% sys = c2d(sys,1e-1);
-[A,B,C,D] = ssdata(sys);
+% nx = 2;
+% sys = drss(nx,ny,nu);% sys = c2d(sys,1e-1);
+% [A,B,C,D] = ssdata(sys); D = 0*D; sys = ss(A,B,C,D,-1);
 % model_Favoreel1999; % D = 0...
+model_DoubleTank; R_e = 1e0*Re;
 
 % set noise properties
-R_e = 1e-2*tril(rand(ny)*2);
-if any(diag(R_e)==0) % ensure Re > 0
-    var_e_diag = diag(R_e);
-    var_e_diag(var_e_diag==0) = 1e-2;
-    indiag = 1:ny;
-    R_e(indiag + (indiag - 1)*ny) = var_e_diag;
-end
-R_e = R_e*R_e.';
-K = place(A.',C.',linspace(0.1,0.15,nx)).';
+% R_e = 1e-2*tril(rand(ny)*2);
+% if any(diag(R_e)==0) % ensure Re > 0
+%     var_e_diag = diag(R_e);
+%     var_e_diag(var_e_diag==0) = 1e-2;
+%     indiag = 1:ny;
+%     R_e(indiag + (indiag - 1)*ny) = var_e_diag;
+% end
+% R_e = R_e*R_e.';
+% K = place(A.',C.',linspace(0.1,0.15,nx)).';
 
 % create system with noise
 sys2 = ss(A,[B K],C,[D eye(ny)],-1);
