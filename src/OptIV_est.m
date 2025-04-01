@@ -13,22 +13,25 @@ addpath('..\bin');
 load('vik.mat');
 
 %% problem parameters
-f = 10;
+f = 5;
 fid = f;
 p = 10;
 ny = 1;
 nu = 1;
-N = 1e4;
+N = 1e5;
 Nbar = p + fid + N -1;
 
 % controller weights
 dRk= 1*eye(nu);  dR = kron(speye(f),dRk);
 Rk = 1*eye(nu);   R = kron(speye(f),Rk);
-Qk = 1e3*eye(ny); Q = kron(speye(f),Qk);
+Qk = 1e2*eye(ny); Q = kron(speye(f),Qk);
 
 % reference
-y_ref = idinput(Nbar-fid+2*f-1,'prbs',[],[-1 1]).';
+Nbar_ref = ceil((Nbar-fid)/f)*f+2*f-1;
+y_ref = idinput(Nbar_ref,'prbs',[],[-1 1]).';
 % y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
+% y_ref = 0.5*sign(sin(pi/2+(1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60))) + ...
+%         0.5*sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60)));
 % y_ref = y_ref(:,1:end-1);
 y_ref = repmat(y_ref,ny,1);
 
@@ -113,9 +116,9 @@ sys2 = ss(A,[B K],C,[D eye(ny)],-1);
 [~,Up_r1,Uf_r1] = make_Hankel(u1,p,fid); [~,Up_r2,Uf_r2] = make_Hankel(u2,p,fid);
 [~,Yp_r1,Yf_r1] = make_Hankel(y1,p,fid); [~,Yp_r2,Yf_r2] = make_Hankel(y2,p,fid); 
 [~,Ep_r1,Ef_r1] = make_Hankel(e1,p,fid);
-[~,yuRp,yuRf] = make_Hankel([y_ref;u_ref],p,2*f-1);
-[~,yRp,yRf] = make_Hankel(y_ref,p,2*f-1);
-[~,uRp,uRf] = make_Hankel(u_ref,p,2*f-1);
+[~,yuRp,yuRf] = make_Hankel([y_ref;u_ref],p,2*f-1); yuRp = yuRp(:,1:N); yuRf(:,1:N);
+[~,yRp,yRf] = make_Hankel(y_ref,p,2*f-1); yRp = yRp(:,1:N); yRf = yRf(:,1:N);
+[~,uRp,uRf] = make_Hankel(u_ref,p,2*f-1); uRp = uRp(:,1:N); uRf = uRf(:,1:N);
 Wp_r1 = [Up_r1;Uf_r1;Yp_r1];
 
 %% make actual matries and scaled controller components
@@ -211,20 +214,18 @@ hold(ax1_2,'on') % [2]
 % [2] Important to preserve the property orders that were just set.
 
 % -------------------- Get system estimate using IV -----------------------
-load('vik.mat');
-num_iter = 2;
-fro_EfUf= nan(1,num_iter+1);
-fro_EfZ = nan(1,num_iter+1);
-fro_EfUp = norm(Ef_r1*Up_r1.','fro')^2;
-fro_EfYp = norm(Ef_r1*Yp_r1.','fro')^2;
+num_iter = 5;
+
+% for plotting RMSE to optimal IV
+fig3 = figure(3);
+RMSE_Yiv = nan(1,num_iter);
+RMSE_Uiv = RMSE_Yiv;
 
 % optimal IV matrix
 Ziv_opt = [Up_r2;Uf_r2;Yp_r2];
 
 % creating initial IV matrix
-Ziv = [yuRp;yuRf;Yp_r1];
-
-fro_EfZ(1) = norm(Ef_r1*Ziv.'/N,'fro')^2;
+Ziv = [uRp;uRf;Yp_r1];
 
 % plotting correlations and estimate of system parameters
 plot_corrs;
@@ -254,7 +255,7 @@ plot_corrs;
 % Gf_tKpy_hat = Lest(:,(p+f)*nu+1:(p+f)*nu+p*ny);
 
 for kiv = 1:num_iter
-
+if kiv == 1
 % -------- get step-ahead predictor to construct approx. opt. IV ----------
 % L1est = Yf_r1(1:ny,:)*Ziv.'*pinv([Up_r1;Yp_r1;Uf_r1(1:nu,:)]*Ziv.');
 WZ1 = [Up_r1;Yp_r1]*Ziv.';
@@ -262,92 +263,101 @@ WZ1 = [Up_r1;Yp_r1]*Ziv.';
 % L1est = [Yf_r1(1:ny,:)*Ziv.'*WZ1.'/(WZ1*WZ1.'/N)/N zeros(ny,nu)];
 L1est = [Yf_r1(1:ny,:)*Ziv.'*pinv(WZ1) zeros(ny,nu)];
 
-CKpu_hat = L1est(:,1:p*nu);
-CKpy_hat = L1est(:,p*nu+1:p*(nu+ny));
+C_tKpu_hat = L1est(:,1:p*nu);
+C_tKpy_hat = L1est(:,p*nu+1:p*(nu+ny));
 D_hat = L1est(:,end-nu+1:end);
 
-[u_iv,y_iv] = run_pred_cl(up1,yp1,y_ref,u_ref,Cz_ss,CKpu_hat,D_hat,CKpy_hat,p,f);
+% ----------------------------- update IV ---------------------------------
+% get CL-SPC estimate of Markov Parameters & build matrices
+tLest_u = zeros(ny*f,nu*(p+f));
+tLest_u(1:ny,1:nu*(p+1)) = [C_tKpu_hat D_hat];
+tLest_y = zeros(ny*f,ny*(p+f));
+tLest_y(1:ny,1:ny*p) = C_tKpy_hat;
+for k = 2:f
+    tLest_u((k-1)*ny+1:k*ny,:) = circshift(tLest_u((k-2)*ny+1:(k-1)*ny,:),nu,2);
+    tLest_y((k-1)*ny+1:k*ny,:) = circshift(tLest_y((k-2)*ny+1:(k-1)*ny,:),ny,2);
+end
+tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
+Lest = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
+hat_Gf_tKp_u = Lest(:,1:p*nu);
+hat_Gf_tKp_y = Lest(:,p*nu+1:p*(nu+ny));
+hat_Tf_u = Lest(:,end-nu*f+1:end);
+end
 
-% Bq = L1est(:,1:p*nu)*Mpnu+L1est(:,end-nu+1:end);
-% Aq = eye(ny)-L1est(:,p*nu+1:p*(nu+ny))*Mpny;
-% 
-% sys_uiv = (eye(nu)+Rq\Sq/Aq*Bq)\(Rq\Tq);
-% u_iv = lsim(sys_uiv,yr_ref(:,f:end).').';
-% y_iv = lsim(Bq/Aq,u_iv).';
+% build matrix representation of closed-loop
+yrf_x0 = y_ref(:,1:2*f-1); yrf = y_ref(:,2*f:end); yrf = reshape(yrf,ny*f,[]);
+urf_x0 = u_ref(:,1:2*f-1); urf = u_ref(:,2*f:end); urf = reshape(urf,nu*f,[]);
+[sys_cl,x0_cl] = get_pred_fstep_cl(f,p,ny,nu,ICuf,ICyf,ICup,ICyp,ICyr,ICur,hat_Tf_u,hat_Gf_tKp_u,hat_Gf_tKp_y,up1,yp1,yrf_x0,urf_x0);
+[uy_iv,~,x_iv] = lsim(sys_cl,[urf;yrf].',[],x0_cl); uy_iv = uy_iv.'; x_iv = x_iv.';
+x_iv_new = sys_cl.A*x_iv(:,end) + sys_cl.B*[urf(:,end);yrf(:,end)];
+uy_iv = [uy_iv sys_cl.C*x_iv_new];
+u_iv = reshape(uy_iv(1:f*nu,:),nu,[]);     u_iv = u_iv(:,1:Nbar);
+y_iv = reshape(uy_iv(f*nu+1:end,:),ny,[]); y_iv = y_iv(:,1:Nbar);
 
-[~,Up_iv,Uf_iv] = make_Hankel(u_iv,p,fid); % p, fid
-[~,Yp_iv,~] = make_Hankel(y_iv,p,fid);     % p, fid
+% analysis A matrix of closed-loop system
+[A,B,C,D] = ssdata(sys_cl);
+fig5 = figure(5); tl5 = tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
+ax5_1 = nexttile(tl5); nxL = (p+2*f-1)*(nu+ny);
+spy([A,B;C,D]); grid on;
+yline(p*nu+0.5)
+xline(p*nu+0.5)
+yline(p*(nu+ny)+0.5)
+xline(p*(nu+ny)+0.5)
+yline(p*(nu+ny)+(2*f-1)*nu+0.5)
+xline(p*(nu+ny)+(2*f-1)*nu+0.5)
+yline(nxL+0.5,'LineWidth',2);
+xline(nxL+0.5,'LineWidth',2);
+yline(nxL+f*nu+0.5);
+ax5_2 = nexttile(tl5);
+imagesc_vik([A,B;C,D],vik,ax5_2);
+yline(p*nu+0.5)
+xline(p*nu+0.5)
+yline(p*(nu+ny)+0.5)
+xline(p*(nu+ny)+0.5)
+yline(p*(nu+ny)+(2*f-1)*nu+0.5)
+xline(p*(nu+ny)+(2*f-1)*nu+0.5)
+yline(nxL+0.5,'LineWidth',2);
+xline(nxL+0.5,'LineWidth',2);
+yline(nxL+f*nu+0.5);
+fig5.Position = [220 151 904 419];
+
+% analysis - rmse w.r.t optimal IVs
+RMSE_Yiv(kiv) = rms(y_iv-y2);
+RMSE_Uiv(kiv) = rms(u_iv-u2);
+figure(fig3);
+subplot(2,1,1); grid on;
+plot(RMSE_Yiv); ylabel('RMSE_{yiv}')
+subplot(2,1,2); grid on;
+plot(RMSE_Uiv); ylabel('RMSE_{uiv}')
+xlabel('iteration');
+
+% TODO: having reflected unstable eigenvalues of closed-loop -> update
+% prediction
+
+% update IV
+[~,Up_iv,Uf_iv] = make_Hankel(u_iv,p,fid);
+[~,Yp_iv,Yf_iv] = make_Hankel(y_iv,p,fid);
 Ziv = [Up_iv;Yp_iv;Uf_iv];
-% Ziv = [Up_iv;Yp_iv];
-Niv = min(size(Ziv,2),N);
-Ziv = Ziv(:,1:Niv); Up_iv = Up_iv(:,1:Niv); Yp_iv = Yp_iv(:,1:Niv); Uf_iv = Uf_iv(:,1:Niv);
 
-% estimate predictor markov parameters
-WZ2 = [Up_r1;Yp_r1;Uf_r1]; WZ2 = WZ2(:,1:Niv)*Ziv.';
-% Lest = Yf_r1(:,1:Niv)*Ziv.'/WZ2;
-% Lest = Yf_r1(:,1:Niv)*Ziv.'*WZ2.'/(WZ2*WZ2.'/N)/N;
-Lest = Yf_r1*Ziv.'*pinv(WZ2);
-hat_Gf_tKp_u = get_Gf_tKp_u(Lest);
-hat_Gf_tKp_y = get_Gf_tKp_y(Lest);
-hat_Tf_u = get_Tf_u(Lest); % tril(get_Tf_u(Lest),-1); % enforce causality
-% Lest = [hat_Gf_tKp_u hat_Gf_tKp_y hat_Tf_u];
+% new estimate
+WZ1 = [Up_r1;Uf_r1;Yp_r1]*Ziv.';
+% L1est = [Yf_r1(1:ny,:)*Ziv.'/WZ1 zeros(ny,nu)];
+% L1est = [Yf_r1(1:ny,:)*Ziv.'*WZ1.'/(WZ1*WZ1.'/N)/N zeros(ny,nu)];
+tLest = tHf*Yf_r1 * Ziv.' / N * pinv(Wp_r1 * Ziv.' / N);
+Lest = tHf\tLest;
+hat_Gf_tKp_u = Lest(:,1:p*nu);
+hat_Gf_tKp_y = Lest(:,end-p*ny+1:end);
+hat_Tf_u = Lest(:,p*nu+1:(p+f)*nu);
 
 % plotting IV data
-plot(ax1_1,y_iv);
-plot(ax1_2,u_iv);
-nexttile(tl10); imagesc_parts(Ef_r1(:,1:Niv), vik, gca, Up_iv, Uf_iv, Yp_iv);
-nexttile;       imagesc_parts(Wp_r1(:,1:Niv), vik, gca, Up_iv, Uf_iv, Yp_iv);
+plot(ax1_1,y_iv); ylim(ax1_1,[-2 2]);
+plot(ax1_2,u_iv); ylim(ax1_2,[-10 10]);
+nexttile(tl10); imagesc_parts(Ef_r1, vik, gca, Up_iv, Uf_iv, Yp_iv);
+nexttile;       imagesc_parts(Wp_r1, vik, gca, Up_iv, Uf_iv, Yp_iv);
 nexttile;       imagesc_vik([hat_Gf_tKp_u hat_Tf_u], vik, gca);
 nexttile;       imagesc_vik(hat_Gf_tKp_y, vik, gca);
 
-fro_EfZ(1+(kiv-1)*2+1) = norm(Ef_r1*Ziv.'/size(Ef_r1,2),'fro')^2;
-
-% % ----------------------------- update IV ---------------------------------
-ICuf = get_ICuf(Lest);
-ICyf = get_ICyf(Lest);
-ICup = get_ICup(Lest);
-ICyp = get_ICyp(Lest);
-ICyr = get_ICyr(Lest);
-ICur = get_ICur(Lest);
-
-Uf2Uf0 = ICuf + ICyf*hat_Tf_u;
-left_Uf = eye(nu*f) - Uf2Uf0;
-inv_Uf = left_Uf\[ICup+ICyf*hat_Gf_tKp_u ICyp+ICyf*hat_Gf_tKp_y ICyr ICur];
-Up2Uf = inv_Uf(:,1:size(ICup,2));
-Yp2Uf = inv_Uf(:,size(ICup,2)+1:size(ICup,2)+size(ICyp,2));
-YRf2Uf = inv_Uf(:,end-size([ICyr ICur],2)+1:end-size(ICur,2));
-URf2Uf = inv_Uf(:,end-size(ICur,2)+1:end);
-
-% Up2Uf = get_Up2Uf(L1est);
-% Yp2Uf = get_Yp2Uf(L1est);
-% YRf2Uf = get_YRf2Uf(L1est);
-Uf_iv = Up2Uf*Up_iv + Yp2Uf*Yp_iv + YRf2Uf*yRf + URf2Uf*uRf;        % use IV mats here?
-
-Yf_iv0 = Yf_iv;
-Yf_iv = hat_Gf_tKp_u*Up_r1 + hat_Gf_tKp_y*Yp_r1 + hat_Tf_u * Uf_iv; % use IV mats here?
-Yf_iv = Yf_iv(1:ny*fid,:);
-[means_yfdiff, std_devs_yfdiff] = anti_diag_stats(Yf_iv-Yf_iv0);
-[means_uf, std_devs_uf] = anti_diag_stats(Uf_iv);
-[means_yf, std_devs_yf] = anti_diag_stats(Yf_iv);
-
-fro_EfUf(kiv+1) = norm(Ef_r1*Uf_iv.','fro')^2;
-
-
-figure(11);
-ax11_1 = subplot(2,1,1);
-plot_with_shaded_std(1:length(means_uf), means_uf, std_devs_uf, [0 0.5 1]); % Blue shade
-hold off;
-ax11_2 = subplot(2,1,2);
-plot_with_shaded_std(1:length(means_yf), means_yf, std_devs_yf, [1 0.5 0.5]); % Red shade
-hold off;
-linkaxes([ax11_1 ax11_2],'x');
-
-% update IV
-Ziv = R_e\[Up_iv;Yp_iv;Uf_iv];
-
-imagesc_parts(Ef_r1,vik,fig10, R_e\Up_iv, R_e\Uf_iv, R_e\Yp_iv)
-title('$E_f [U_p;U_f;Y_p]^\top$','Interpreter','latex');
-fro_EfZ(kiv+1) = norm(Ef_r1*Ziv.'/size(Ef_r1,2),'fro')^2;
+hat_Tf_u = tril(hat_Tf_u,-1);
 
 end
 
@@ -490,7 +500,7 @@ for k = 1:Nbar
 end
 end
 
-% run closed-loop with predictor
+% run closed-loop with single-step ahead predictor
 function [u,y] = run_pred_cl(up,yp,y_ref,u_ref,Cz_ss,CKpu,D,CKpy,p,f)
 % CKpu, CKpy, D -> predictorm Markov parameter estimates
 [ny,nu] = size(D);
