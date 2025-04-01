@@ -102,8 +102,11 @@ x1_0 = A*x(:,end) + B*u(:,end) + K*e(:,end); % initial state
 
 % scaling data & system
 uSF = diag(mean(abs(u1),2));
-u1 = uSF\u1; u2 = uSF\u2; up1 = uSF\up1; u_ref = uSF\u_ref;
-B = B*uSF; D = D*uSF;
+ySF = diag(mean(abs(y1),2));
+u = uSF\u; u1 = uSF\u1; u2 = uSF\u2; up1 = uSF\up1; u_ref = uSF\u_ref;
+y = ySF\y; y1 = ySF\y1; y2 = ySF\y2; yp1 = ySF\yp1; y_ref = ySF\y_ref;
+e = ySF\e; e1 = ySF\e1; R_e = ySF.^2\R_e;
+B = B*uSF; D = ySF\D*uSF; C = ySF\C; K = K*ySF;
 sys2 = ss(A,[B K],C,[D eye(ny)],-1);
 
 % creating Hankel matrices
@@ -116,10 +119,19 @@ sys2 = ss(A,[B K],C,[D eye(ny)],-1);
 Wp_r1 = [Up_r1;Uf_r1;Yp_r1];
 
 %% make actual matries and scaled controller components
-up2uk = up2usol(Lest_r0);
-yp2uk = uSF\yp2usol(Lest_r0);
-yrf2uk = uSF\yrf2usol(Lest_r0);
-urf2uk = urf2usol(Lest_r0);
+
+% build matrix representation of closed-loop
+up2uk  = uSF\up2usol(Lest_r0) *kron(speye(p),uSF);
+yp2uk  = uSF\yp2usol(Lest_r0) *kron(speye(p),ySF);
+yrf2uk = uSF\yrf2usol(Lest_r0)*kron(speye(f),ySF);
+urf2uk = uSF\urf2usol(Lest_r0)*kron(speye(f),uSF);
+
+ICuf = kron(speye(f),uSF)\get_ICuf(Lest_r0)*kron(speye(f),uSF);
+ICyf = kron(speye(f),uSF)\get_ICyf(Lest_r0)*kron(speye(f),ySF);
+ICup = kron(speye(f),uSF)\get_ICup(Lest_r0)*kron(speye(p),uSF);
+ICyp = kron(speye(f),uSF)\get_ICyp(Lest_r0)*kron(speye(p),ySF);
+ICyr = kron(speye(f),uSF)\get_ICyr(Lest_r0)*kron(speye(2*f-1),ySF);
+ICur = kron(speye(f),uSF)\get_ICur(Lest_r0)*kron(speye(2*f-1),uSF);
 
 % --------------------- create actual matrices ----------------------------
 get_actual_matrices;
