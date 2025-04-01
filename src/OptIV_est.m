@@ -10,6 +10,7 @@ rng default;
 addpath('..\bin');
 
 % color maps: https://www.fabiocrameri.ch/colourmaps/
+load('vik.mat');
 
 %% problem parameters
 f = 10;
@@ -688,13 +689,4 @@ xvals = cumsum(xvals)+0.5;
 for k = 1:nvarargin-1
     xline(xvals(k),'LineWidth',1.5);
 end
-end
-
-% produce colour-scaled imagesc using vik
-function imagesc_vik(CorMat,vik,axh)
-imagesc(axh,CorMat);
-c_absmax = max(abs(CorMat),[],'all');
-colormap(vik);
-colorbar;
-caxis([-c_absmax c_absmax]);
 end
