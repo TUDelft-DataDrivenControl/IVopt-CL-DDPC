@@ -8,17 +8,18 @@ close all;
 rng default;
 
 addpath('..\bin');
-
+addpath(genpath("C:\Users\rogierdinkla\Documents\MATLAB"));
+addpath(genpath("C:\Users\rogierdinkla\Documents\CasADi\casadi-3.6.7-windows64-matlab2018b"));
 % color maps: https://www.fabiocrameri.ch/colourmaps/
 load('vik.mat');
 
 %% problem parameters
-f = 5;
+f = 15;
 fid = f;
-p = 10;
+p = 20;
 ny = 1;
 nu = 1;
-N = 1e5;
+N = 1e5;%100*(p*(nu+ny)+f*nu);
 Nbar = p + fid + N -1;
 
 % controller weights
@@ -28,8 +29,8 @@ Qk = 1e2*eye(ny); Q = kron(speye(f),Qk);
 
 % reference
 Nbar_ref = ceil((Nbar-fid)/f)*f+2*f-1;
-y_ref = idinput(Nbar_ref,'prbs',[],[-1 1]).';
-% y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
+% y_ref = idinput(Nbar_ref,'prbs',[],[-1 1]).';
+y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
 % y_ref = 0.5*sign(sin(pi/2+(1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60))) + ...
 %         0.5*sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60)));
 % y_ref = y_ref(:,1:end-1);
@@ -44,10 +45,14 @@ get_solver;
 % sys = drss(nx,ny,nu);% sys = c2d(sys,1e-1);
 % [A,B,C,D] = ssdata(sys); D = 0*D; sys = ss(A,B,C,D,-1);
 % model_Favoreel1999; % D = 0...
-model_DoubleTank; R_e = 1e0*Re;
+% model_DoubleTank; R_e = 1e0*Re;
+[plant,nx,nu,ny,A,B,C,D,K,R_e] = model_Landau1995(Re=4.81);
+% [plant,Cz,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023(Re=5);
+% R_e = Re;
+% [~,Vc,Uc] = lncf(Cz); % Cz = Vc\Uc
 
 % set noise properties
-% R_e = 1e-2*tril(rand(ny)*2);
+% R_e = 1e-0*tril(rand(ny)*2);
 % if any(diag(R_e)==0) % ensure Re > 0
 %     var_e_diag = diag(R_e);
 %     var_e_diag(var_e_diag==0) = 1e-2;
@@ -55,7 +60,7 @@ model_DoubleTank; R_e = 1e0*Re;
 %     R_e(indiag + (indiag - 1)*ny) = var_e_diag;
 % end
 % R_e = R_e*R_e.';
-% K = place(A.',C.',linspace(0.1,0.15,nx)).';
+% K = place(A.',C.',linspace(0.9,0.95,nx)).';
 
 % create system with noise
 sys2 = ss(A,[B K],C,[D eye(ny)],-1);
@@ -214,7 +219,7 @@ hold(ax1_2,'on') % [2]
 % [2] Important to preserve the property orders that were just set.
 
 % -------------------- Get system estimate using IV -----------------------
-num_iter = 5;
+num_iter = 3;
 
 % for plotting RMSE to optimal IV
 fig3 = figure(3);
@@ -225,22 +230,76 @@ RMSE_Uiv = RMSE_Yiv;
 Ziv_opt = [Up_r2;Uf_r2;Yp_r2];
 
 % creating initial IV matrix
-Ziv = [uRp;uRf;Yp_r1];
+Ziv = [yRp;yRf;Yp_r1]; %[Up_r2;Yp_r2;Uf_r2];
+% Ziv = [Up_r1;Uf_r1;Yp_r1];
 
 % plotting correlations and estimate of system parameters
 plot_corrs;
 
+% LHS = (eye(nu*f)-ICuf)*Uf_r1-ICyr*yRf-ICur*uRf-ICup*Up_r1-ICyp*Yp_r1;
+% LHS = pinv([ICyf;eye(ny*f)])*[LHS;Yf_r1];
 
-% % Transient Predictor
+for kiv = 1:num_iter
+% if kiv < 3
+
+% using multiple-step with controller information
+%
+% ================================ CL-SPC =================================
+% WZ1 = [Up_r1;Yp_r1]*Ziv.';
+% L1est = [Yf_r1(1:ny,:)*Ziv.'*pinv(WZ1) zeros(ny,nu)];
+% % L1est = [LHS(1:ny,:)*Ziv.'*pinv(WZ1) zeros(ny,nu)];
+% C_tKpu_hat = L1est(:,1:p*nu);
+% C_tKpy_hat = L1est(:,p*nu+1:p*(nu+ny));
+% D_hat = L1est(:,end-nu+1:end);
+% 
+% % construct multiple-step-ahead predictor
+% tLest_u = zeros(ny*f,nu*(p+f));
+% tLest_u(1:ny,1:nu*(p+1)) = [C_tKpu_hat D_hat];
+% tLest_y = zeros(ny*f,ny*(p+f));
+% tLest_y(1:ny,1:ny*p) = C_tKpy_hat;
+% for k = 2:f
+%     tLest_u((k-1)*ny+1:k*ny,:) = circshift(tLest_u((k-2)*ny+1:(k-1)*ny,:),nu,2);
+%     tLest_y((k-1)*ny+1:k*ny,:) = circshift(tLest_y((k-2)*ny+1:(k-1)*ny,:),ny,2);
+% end
+% tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
+% Lest = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
+% hat_Gf_tKp_u = Lest(:,1:p*nu);
+% hat_Gf_tKp_y = Lest(:,p*nu+1:p*(nu+ny));
+% hat_Tf_u = Lest(:,end-nu*f+1:end);
+%{%
+% ================================ SPC ====================================
+WpZ = [Up_r1;Yp_r1;Uf_r1]*Ziv.';
+Lest = Yf_r1*Ziv.'*pinv(WpZ);
+% Lest = LHS*Ziv.'*pinv(WpZ);
+cond(WpZ)
+hat_Gf_tKp_u = Lest(:,1:p*nu);
+hat_Gf_tKp_y = Lest(:,p*nu+1:p*(nu+ny));
+hat_Tf_u = Lest(:,end-nu*f+1:end);
+% hat_Tf_u = tril(hat_Tf_u,-1);
+
+HfEf = Yf_r1 - Lest*[Up_r1;Yp_r1;Uf_r1];
+[Ef_hat,hat_Hf] = qr(HfEf.','econ'); hat_Hf = hat_Hf.'; Ef_hat = Ef_hat.';
+
+% Step 2: Normalize diagonal blocks of R to identity
+D_block = cell(f,1);
+for i = 1:f
+    row_idx = (i-1)*ny + 1:i*ny;
+    D_block{i} = hat_Hf(row_idx, row_idx);  % Diagonal ny-by-ny block
+end
+D_blocks = sparse(blkdiag(D_block{:}));
+hat_Hf = hat_Hf/D_blocks;
+Ef_hat = D_blocks*Ef_hat;
+tHf = inv(hat_Hf);
+
+% ========================= Transient Predictor ===========================
 % tLest = zeros(ny*f,(p+f)*(nu+ny));
 % for pk = p:p+f-1
 %     i_k = pk-p+1;
-%     
-%     [~,Upk_r1,Ufk_r1] = make_Hankel(u1,pk,1);
-%     [~,Ypk_r1,Yfk_r1] = make_Hankel(y1,pk,1);
-%     Wpk_r1 = [Upk_r1;Ypk_r1];
-%     
-%     C_tKpk_hat = Yfk_r1(1:ny,:)*pinv(Wpk_r1);
+% 
+%     [~,Upk_r1,Ufk_r1] = make_Hankel(u1,pk,1); Upk_r1 = Upk_r1(:,1:N); Ufk_r1 = Ufk_r1(:,1:N);
+%     [~,Ypk_r1,Yfk_r1] = make_Hankel(y1,pk,1); Ypk_r1 = Ypk_r1(:,1:N); Yfk_r1 = Yfk_r1(:,1:N);
+%     Wpk_r1 = [Upk_r1;Ypk_r1]*Ziv.';
+%     C_tKpk_hat = Yfk_r1(1:ny,:)*Ziv.'*pinv(Wpk_r1);
 %     C_tKpku_hat = C_tKpk_hat(:,1:nu*pk);
 %     C_tKpky_hat = C_tKpk_hat(:,nu*pk+1:end);
 %     D_hat = zeros(ny,nu);
@@ -250,44 +309,19 @@ plot_corrs;
 % ImtHf = tLest(:,end-ny*f+1:end);
 % tHf = eye(ny*f) - ImtHf;
 % Lest = tHf\tLest(:,1:end-ny*f);
-% Gf_tKpu_hat = Lest(:,1:p*nu);
-% Tf_u_hat    = Lest(:,p*nu+1:(p+f)*nu);
-% Gf_tKpy_hat = Lest(:,(p+f)*nu+1:(p+f)*nu+p*ny);
+% hat_Gf_tKpu = Lest(:,1:p*nu);
+% hat_Tf_u    = Lest(:,p*nu+1:(p+f)*nu);
+% hat_Gf_tKpy = Lest(:,(p+f)*nu+1:(p+f)*nu+p*ny);
 
-for kiv = 1:num_iter
-if kiv == 1
-% -------- get step-ahead predictor to construct approx. opt. IV ----------
-% L1est = Yf_r1(1:ny,:)*Ziv.'*pinv([Up_r1;Yp_r1;Uf_r1(1:nu,:)]*Ziv.');
-WZ1 = [Up_r1;Yp_r1]*Ziv.';
-% L1est = [Yf_r1(1:ny,:)*Ziv.'/WZ1 zeros(ny,nu)];
-% L1est = [Yf_r1(1:ny,:)*Ziv.'*WZ1.'/(WZ1*WZ1.'/N)/N zeros(ny,nu)];
-L1est = [Yf_r1(1:ny,:)*Ziv.'*pinv(WZ1) zeros(ny,nu)];
-
-C_tKpu_hat = L1est(:,1:p*nu);
-C_tKpy_hat = L1est(:,p*nu+1:p*(nu+ny));
-D_hat = L1est(:,end-nu+1:end);
-
-% ----------------------------- update IV ---------------------------------
-% get CL-SPC estimate of Markov Parameters & build matrices
-tLest_u = zeros(ny*f,nu*(p+f));
-tLest_u(1:ny,1:nu*(p+1)) = [C_tKpu_hat D_hat];
-tLest_y = zeros(ny*f,ny*(p+f));
-tLest_y(1:ny,1:ny*p) = C_tKpy_hat;
-for k = 2:f
-    tLest_u((k-1)*ny+1:k*ny,:) = circshift(tLest_u((k-2)*ny+1:(k-1)*ny,:),nu,2);
-    tLest_y((k-1)*ny+1:k*ny,:) = circshift(tLest_y((k-2)*ny+1:(k-1)*ny,:),ny,2);
-end
-tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
-Lest = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
-hat_Gf_tKp_u = Lest(:,1:p*nu);
-hat_Gf_tKp_y = Lest(:,p*nu+1:p*(nu+ny));
-hat_Tf_u = Lest(:,end-nu*f+1:end);
-end
+% end
 
 % build matrix representation of closed-loop
 yrf_x0 = y_ref(:,1:2*f-1); yrf = y_ref(:,2*f:end); yrf = reshape(yrf,ny*f,[]);
 urf_x0 = u_ref(:,1:2*f-1); urf = u_ref(:,2*f:end); urf = reshape(urf,nu*f,[]);
 [sys_cl,x0_cl] = get_pred_fstep_cl(f,p,ny,nu,ICuf,ICyf,ICup,ICyp,ICyr,ICur,hat_Tf_u,hat_Gf_tKp_u,hat_Gf_tKp_y,up1,yp1,yrf_x0,urf_x0);
+x0_cl = 0*x0_cl;
+% cl_data = iddata([reshape(u1(:,1:f*size(urf,2)),nu*f,[]);reshape(y1(:,1:f*size(yrf,2)),ny*f,[])].',[urf;yrf].');
+% x0_cl = findstates(idss(sys_cl),cl_data);
 [uy_iv,~,x_iv] = lsim(sys_cl,[urf;yrf].',[],x0_cl); uy_iv = uy_iv.'; x_iv = x_iv.';
 x_iv_new = sys_cl.A*x_iv(:,end) + sys_cl.B*[urf(:,end);yrf(:,end)];
 uy_iv = [uy_iv sys_cl.C*x_iv_new];
@@ -296,39 +330,61 @@ y_iv = reshape(uy_iv(f*nu+1:end,:),ny,[]); y_iv = y_iv(:,1:Nbar);
 
 % analysis A matrix of closed-loop system
 [A,B,C,D] = ssdata(sys_cl);
-fig5 = figure(5); tl5 = tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
-ax5_1 = nexttile(tl5); nxL = (p+2*f-1)*(nu+ny);
-spy([A,B;C,D]); grid on;
-yline(p*nu+0.5)
-xline(p*nu+0.5)
-yline(p*(nu+ny)+0.5)
-xline(p*(nu+ny)+0.5)
-yline(p*(nu+ny)+(2*f-1)*nu+0.5)
-xline(p*(nu+ny)+(2*f-1)*nu+0.5)
-yline(nxL+0.5,'LineWidth',2);
-xline(nxL+0.5,'LineWidth',2);
-yline(nxL+f*nu+0.5);
-ax5_2 = nexttile(tl5);
-imagesc_vik([A,B;C,D],vik,ax5_2);
-yline(p*nu+0.5)
-xline(p*nu+0.5)
-yline(p*(nu+ny)+0.5)
-xline(p*(nu+ny)+0.5)
-yline(p*(nu+ny)+(2*f-1)*nu+0.5)
-xline(p*(nu+ny)+(2*f-1)*nu+0.5)
-yline(nxL+0.5,'LineWidth',2);
-xline(nxL+0.5,'LineWidth',2);
-yline(nxL+f*nu+0.5);
-fig5.Position = [220 151 904 419];
+plotABCD;
+%}
+
+% ----------------- identifying closed-loop for IV ------------------------
+%{
+% if kiv == 1
+    L_cl = [Uf_r1;Yf_r1]*pinv([yRp;yRf]); %TODO: change... uRp, uRf make sense...? see line 344
+% else
+    % L_cl = 1/size(yRp,2)*[Uf_r1;Yf_r1]*Ziv.'*pinv(1/size(yRp,2)*[yRp;yRf]*Ziv.');%[Up_iv;Uf_iv;Yf_iv]
+% end
+L_clu = L_cl(1:nu*f,:);      L_clu = tril(L_clu,p+f-1);
+L_cly = L_cl(nu*f+1:end,:);  L_cly = tril(L_cly,p+f-1);
+L_clu = toeplitz_mean(L_clu);
+L_cly = toeplitz_mean(L_cly);
+L_cl = [L_clu; L_cly];
+
+y_ref2 = [zeros(ny,p) y_ref];
+[~,yRp2,yRf2] = make_Hankel(y_ref2,p,2*f-1);
+UY_iv = L_cl*[yRp2;yRf2];
+U_iv = UY_iv(1:nu*f,:);
+U_iv = flipud(toeplitz_mean(flipud(U_iv)));
+% u_iv = diag_stats(flipud(U_iv));
+u_iv = U_iv(:,1); u_iv = [reshape(u_iv,nu,[]),U_iv(end-nu+1:end,2:end)];
+Y_iv = UY_iv(nu*f+1:end,:);
+Y_iv = flipud(toeplitz_mean(flipud(Y_iv)));
+% y_iv = diag_stats(flipud(Y_iv));
+y_iv = Y_iv(:,1); y_iv = [reshape(y_iv,ny,[]),Y_iv(end-ny+1:end,2:end)];
+u_iv = u_iv(:,1:length(u1));
+y_iv = y_iv(:,1:length(y1));
+%}
+% -------------------------------------------------------------------------
+
+% u_iv = [];
+% y_iv = [];
+% u_ref2 = [zeros(nu,p) u_ref];
+% for k2 = 1:ceil(Nbar/f)-1
+%     urf_k2 = u_ref2(:,(k2-1)*f+1:(k2-1)*f+p+2*f-1);
+%     u_iv = [u_iv;L_cl(1:nu*f,:)*urf_k2(:)];
+%     y_iv = [y_iv;L_cl(nu*f+1:end,:)*urf_k2(:)];
+% end
+% krem = Nbar-k2*f; k2 = k2 + 1;
+% urf_k2 = u_ref2(:,(k2-1)*f+1:end);
+% u_iv = [u_iv;L_cl(1:nu*krem,1:numel(urf_k2))*urf_k2(:)];
+% y_iv = [y_iv;L_cl(nu*f+1:nu*f+krem,1:numel(urf_k2))*urf_k2(:)];
+% u_iv = reshape(u_iv,nu,[]);
+% y_iv = reshape(y_iv,ny,[]);
 
 % analysis - rmse w.r.t optimal IVs
-RMSE_Yiv(kiv) = rms(y_iv-y2);
-RMSE_Uiv(kiv) = rms(u_iv-u2);
+RMSE_Yiv(kiv) = rms(y_iv-y2(1:length(y_iv)));
+RMSE_Uiv(kiv) = rms(u_iv-u2(1:length(u_iv)));
 figure(fig3);
 subplot(2,1,1); grid on;
-plot(RMSE_Yiv); ylabel('RMSE_{yiv}')
+plot(RMSE_Yiv,'-+'); ylabel('RMSE_{yiv}')
 subplot(2,1,2); grid on;
-plot(RMSE_Uiv); ylabel('RMSE_{uiv}')
+plot(RMSE_Uiv,'-+'); ylabel('RMSE_{uiv}')
 xlabel('iteration');
 
 % TODO: having reflected unstable eigenvalues of closed-loop -> update
@@ -340,11 +396,10 @@ xlabel('iteration');
 Ziv = [Up_iv;Yp_iv;Uf_iv];
 
 % new estimate
-WZ1 = [Up_r1;Uf_r1;Yp_r1]*Ziv.';
-% L1est = [Yf_r1(1:ny,:)*Ziv.'/WZ1 zeros(ny,nu)];
-% L1est = [Yf_r1(1:ny,:)*Ziv.'*WZ1.'/(WZ1*WZ1.'/N)/N zeros(ny,nu)];
-tLest = tHf*Yf_r1 * Ziv.' / N * pinv(Wp_r1 * Ziv.' / N);
-Lest = tHf\tLest;
+WZ1 = [Up_r1;Uf_r1;Yp_r1];%*Ziv.';
+% tLest = tHf*Yf_r1 * Ziv.' / N * pinv(WZ1 * Ziv.' / N);
+% Lest = tHf\tLest;
+Lest = Yf_r1 * Ziv.' / N * pinv(WZ1 * Ziv.' / N);
 hat_Gf_tKp_u = Lest(:,1:p*nu);
 hat_Gf_tKp_y = Lest(:,end-p*ny+1:end);
 hat_Tf_u = Lest(:,p*nu+1:(p+f)*nu);
@@ -366,110 +421,6 @@ Lest = Yf_r1*Ziv.'*pinv([Up_r1;Yp_r1;Uf_r1]*Ziv.');
 
 % analysis - get matrix estimates
 % [tGf_tKp_u_iv, tTf_u_iv, tGf_tKp_y_iv, tTf_y_iv, Gf_tKp_u_iv,Tf_u_iv,Gf_tKp_y_iv,Tf_e_iv] = L1est2mats(L1est,p,f,nu);
-%%
-figure();
-plot(fro_EfZ); hold on
-plot(fro_EfUf);
-yline(fro_EfUp);
-yline(fro_EfYp);
-legend('Ef*Z','Ef*Uf','Ef*Up','Ef*Yp');
-%% plotting
-close all;
-figure(1)
-plot(y1.'); hold on;
-plot(y_ref(1,1:Nbar+f));
-plot(y_ss.');
-grid on;
-
-figure()
-tl2 = tiledlayout(3,6,"TileSpacing","compact","Padding","compact");
-
-row1_data = [Gf_tKp_u_iv Tf_u_iv Gf*tKp_u Tf_u Up2Yf_inno ];
-clim_row1 = [min(row1_data,[],'all') max(row1_data,[],'all')];
-nexttile(tl2,1,[1 2]);
-imagesc([Gf_tKp_u_iv Tf_u_iv],clim_row1); hold on;
-xline(p*nu+0.5);
-ylabel("$u_p\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\left[\Gamma_f\tilde{\mathcal{K}}_p^\mathrm{u} \;\; \mathcal{T}_f^\mathrm{u}\right]$','interpreter','latex');
-nexttile(tl2,3,[1 2]);
-imagesc([Gf*tKp_u Tf_u],clim_row1); hold on;
-xline(p*nu+0.5);
-xlabel('act.: $\left[\Gamma_f\tilde{\mathcal{K}}_p^\mathrm{u} \;\; \mathcal{T}_f^\mathrm{u}\right]$','interpreter','latex');
-nexttile(tl2,5,[1 2]);
-imagesc([Up2Yf_inno Tf_u],clim_row1); hold on;
-xline(p*nu+0.5);
-xlabel('act.: $\left[\Gamma_f(\tilde{\mathcal{K}}_p^\mathrm{u}-\tilde{A}^p\Gamma_p^\dagger\mathcal{T}_p^\mathrm{u}) \;\; \mathcal{T}_f^\mathrm{u}\right]$','Interpreter','latex');
-colorbar
-
-row2_data = [Gf_tKp_y_iv Gf*tKp_y Yp2Yf_inno];
-clim_row2 = [min(row2_data,[],'all') max(row2_data,[],'all')];
-nexttile(tl2,7,[1 2]);
-imagesc(Gf_tKp_y_iv,clim_row2); hold on;
-ylabel("$y_p\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\Gamma_f\tilde{\mathcal{K}}_p^\mathrm{y}$','interpreter','latex');
-nexttile(tl2,9,[1 2]);
-imagesc(Gf*tKp_y,clim_row2); hold on;
-xlabel('act.: $\Gamma_f\tilde{\mathcal{K}}_p^\mathrm{y}$','interpreter','latex');
-nexttile(tl2,11,[1 2]);
-imagesc(Yp2Yf_inno,clim_row2); hold on;
-xlabel('act.: $\Gamma_f(\tilde{\mathcal{K}}_p^\mathrm{y}+\tilde{A}^p\Gamma_p^\dagger)$','Interpreter','latex');
-colorbar
-
-row3_data = [Tf_e_iv Tf_e];% tTf_y tTf_y_r1
-clim_row3 = [min(row3_data,[],'all') max(row3_data,[],'all')];
-nexttile(tl2,13,[1 3]);
-imagesc(Tf_e_iv,clim_row3); hold on;
-ylabel("$e_f\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\mathcal{T}_f^\mathrm{e}$','interpreter','latex');
-nexttile(tl2,16,[1 3]);
-imagesc(Tf_e,clim_row3); hold on;
-xlabel('act.: $\mathcal{T}_f^\mathrm{e}$','interpreter','latex');
-colorbar
-
-figure();
-tl3 = tiledlayout(3,6,"TileSpacing","compact","Padding","compact");
-
-row1_data = [tGf_tKp_u_iv tTf_u_iv tGf*tKp_u tTf_u Up2Yf_pred ];
-clim_row1 = [min(row1_data,[],'all') max(row1_data,[],'all')];
-nexttile(tl3,1,[1 2]);
-imagesc([tGf_tKp_u_iv tTf_u_iv],clim_row1); hold on;
-xline(p*nu+0.5);
-ylabel("$u_p\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\left[\tilde{\Gamma}_f\tilde{\mathcal{K}}_p^\mathrm{u} \;\; \tilde{\mathcal{T}}_f^\mathrm{u}\right]$','interpreter','latex');
-nexttile(tl3,3,[1 2]);
-imagesc([tGf*tKp_u tTf_u],clim_row1); hold on;
-xline(p*nu+0.5);
-xlabel('act.: $\left[\tilde{\Gamma}_f\tilde{\mathcal{K}}_p^\mathrm{u} \;\; \tilde{\mathcal{T}}_f^\mathrm{u}\right]$','interpreter','latex');
-nexttile(tl3,5,[1 2]);
-imagesc([Up2Yf_pred tTf_u],clim_row1); hold on;
-xline(p*nu+0.5);
-xlabel('act.: $\left[\tilde{\Gamma}_f(\tilde{\mathcal{K}}_p^\mathrm{u}-\tilde{A}^p\Gamma_p^\dagger\mathcal{T}_p^\mathrm{u}) \;\; \tilde{\mathcal{T}}_f^\mathrm{u}\right]$','Interpreter','latex');
-colorbar
-
-row2_data = [tGf_tKp_y_iv tGf*tKp_y Yp2Yf_pred];
-clim_row2 = [min(row2_data,[],'all') max(row2_data,[],'all')];
-nexttile(tl3,7,[1 2]);
-imagesc(tGf_tKp_y_iv,clim_row2); hold on;
-ylabel("$y_p\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\tilde{\Gamma}_f\tilde{\mathcal{K}}_p^\mathrm{y}$','interpreter','latex');
-nexttile(tl3,9,[1 2]);
-imagesc(tGf*tKp_y,clim_row2); hold on;
-xlabel('act.: $\tilde{\Gamma}_f\tilde{\mathcal{K}}_p^\mathrm{y}$','interpreter','latex');
-nexttile(tl3,11,[1 2]);
-imagesc(Yp2Yf_pred,clim_row2); hold on;
-xlabel('act.: $\tilde{\Gamma}_f(\tilde{\mathcal{K}}_p^\mathrm{y}+\tilde{A}^p\Gamma_p^\dagger)$','Interpreter','latex');
-colorbar
-
-row3_data = [tTf_y_iv tTf_y];% tTf_y tTf_y_r1
-clim_row3 = [min(row3_data,[],'all') max(row3_data,[],'all')];
-nexttile(tl3,13,[1 3]);
-imagesc(tTf_y_iv,clim_row3); hold on;
-ylabel("$y_f\rightarrow y_f$",'Interpreter','latex');
-xlabel('est.: $\tilde{\mathcal{T}}_f^\mathrm{y}$','interpreter','latex');
-nexttile(tl3,16,[1 3]);
-imagesc(tTf_y,clim_row3); hold on;
-xlabel('act.: $\tilde{\mathcal{T}}_f^\mathrm{y}$','interpreter','latex');
-colorbar
 
 %% Helper functions
 
@@ -567,13 +518,36 @@ end
 end
 
 % make Hankel matrices with data
-function [Hpf,Hp,Hf] = make_Hankel(data,s1,s2)
-[ndata,Nbar] = size(data);
-Hpf = mat2cell(data,ndata,ones(1,Nbar));
-Hpf = Hpf(hankel(1:s1+s2,s1+s2:Nbar));
-Hpf = cell2mat(Hpf);
-Hp = Hpf(1:s1*ndata,:);
-Hf = Hpf(s1*ndata+1:end,:);
+% function [Hpf,Hp,Hf] = make_Hankel(data,s1,s2)
+% [ndata,Nbar] = size(data);
+% Hpf = mat2cell(data,ndata,ones(1,Nbar));
+% Hpf = Hpf(hankel(1:s1+s2,s1+s2:Nbar));
+% Hpf = cell2mat(Hpf);
+% Hp = Hpf(1:s1*ndata,:);
+% Hf = Hpf(s1*ndata+1:end,:);
+% end
+function [Hpf, Hp, Hf] = make_Hankel(data, s1, s2)
+% Efficiently constructs past-future Hankel matrices from input data
+% Inputs:
+%   data: (ndata x Nbar) time series data matrix
+%   s1: number of past block rows
+%   s2: number of future block rows
+% Outputs:
+%   Hpf: (ndata*(s1+s2) x (Nbar - s1 - s2 + 1)) full Hankel matrix
+%   Hp:  (ndata*s1 x num_cols) past block
+%   Hf:  (ndata*s2 x num_cols) future block
+
+[ndata, Nbar] = size(data);
+num_cols = Nbar - s1 - s2 + 1;
+
+Hpf = zeros(ndata * (s1 + s2), num_cols);
+
+for i = 1:(s1 + s2)
+    Hpf((i-1)*ndata+1:i*ndata, :) = data(:, i:i+num_cols-1);
+end
+
+Hp = Hpf(1:ndata*s1, :);
+Hf = Hpf(ndata*s1+1:end, :);
 end
 
 % go from estimated predictor Markov parameters to full matrix estimates
@@ -607,30 +581,9 @@ Tfe = mats(:,end-ny*f+1:end);
 
 end
 
-% get means and std deviations of anti-diagonals of a matrix A
-function [means, std_devs] = anti_diag_stats(A)
-    % Get the size of the matrix
-    [m, n] = size(A);
-    num_diags = m + n - 1; % Number of anti-diagonals
 
-    % Preallocate arrays
-    means = zeros(1, num_diags);
-    std_devs = zeros(1, num_diags);
 
-    % Compute statistics for each anti-diagonal
-    for k = 1:num_diags
-        % Extract anti-diagonal elements
-        if m > 1
-            anti_diag = diag(flipud(A), n - k);
-        else
-            anti_diag = A(k);
-        end
-        
-        % Compute mean and standard deviation
-        means(k) = mean(anti_diag);
-        std_devs(k) = std(anti_diag);
-    end
-end
+
 
 function plot_with_shaded_std(x, y, std_dev, color)
     % Ensure column vectors
@@ -670,4 +623,22 @@ xvals = cumsum(xvals)+0.5;
 for k = 1:nvarargin-1
     xline(xvals(k),'LineWidth',1.5);
 end
+end
+
+function [ad_mean, ad_var] = hankel_anti_diag_stats(H)
+% Computes the mean and variance of the anti-diagonals of a Hankel matrix H
+
+    [m, n] = size(H);
+    num_antis = m + n - 1;
+    
+    ad_mean = zeros(1, num_antis);
+    ad_var = zeros(1, num_antis);
+    
+    for k = 1:num_antis
+        % Get indices (i, j) such that i + j == k (constant anti-diagonals)
+        vals = H((1:m)'+(0:n-1) == k);
+        
+        ad_mean(k) = mean(vals);
+        ad_var(k) = var(vals);
+    end
 end

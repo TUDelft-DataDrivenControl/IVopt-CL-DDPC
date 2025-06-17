@@ -45,7 +45,23 @@ x0_cl = [up(:);yp(:);urf(:);yrf(:)]; % urf: nu x 2*f-1, yrf: ny x 2*f-1
 eigs = pole(sys_cl);
 itk = 0;
 while any(abs(eigs) > 1)
+    % analysis A matrix of closed-loop system
+    plotABCD;
+    
     itk = itk + 1;
+    %{
+    A11 = A(1:p*(nu+ny),1:p*(nu+ny));
+    eigs = eig(A11);
+    msk = abs(eigs) > 1;
+    eigs(msk) = 1./eigs(msk);
+
+    nrows = min(p,f);
+    Bk = blkdiag([zeros((p-f)*nu,nu*f);eye(nu*nrows)],[zeros((p-f)*ny,ny*f);eye(ny*nrows)]);
+    K = place(A11,Bk,eigs);
+    A11_new = A11-Bk*K;
+    A(1:p*(nu+ny),1:p*(nu+ny)) = A11_new;
+    %}
+    %{
     if itk == 1
         % transform system to eigenvalue-revealing modal form
         [sys_cl2,T] = canon(sys_cl,'modal');
@@ -96,15 +112,31 @@ while any(abs(eigs) > 1)
     end
     Anew = T\blkdiag(Dblks{:})*T;
     eigs = eig(Anew);
+    %}
+    
+    A11 = A(1:p*(nu+ny),1:p*(nu+ny));
+    [Veigs,Deigs] = eig(A11);
+    eigs = diag(Deigs);
+    msk = abs(eigs) > 1;    
+    eigs(msk) = conj(1./eigs(msk));
+    
+    % adjust matrix accordingly
+    % adjust_matrix(A11,p,f,nu,ny)
+
+    Deigs_new = diag(eigs);
+    A11_new = Veigs*Deigs_new/Veigs;
+    A(1:p*(nu+ny),1:p*(nu+ny)) = real(A11_new);
 end
 
 % adjust C matrix if A has been adjusted
 if itk > 0
     % determine how many last block-rows are affected
     nrows = min(f,p);
-    C(nu*f-nrows*nu+1:nu*f,:) = Anew(nu*p-nrows*nu+1:nu*p,:);
-    C(end-nrows*ny+1:end,:)   = Anew((nu+ny)*p-nrows*ny+1:(nu+ny)*p,:);
-    sys_cl = ss(Anew,B,C,D,-1);
+    C(nu*f-nrows*nu+1:nu*f,:) = A(nu*p-nrows*nu+1:nu*p,:);
+    C(end-nrows*ny+1:end,:)   = A((nu+ny)*p-nrows*ny+1:(nu+ny)*p,:);
+    sys_cl = ss(A,B,C,D,-1);
+
+    plotABCD;
 end
 
 end
@@ -128,29 +160,60 @@ function Dblocks = identify_diag_blocks(A)
         B = E;
     end
     assert(all(size(blkdiag(Dblocks{:}))==size(A)),'Jblocks do not correspond to A matrix');
-%     % check if eigenvalues are unique
-%     allunique = false;
-%     while ~allunique
-%         for k = 1:length(Jblocks)
-%             Jblock = Jblocks{k};
-%             uniqueAbsEigVals = unique(abs(round(eig(Jblock), 8)));  % Avoid numerical errors
-%             if any(uniqueAbsEigVals > 1) % otherwise it won't create problems
-%                 if (istriu(Jblock) || istril(Jblock)) && numel(uniqueAbsEigVals) > 1
-%                     Jblocks2 = Jblocks; Jblocks2{end+1} = {};
-%                     Jblocks2(1:k-1) = Jblocks(1:k-1);
-%                     Jblocks2(k+2:end) = Jblocks(k+1:end);
-%                     dJblock = diag(Jblock);
-%                     i_new = find(dJblock~=dJblock(1),1,'first');
-%                     Jblocks2{k} = Jblock(1:i_new-1,1:i_new-1);
-%                     Jblocks2{k+1} = Jblock(i_new:end,i_new:end);
-%                     Jblocks = Jblocks2; clear Jblocks2;
-%                     break;
-%                 end
-%             end
-%             if k==length(Jblocks)
-%                 allunique = true;
-%             end
-%         end
-%     end
+end
 
+function adjust_matrix(A11,p,f,nu,ny)
+    [V, D] = schur(A11, 'real');
+    D2 = D;
+
+    % Predefine max number of blocks (worst case: all 1x1)
+    n = size(D, 1);
+    blks = cell(n, 1);          % Preallocate cell array for blocks with eigenvalues (2x2 or 1x1)
+    blk_idx = cell(n, 1);       % Cell array with (i,j) index tuples of blocks
+    eig = cell(1,length(blks)); % eigenvalue of blocks
+
+    i = 1;  % Diagonal index
+    k = 1;  % Cell index for blocks
+    
+    while i <= n
+        % Check if this is a 2x2 block (nonzero subdiagonal entry)
+        if i < n && abs(D(i+1, i)) > 0
+            % 2x2 block
+            blks{k} = D(i:i+1, i:i+1);
+            blk_idx{k} = [i, i+1];
+            eig{k} = eigs(blks{k});
+            if abs(eig{k}(1)) > 1
+                % modify eigenvalues
+                D2(i:i+1,i:i+1) = blks{k}/det(blks{k});
+            end
+            i = i + 2;
+        else
+            % 1x1 block
+            blks{k} = D(i, i);
+            blk_idx{k} = [i, i];
+            eig{k} = blks{k};
+            if abs(eig{k}) > 1
+                % modify eigenvalues
+                D2(i,i) = blks{k}/(abs(blks{k})^2);
+            end
+            i = i + 1;
+        end
+        k = k + 1;
+    end
+    
+    % Remove empty cells (preallocated but unused)
+    blks = blks(~cellfun('isempty', blks));
+    blk_idx = blk_idx(~cellfun('isempty', blk_idx));
+
+    % get eigenvalues of blocks
+    
+    for k = 1:length(blks)
+        if size(blks{k},1) == 1
+            eig{k} = blks{k};
+        else
+            eig{k} = eigs(blks{k});
+        end
+    end
+    
+    pause(0.1)
 end

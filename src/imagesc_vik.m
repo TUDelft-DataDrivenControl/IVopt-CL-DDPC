@@ -14,7 +14,9 @@ else
 end
 imagesc(axh,CorMat);
 c_absmax = max(abs(CorMat),[],'all');
-colormap(vik);
+clim([-c_absmax c_absmax]);
+cmap = crameri('vik','pivot',0);
+colormap(cmap);
+% colormap(vik);
 colorbar;
-caxis([-c_absmax c_absmax]);
 end
