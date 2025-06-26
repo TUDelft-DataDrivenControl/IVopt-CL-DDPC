@@ -14,6 +14,7 @@ arguments (Input)
     opts.Rk   (1,1) double  = 1;
     opts.Qk   (1,1) double  = 1e2;
     opts.seed (1,1) double  = 1;
+    opts.save       logical = true;     % save data
 end
 [Re, p, f, N, Ncl, dRk, Rk, Qk, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.dRk, opts.Rk, opts.Qk, opts.seed);
 rng(seed);
@@ -28,17 +29,24 @@ rng(seed);
 % 5) Robust Control Toolbox                     v24.2
 % 6) Statistics and Machine Learning Toolbox    v24.2
 
-% add relevant paths
-[src_loc, ~  , ~] = fileparts(which(mfilename));
-cd(src_loc);
-cd('..\bin'); bin_loc = pwd;
-addpath(bin_loc);
-addpath(fullfile(bin_loc,'external','casadi-v3.6.7'));   % <- add path for 1) here
+% ------------------------- add relevant paths ----------------------------
+% go to, save, and add to path src directory
+[src_dir, ~  , ~] = fileparts(which(mfilename)); cd(src_dir);
+addpath(genpath(src_dir));
+
+% go to, save, and add to path bin directory (and paths to subdirectories)
+cd('..\bin'); bin_dir = pwd; addpath(bin_dir);
+addpath(fullfile(bin_dir,'external','casadi-v3.6.7'));   % <- add path for 1) here
 if opts.plot
-addpath(fullfile(bin_loc,'external','crameri_colours')); % <- add path for 2) here
+addpath(fullfile(bin_dir,'external','crameri_colours')); % <- add path for 2) here
 end
-addpath(genpath(src_loc));
-cd(src_loc);
+
+% go to save, and add to path raw data directory
+cd(src_dir); cd('..\data\raw'); raw_data_dir = pwd;
+addpath(raw_data_dir);
+
+% go back to src directory
+cd(src_dir);
 
 %% Simulation settings
 % plant model
@@ -99,9 +107,9 @@ Tcl0 = connect(Cz0,plant,fbsum{:},[rk_name(:).',ek_name(:).'],[uk_name(:).',yk_n
 e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % create innovation noise
 
 % simulate system with noise
-[uy0,~,x1] = lsim(Tcl0,[yr0;e0],[]); uy0 = uy0.'; x1 = x1.';
+[uy0,~,xcl0] = lsim(Tcl0,[yr0;e0],[]); uy0 = uy0.'; xcl0 = xcl0.';
 u0 = uy0(1:nu,:); y0 = uy0(nu+1:end,:); clear uy0; % get inputs and outputs
-x1plant = x1(size(Cz0.A,1)+1:size(Cz0.A,1)+nx,:);  % get states of plant
+xcl0_plant = xcl0(size(Cz0.A,1)+1:size(Cz0.A,1)+nx,end);  % get final state of plant
 
 % create Hankel matrices
 [~,Up_r01,Uf_r01] = make_Hankel(u0,p,f); % - data w/ noise
@@ -167,7 +175,7 @@ Cz1.y = uk_name;                  % u_k
 
 % 2) optimal IV
 Lf2 = Yf_r01*Zopt.'*pinv(W1*Zopt.');
-[Cz2,x0_SPC] = Lf_2_SPC(Lf2,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f,up=up0,yp=yp0,urf=urf,yrf=yrf);
+[Cz2,x1_0_SPC] = Lf_2_SPC(Lf2,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f,up=up0,yp=yp0,urf=urf,yrf=yrf);
 Cz2.u = Cz1.u; Cz2.y = Cz1.y;
 
 % 3) SPC using LCF
@@ -204,8 +212,8 @@ nCz = length(Czs);
 
 %% Run closed-loop simulations
 e1 = mvnrnd(zeros(ny,1),Re,Ncl).'; % create innovation noise
-x0_plant = plant.A*x1plant(:,end)+plant.B*[u0(:,end);e0(:,end)];
-x0_cl = [x0_SPC;x0_plant];
+x1_0_plant = plant.A*xcl0_plant+plant.B*[u0(:,end);e0(:,end)];
+x1_0_cl = [x1_0_SPC;x1_0_plant];
 
 % create closed-loop systems
 Tcl_in  = [urkf_name(:)',yrkf_name(:)',ek_name(:)'];
@@ -218,7 +226,7 @@ end
 % define data structures
 [u_cl, y_cl] = deal(cell(nCz,1));
 for kCz = 1:nCz
-    uy_cl = lsim(Tcls{kCz},[ur1(:,f+1:end);yr1(:,f+1:end);e1],[],x0_cl).';
+    uy_cl = lsim(Tcls{kCz},[ur1(:,f+1:end);yr1(:,f+1:end);e1],[],x1_0_cl).';
     u_cl{kCz} = uy_cl(1:nu,:);
     y_cl{kCz} = uy_cl(nu+1:end,:);
 end
@@ -253,12 +261,37 @@ for kCz = 1:nCz-1           % last row is zero b/c Lf7-Lf7 = 0
     FroIDerror(kCz,3) = norm(IDerror(:,cols),'fro');
 end
 
-% how well does identification error explain obtained performance
-ErrorData = [FroIDerror,ones(nCz,1)];
-gamma_fro = pinv(ErrorData)*cost_tot;
-cost_est = ErrorData*gamma_fro;
-cost_est_error = cost_tot-cost_est;
-cost_error_rel = cost_est_error./cost_tot*100;
+%% Saving data
+if opts.save
+    % Helper function to trim to minimal digits in scientific notation
+    trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
+    % Also remove . if nothing follows
+    trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
+    
+    % Apply formatting
+    Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);  Ncl_str = trimmed_exp(Ncl);
+    Qk_str  = trimmed_exp(Qk); Rk_str  = trimmed_exp(Rk); dRk_str = trimmed_exp(dRk);
+    data_dir = sprintf('Re_%s_p_%d_f_%d_N_%s_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',Re_str,p,f,N_str,Ncl_str,Qk_str,Rk_str,dRk_str);
+    data_dir = replace(data_dir,'.','p');
+    data_dir = replace(data_dir,'+','');
+    cd(raw_data_dir);
+    if ~isfolder(data_dir)
+        % make data folder to store data for different seeds
+        mkdir(data_dir);
+
+        % also add .txt version of executed main.m file
+        copyfile(fullfile(src_dir,append(mfilename,'.m')),...
+                 fullfile(raw_data_dir,data_dir,append(mfilename,'.txt')));
+    end
+    fn = sprintf('seed_%d.mat',seed);
+    fn = fullfile(raw_data_dir,data_dir,fn);
+    save(fn,'Re','p','f','N','Ncl','Qk','Rk','dRk','seed','Nbar',...
+        'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
+        'u0_2','y0_2','Lfs','Czs','Tcls','u_cl','y_cl',...
+        'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
+        'FroIDerror');
+    cd(src_dir);
+end
 
 %% Plotting
 if opts.plot
