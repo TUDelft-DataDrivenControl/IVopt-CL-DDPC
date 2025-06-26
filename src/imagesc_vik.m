@@ -1,22 +1,25 @@
 % produce colour-scaled imagesc using vik
-function imagesc_vik(CorMat,varargin)
-narginchk(1,3)
-if nargin >= 2
-    vik = varargin{1};
+function imagesc_vik(CorMat,opts)
+arguments (Input)
+    CorMat double
+    opts.axh matlab.graphics.axis.Axes
+    opts.cmax (1,1) double
+end
+
+if isfield(opts,'axh')
+    axh = opts.axh;
 else
-    load('vik.mat');
     axh = gca;
 end
-if nargin >= 3
-    axh = varargin{2};
+if isfield(opts,'cmax')
+    c_absmax = opts.cmax;
 else
-    axh = gca;
+    c_absmax = max(abs(CorMat),[],'all');
 end
+
 imagesc(axh,CorMat);
-c_absmax = max(abs(CorMat),[],'all');
 clim([-c_absmax c_absmax]);
 cmap = crameri('vik','pivot',0);
 colormap(cmap);
-% colormap(vik);
 colorbar;
 end

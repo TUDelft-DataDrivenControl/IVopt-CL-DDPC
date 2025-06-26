@@ -26,8 +26,6 @@ L_cly = blk_toeplitz_mean(L_cly,ny,ny);
 
 % concatenate averaged matrices
 L_cl = [L_clu; L_cly];
-figure(1);
-imagesc_vik(L_cl)
 
 % ------------------------ get approximate IV -----------------------------
 [Rpf2,~,~] = make_Hankel([zeros(ny,s) ref],s,pf); % initialize by zero

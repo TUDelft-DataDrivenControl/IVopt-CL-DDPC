@@ -74,6 +74,10 @@ D = zeros(nu, n_input);
 
 % --- Create state-space system ---
 Cz_SPC = ss(A, B, C, D, []);
+% Cz_SPC.InputName{1} = 'y_k';
+% Cz_SPC.InputName{2} = 'ur_{k+f}';
+% Cz_SPC.InputName{3} = 'yr_{k+f}';
+% Cz_SPC.OutputName   = 'u_k';
 
 % --- Initial state (optional) ---
 if nargout == 2

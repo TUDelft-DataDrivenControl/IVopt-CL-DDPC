@@ -7,11 +7,12 @@ clear;
 close all;
 rng default;
 
-addpath('..\bin');
-addpath(genpath("C:\Users\rogierdinkla\Documents\MATLAB"));
-addpath(genpath("C:\Users\rogierdinkla\Documents\CasADi\casadi-3.6.7-windows64-matlab2018b"));
-% color maps: https://www.fabiocrameri.ch/colourmaps/
-load('vik.mat');
+addpath(genpath('..\bin'));
+addpath(genpath('.\fun'));
+% addpath(genpath("C:\Users\rogierdinkla\Documents\MATLAB"));
+% addpath(genpath("C:\Users\rogierdinkla\Documents\CasADi\casadi-3.6.7-windows64-matlab2018b"));
+% % color maps: https://www.fabiocrameri.ch/colourmaps/
+% load('vik.mat');
 
 %% problem parameters
 f = 15;
@@ -19,7 +20,7 @@ fid = f;
 p = 20;
 ny = 1;
 nu = 1;
-N = 1e5;%100*(p*(nu+ny)+f*nu);
+N = 1e4;%100*(p*(nu+ny)+f*nu);
 Nbar = p + fid + N -1;
 
 % controller weights
@@ -29,15 +30,16 @@ Qk = 1e2*eye(ny); Q = kron(speye(f),Qk);
 
 % reference
 Nbar_ref = ceil((Nbar-fid)/f)*f+2*f-1;
-% y_ref = idinput(Nbar_ref,'prbs',[],[-1 1]).';
-y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
+y_ref = idinput(Nbar_ref,'prbs',[],[-1 1]).';
+% y_ref = sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/20)));
 % y_ref = 0.5*sign(sin(pi/2+(1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60))) + ...
 %         0.5*sign(sin((1:3:3*(Nbar-fid+2*f))*2*pi/(Nbar/60)));
 % y_ref = y_ref(:,1:end-1);
 y_ref = repmat(y_ref,ny,1);
 
 % get solver: uf_ref, yf_ref, up, yp -> u_k
-get_solver;
+[up2usol, yp2usol, urf2usol, yrf2usol, get_ICuf, get_ICyf, get_ICup,...
+    get_ICyp, get_ICyr, get_ICur, calc_u_v2] = get_solver(nu,ny,p,f,Q,R,dR);
 
 %% ============================= make system ==============================
 % make nominal system
@@ -142,7 +144,7 @@ ICyr = kron(speye(f),uSF)\get_ICyr(Lest_r0)*kron(speye(2*f-1),ySF);
 ICur = kron(speye(f),uSF)\get_ICur(Lest_r0)*kron(speye(2*f-1),uSF);
 
 % --------------------- create actual matrices ----------------------------
-get_actual_matrices;
+[Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(A,B,C,D,K,p,f);
 
 % ---------------- make transfer-function of controller -------------------
 % Cz0yk  = tf([0 fliplr(yp2uk)],[1 -fliplr(up2uk)],1,'Variable','z^-1'); % y_k -> u_k
@@ -340,42 +342,29 @@ plotABCD;
 % else
     % L_cl = 1/size(yRp,2)*[Uf_r1;Yf_r1]*Ziv.'*pinv(1/size(yRp,2)*[yRp;yRf]*Ziv.');%[Up_iv;Uf_iv;Yf_iv]
 % end
-L_clu = L_cl(1:nu*f,:);      L_clu = tril(L_clu,p+f-1);
-L_cly = L_cl(nu*f+1:end,:);  L_cly = tril(L_cly,p+f-1);
-L_clu = toeplitz_mean(L_clu);
-L_cly = toeplitz_mean(L_cly);
+L_clu = L_cl(1:nu*f,:);
+L_cly = L_cl(nu*f+1:end,:);
+L_clu = L_clu.*kron(tril(ones(f,p+2*f-1),p+f-1),ones(ny,nu));
+L_cly = L_cly.*kron(tril(ones(f,p+2*f-1),p+f-1),ones(ny,ny));
+L_clu = blk_toeplitz_mean(L_clu,ny,nu);
+L_cly = blk_toeplitz_mean(L_cly,ny,ny);
 L_cl = [L_clu; L_cly];
 
 y_ref2 = [zeros(ny,p) y_ref];
 [~,yRp2,yRf2] = make_Hankel(y_ref2,p,2*f-1);
 UY_iv = L_cl*[yRp2;yRf2];
 U_iv = UY_iv(1:nu*f,:);
-U_iv = flipud(toeplitz_mean(flipud(U_iv)));
+U_iv = flipud(blk_toeplitz_mean(flipud(U_iv),nu,1));
 % u_iv = diag_stats(flipud(U_iv));
 u_iv = U_iv(:,1); u_iv = [reshape(u_iv,nu,[]),U_iv(end-nu+1:end,2:end)];
 Y_iv = UY_iv(nu*f+1:end,:);
-Y_iv = flipud(toeplitz_mean(flipud(Y_iv)));
+Y_iv = flipud(blk_toeplitz_mean(flipud(Y_iv),ny,1));
 % y_iv = diag_stats(flipud(Y_iv));
 y_iv = Y_iv(:,1); y_iv = [reshape(y_iv,ny,[]),Y_iv(end-ny+1:end,2:end)];
 u_iv = u_iv(:,1:length(u1));
 y_iv = y_iv(:,1:length(y1));
 %}
 % -------------------------------------------------------------------------
-
-% u_iv = [];
-% y_iv = [];
-% u_ref2 = [zeros(nu,p) u_ref];
-% for k2 = 1:ceil(Nbar/f)-1
-%     urf_k2 = u_ref2(:,(k2-1)*f+1:(k2-1)*f+p+2*f-1);
-%     u_iv = [u_iv;L_cl(1:nu*f,:)*urf_k2(:)];
-%     y_iv = [y_iv;L_cl(nu*f+1:end,:)*urf_k2(:)];
-% end
-% krem = Nbar-k2*f; k2 = k2 + 1;
-% urf_k2 = u_ref2(:,(k2-1)*f+1:end);
-% u_iv = [u_iv;L_cl(1:nu*krem,1:numel(urf_k2))*urf_k2(:)];
-% y_iv = [y_iv;L_cl(nu*f+1:nu*f+krem,1:numel(urf_k2))*urf_k2(:)];
-% u_iv = reshape(u_iv,nu,[]);
-% y_iv = reshape(y_iv,ny,[]);
 
 % analysis - rmse w.r.t optimal IVs
 RMSE_Yiv(kiv) = rms(y_iv-y2(1:length(y_iv)));
@@ -407,10 +396,10 @@ hat_Tf_u = Lest(:,p*nu+1:(p+f)*nu);
 % plotting IV data
 plot(ax1_1,y_iv); ylim(ax1_1,[-2 2]);
 plot(ax1_2,u_iv); ylim(ax1_2,[-10 10]);
-nexttile(tl10); imagesc_parts(Ef_r1, vik, gca, Up_iv, Uf_iv, Yp_iv);
-nexttile;       imagesc_parts(Wp_r1, vik, gca, Up_iv, Uf_iv, Yp_iv);
-nexttile;       imagesc_vik([hat_Gf_tKp_u hat_Tf_u], vik, gca);
-nexttile;       imagesc_vik(hat_Gf_tKp_y, vik, gca);
+nexttile(tl10); imagesc_parts(Ef_r1, Up_iv, Uf_iv, Yp_iv);
+nexttile;       imagesc_parts(Wp_r1, Up_iv, Uf_iv, Yp_iv);
+nexttile;       imagesc_vik([hat_Gf_tKp_u hat_Tf_u]);
+nexttile;       imagesc_vik(hat_Gf_tKp_y);
 
 hat_Tf_u = tril(hat_Tf_u,-1);
 
@@ -608,8 +597,8 @@ function plot_with_shaded_std(x, y, std_dev, color)
 end
 
 % produce imagesc of correlation
-function imagesc_parts(Ef,vik,axh,varargin)
-narginchk(4,inf);
+function imagesc_parts(Ef,varargin)
+narginchk(2,inf);
 Z = [];
 nvarargin = length(varargin);
 xvals = zeros(1,nvarargin);
@@ -618,7 +607,7 @@ for k = 1:nvarargin
     xvals(k) = size(varargin{k},1);
 end
 corEfZ = Ef*Z.'/size(Ef,2);
-imagesc_vik(corEfZ,vik,axh);
+imagesc_vik(corEfZ);
 xvals = cumsum(xvals)+0.5;
 for k = 1:nvarargin-1
     xline(xvals(k),'LineWidth',1.5);
