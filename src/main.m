@@ -18,10 +18,27 @@ end
 [Re, p, f, N, Ncl, dRk, Rk, Qk, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.dRk, opts.Rk, opts.Qk, opts.seed);
 rng(seed);
 
-addpath(genpath('..\bin'));
-addpath(genpath('.\'));
-% addpath(genpath("C:\Users\rogierdinkla\Documents\MATLAB"));
-% addpath(genpath("C:\Users\rogierdinkla\Documents\CasADi\casadi-3.6.7-windows64-matlab2018b"));
+% Requirements:
+% 1) Casadi                                     v3.6.7
+% 2) crameri_colours                            v1.09
+%    Used for plotting if opts.plot = true. Obtained from
+%    https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
+% 3) Control System Toolbox                     v24.2
+% 4) System Identification Toolbox              v24.2
+% 5) Robust Control Toolbox                     v24.2
+% 6) Statistics and Machine Learning Toolbox    v24.2
+
+% add relevant paths
+[src_loc, ~  , ~] = fileparts(which(mfilename));
+cd(src_loc);
+cd('..\bin'); bin_loc = pwd;
+addpath(bin_loc);
+addpath(fullfile(bin_loc,'external','casadi-v3.6.7'));   % <- add path for 1) here
+if opts.plot
+addpath(fullfile(bin_loc,'external','crameri_colours')); % <- add path for 2) here
+end
+addpath(genpath(src_loc));
+cd(src_loc);
 
 %% Simulation settings
 % plant model
