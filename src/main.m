@@ -144,19 +144,29 @@ Hcu = make_blk_tril_toeplitz(Uc.A,Uc.B,Uc.C,Uc.D,f);
 IV_Theta = Hcv*Uf_r01 + Hcu*Yf_r01;
 Ziv3 = [Up_r01; Yp_r01; IV_Theta; Rf_yr0];
 
-% 4) approximation of optimal IV w/o controller information
+% 4) approx. optimal IV w/o controller information
 [u_iv4,y_iv4] = approx_IV_no_controller_info(u0,y0,yr0,p,p,f);
 [~,Up_iv4,Uf_iv4] = make_Hankel(u_iv4,p,f);
 [~,Yp_iv4,~] = make_Hankel(y_iv4,p,f);
 % Ziv4 = [Up_iv4;Yp_iv4;Uf_iv4];
 Ziv4 = [Up_r01;Yp_r01;Uf_iv4];
 
-% 5) approximation of optimal IV w/ controller information
-[u_iv5,y_iv5,xCz_iv] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv3,Cz0,1);
+% 5) approx. optimal IV w/ controller information - init. LCF
+[u_iv5,y_iv5,xCz_iv5] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv3,Cz0,1);
 [~,Up_iv5,Uf_iv5] = make_Hankel(u_iv5,p,f);
 [~,Yp_iv5,~] = make_Hankel(y_iv5,p,f);
 % Ziv5 = [Up_iv5;Yp_iv5;Uf_iv5];
 Ziv5 = [Up_r01;Yp_r01;Uf_iv5];
+
+% 8) basic IV
+Ziv8 = [Up_r01; Yp_r01; Rf_yr0];
+
+% 9) approx optimal IV w/ controller information - init. basic IV
+[u_iv9,y_iv9,xCz_iv9] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv8,Cz0,1);
+[~,Up_iv9,Uf_iv9] = make_Hankel(u_iv9,p,f);
+[~,Yp_iv9,~] = make_Hankel(y_iv9,p,f);
+% Ziv9 = [Up_iv9;Yp_iv9;Uf_iv9];
+Ziv9 = [Up_r01;Yp_r01;Uf_iv9];
 
 % ---------------------- get (CL-)SPC controllers -------------------------
 fprintf('Obtaining controllers...\n');
@@ -193,7 +203,7 @@ Lf4 = Yf_r01*Ziv4.'*pinv(W1*Ziv4.');
 Cz4 = Lf_2_SPC(Lf4,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz4.u = Cz1.u; Cz4.y = Cz1.y;
 
-% 5) SPC using approximation of optimal IV w/ controller information
+% 5) SPC using approximation of optimal IV w/ controller info. - init LCF
 Lf5 = Yf_r01*Ziv5.'*pinv(W1*Ziv5.');
 Cz5 = Lf_2_SPC(Lf5,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz5.u = Cz1.u; Cz5.y = Cz1.y;
@@ -209,11 +219,23 @@ Lf7 = [Up2Yf_inno Yp2Yf_inno Uf2Yf_inno];
 Cz7 = Lf_2_SPC(Lf7,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz7.u = Cz1.u; Cz7.y = Cz1.y;
 
+% 8) basic IV
+Lf8 = Yf_r01*Ziv8.'*pinv(W1*Ziv8.');
+Cz8 = Lf_2_SPC(Lf8,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
+Cz8.u = Cz1.u; Cz8.y = Cz1.y;
+
+% 9) approx optimal IV w/ controller information - init. basic IV
+Lf9 = Yf_r01*Ziv9.'*pinv(W1*Ziv9.');
+Cz9 = Lf_2_SPC(Lf9,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
+Cz9.u = Cz1.u; Cz9.y = Cz1.y;
+
 % collect controllers and Lf estimates in cell array
-[Lfs,Czs] = deal(cell(7,1));
-Lfs{1} = Lf1; Lfs{2} = Lf2; Lfs{3} = Lf3; Lfs{4} = Lf4; Lfs{5} = Lf5; Lfs{6} = Lf6; Lfs{7} = Lf7;
-Czs{1} = Cz1; Czs{2} = Cz2; Czs{3} = Cz3; Czs{4} = Cz4; Czs{5} = Cz5; Czs{6} = Cz6; Czs{7} = Cz7;
-nCz = length(Czs);
+nCz = 9;
+[Lfs,Czs] = deal(cell(nCz,1));
+Lfs{1} = Lf1; Lfs{2} = Lf2; Lfs{3} = Lf3; Lfs{4} = Lf4; Lfs{5} = Lf5;
+Lfs{6} = Lf6; Lfs{7} = Lf7; Lfs{8} = Lf8; Lfs{9} = Lf9;
+Czs{1} = Cz1; Czs{2} = Cz2; Czs{3} = Cz3; Czs{4} = Cz4; Czs{5} = Cz5;
+Czs{6} = Cz6; Czs{7} = Cz7; Czs{8} = Cz8; Czs{9} = Cz9;
 
 %% Run closed-loop simulations
 fprintf('Running closed-loop simulations...\n');
@@ -262,7 +284,7 @@ cost_tot= cost_u + cost_y; % total cost
 fprintf('Calculate identification errors...\n');
 
 FroIDerror = zeros(kCz,3);
-for kCz = 1:nCz-1           % last row is zero b/c Lf7-Lf7 = 0
+for kCz = 1:nCz
     IDerror = Lfs{kCz}-Lf7;
     cols = 1:p*nu;
     FroIDerror(kCz,1) = norm(IDerror(:,cols),'fro');
@@ -300,6 +322,7 @@ if opts.save
     save(fn,'Re','p','f','N','Ncl','Qk','Rk','dRk','seed','Nbar',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
         'u0_2','y0_2','Lfs','Czs','Tcls','u_cl','y_cl',...
+        'u_iv4','y_iv4','u_iv5','y_iv5','u_iv9','y_iv9',...
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
     fprintf('File saved successfully!\n');
@@ -318,9 +341,10 @@ if opts.plot
     plot(y0_2,'LineWidth',2);
     plot(y_iv4);
     plot(y_iv5);
+    plot(y_iv9);
     plot(yr0);
     plot(e0);
-    legend({'$y$','$y_{iv}^*$','$y_{iv}^{nc}$','$y_{iv}^{c}$','ref','$e$'},'interpreter','latex');
+    legend({'$y$','$y_{iv}^*$','$y_{iv}^{nc}$','$y_{iv}^{c,lcf}$','$y_{iv}^{c,b}$','ref','$e$'},'interpreter','latex');
     grid on;
     ylabel('$y_k$','Interpreter','latex');
     
@@ -329,6 +353,7 @@ if opts.plot
     plot(u0_2,'LineWidth',2);
     plot(u_iv4);
     plot(u_iv5);
+    plot(u_iv9);
     grid on;
     ylabel('$u_k$','Interpreter','latex');
     xlabel('Time','Interpreter','latex');
@@ -341,28 +366,36 @@ if opts.plot
     
     ax2_1 = nexttile;
     plot(yr1, 'k-','LineWidth',2); hold on;
-    for kCz = 1:nCz-1
-        plot(y_cl{kCz},'--');
+    for kCz = 1:nCz
+        if kCz == 7
+            plot(y_cl{kCz});
+        else
+            plot(y_cl{kCz},'--');
+        end
     end
-    plot(y_cl{end})
     ylim([-15 15]);
     legend('ref', ...
         '$\mathcal{Z}_\mathrm{ol}$', ...
         '$\mathcal{Z}^*$', ...
         '$\mathcal{Z}_\mathrm{lcf}$',...
         '$\widehat{\mathcal{Z}}_\mathrm{nc}^*$', ...
-        '$\widehat{\mathcal{Z}}_\mathrm{c}^*$', ...
+        '$\widehat{\mathcal{Z}}_\mathrm{c,lcf}^*$', ...
         'CL-SPC', ...
         '$L_f^*$', ...
+        '$\widehat{\mathcal{Z}}_\mathrm{b}',...
+        '$\widehat{\mathcal{Z}}_\mathrm{c,b}^*$',...
         'Interpreter','latex');
     ylabel('$y_k$','Interpreter','latex')
     
     ax2_2 = nexttile;
     plot(ur1, 'k-','LineWidth',2); hold on;
-    for kCz = 1:nCz-1
-        plot(u_cl{kCz},'--');
+    for kCz = 1:nCz
+        if kCz == 7
+            plot(u_cl{kCz});
+        else
+            plot(u_cl{kCz},'--');
+        end
     end
-    plot(u_cl{end})
     ylim([-30 30]);
     ylabel('$u_k$','Interpreter','latex');
     xlabel('Time', 'Interpreter','latex');
