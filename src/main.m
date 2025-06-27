@@ -35,20 +35,22 @@ rng(seed);
 addpath(genpath(src_dir));
 
 % go to, save, and add to path bin directory (and paths to subdirectories)
-cd('..\bin'); bin_dir = pwd; addpath(bin_dir);
+cd('..'); cd('bin'); bin_dir = pwd; addpath(bin_dir);
 addpath(fullfile(bin_dir,'external','casadi-v3.6.7'));   % <- add path for 1) here
 if opts.plot
 addpath(fullfile(bin_dir,'external','crameri_colours')); % <- add path for 2) here
 end
 
 % go to save, and add to path raw data directory
-cd(src_dir); cd('..\data\raw'); raw_data_dir = pwd;
+cd(src_dir); cd('..'); cd(append('data',filesep,'raw')); raw_data_dir = pwd;
 addpath(raw_data_dir);
 
 % go back to src directory
 cd(src_dir);
 
 %% Simulation settings
+fprintf('Setting simulation settings...\n');
+
 % plant model
 [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
 
@@ -93,6 +95,7 @@ P0  = dcgain(plant(:,1:nu));                    % DC gain
 ur1 = P0\yr1;                                   % u-ref
 
 %% Data generation (closed-loop)
+fprintf('Obtaining initial closed-loop data...\n');
 
 % make closed-loop system
 fbsum = cell(ny,1);
@@ -125,6 +128,7 @@ u0_2 = uy0_2(1:nu,:); y0_2 = uy0_2(nu+1:end,:); clear uy0_2;
 
 %% Get Subspace Predictive Controllers
 % ----------------------------- get IVs -----------------------------------
+fprintf('Obtaining IVs...\n');
 
 % 1) open-loop IV (i.e. least-squares regression)
 W1 = [Up_r01;Yp_r01;Uf_r01];
@@ -155,6 +159,7 @@ Ziv4 = [Up_r01;Yp_r01;Uf_iv4];
 Ziv5 = [Up_r01;Yp_r01;Uf_iv5];
 
 % ---------------------- get (CL-)SPC controllers -------------------------
+fprintf('Obtaining controllers...\n');
 [up2usol, yp2usol, urf2usol, yrf2usol] = get_solver(nu,ny,p,f,Q,R,dR);
 
 % for initial state of SPC controllers
@@ -211,6 +216,8 @@ Czs{1} = Cz1; Czs{2} = Cz2; Czs{3} = Cz3; Czs{4} = Cz4; Czs{5} = Cz5; Czs{6} = C
 nCz = length(Czs);
 
 %% Run closed-loop simulations
+fprintf('Running closed-loop simulations...\n');
+
 e1 = mvnrnd(zeros(ny,1),Re,Ncl).'; % create innovation noise
 x1_0_plant = plant.A*xcl0_plant+plant.B*[u0(:,end);e0(:,end)];
 x1_0_cl = [x1_0_SPC;x1_0_plant];
@@ -230,8 +237,10 @@ for kCz = 1:nCz
     u_cl{kCz} = uy_cl(1:nu,:);
     y_cl{kCz} = uy_cl(nu+1:end,:);
 end
+fprintf('Closed-loop simulations finished!\n');
 
 %% Calculate average stage costs
+fprintf('Calculate average stage costs...\n');
 
 % average of (u_k-ur_k).' * Rk * (u_k-ur_k) over Ncl steps
 cost_uk = @(u) reshape(ur1(:,1:Ncl)-u,[],1).'*kron(speye(Ncl),Rk)*reshape(ur1(:,1:Ncl)-u,[],1); 
@@ -250,6 +259,8 @@ cost_u  = cost_u1 + cost_u2;
 cost_tot= cost_u + cost_y; % total cost
 
 %% Identification error analysis
+fprintf('Calculate identification errors...\n');
+
 FroIDerror = zeros(kCz,3);
 for kCz = 1:nCz-1           % last row is zero b/c Lf7-Lf7 = 0
     IDerror = Lfs{kCz}-Lf7;
@@ -285,11 +296,13 @@ if opts.save
     end
     fn = sprintf('seed_%d.mat',seed);
     fn = fullfile(raw_data_dir,data_dir,fn);
+    fprintf('Saving data to file: \n\t%s \n',fn);
     save(fn,'Re','p','f','N','Ncl','Qk','Rk','dRk','seed','Nbar',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
         'u0_2','y0_2','Lfs','Czs','Tcls','u_cl','y_cl',...
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
+    fprintf('File saved successfully!\n');
     cd(src_dir);
 end
 

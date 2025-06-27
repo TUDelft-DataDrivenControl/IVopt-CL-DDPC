@@ -10,25 +10,29 @@ submit_job_array() {
     # Create the SLURM submission script
     cat > "$script_name" <<EOL
 #!/bin/bash
-#SBATCH --job-name=dRe${index}
+#SBATCH --job-name=Job${index}
 #SBATCH --partition=compute
-#SBATCH --time=00:03:00
+#SBATCH --time=00:10:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=3900M
 #SBATCH --account=research-me-dcsc
-#SBATCH --output=./Job${index}/dRe.%A_%a.out
-#SBATCH --error=./Job${index}/dRe.%A_%a.err
+#SBATCH --output=./Job${index}/job.%A_%a.out
+#SBATCH --error=./Job${index}/job.%A_%a.err
 #SBATCH --array=1-100
 
 # Load any necessary modules or set environment variables
 module load matlab
 
-# Your commands or script for each job array
-matlab -nosplash -nodesktop -r "seed_val=(((${index} - 1) * 100) + \$SLURM_ARRAY_TASK_ID); sprintf('seed = %d\n',seedval); main(seed_val), quit"
+# Use literal $ to defer expansion until job runtime
+task_id=\$SLURM_ARRAY_TASK_ID
+seed_val=\$(( (${index} - 1)*100 + task_id ))
+
+matlab -nosplash -nodesktop -r "index=${index}; task_id=\${task_id}; seed_val=\${seed_val}; fprintf('seed = %d, index = %d, task_id = %d\n', seed_val, index, task_id); main(seed=seed_val); quit"
 echo "Finished MATLAB calculations"
 
 EOL
+
 
     # Make the script executable
     chmod +x "$script_name"
@@ -48,7 +52,7 @@ cd ${HOME}/../../scratch/${USER}/IVopt-DDPC/src/
 # Iterate over the range of job arrays
 for index in $(seq $start_index $end_index); do
     # Call the function to submit the SLURM job array
-    mkdir "./Job${index}"
+    mkdir -p "./Job${index}"
     submit_job_array "$index"
 done
 echo "Submitted all Slurm job arrays"
