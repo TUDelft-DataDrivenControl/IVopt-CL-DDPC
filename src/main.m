@@ -15,6 +15,7 @@ arguments (Input)
     opts.Qk   (1,1) double  = 1e2;
     opts.seed (1,1) double  = 1;
     opts.save       logical = true;     % save data
+    opts.raw_dir    cell;
 end
 [Re, p, f, N, Ncl, dRk, Rk, Qk, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.dRk, opts.Rk, opts.Qk, opts.seed);
 rng(seed);
@@ -41,9 +42,18 @@ if opts.plot
 addpath(fullfile(bin_dir,'external','crameri_colours')); % <- add path for 2) here
 end
 
-% go to save, and add to path raw data directory
-cd(src_dir); cd('..'); cd(append('data',filesep,'raw')); raw_data_dir = pwd;
-addpath(raw_data_dir);
+if opts.save
+    % go to save, and add to path raw data directory
+    cd(src_dir); cd('..'); cd(append('data',filesep,'raw')); data_dir = pwd;
+    if isfield(opts,'raw_dir')
+        % add opts.raw_dir to raw data path if it exists
+        data_dir = fullfile(data_dir,opts.raw_dir{:});
+        if ~isfolder(data_dir) % make folder if it doesn't exist yet
+            mkdir(data_dir);
+        end
+    end
+    addpath(data_dir);
+end
 
 % go back to src directory
 cd(src_dir);
@@ -296,28 +306,30 @@ end
 
 %% Saving data
 if opts.save
-    % Helper function to trim to minimal digits in scientific notation
-    trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
-    % Also remove . if nothing follows
-    trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
-    
-    % Apply formatting
-    Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);  Ncl_str = trimmed_exp(Ncl);
-    Qk_str  = trimmed_exp(Qk); Rk_str  = trimmed_exp(Rk); dRk_str = trimmed_exp(dRk);
-    data_dir = sprintf('Re_%s_p_%d_f_%d_N_%s_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',Re_str,p,f,N_str,Ncl_str,Qk_str,Rk_str,dRk_str);
-    data_dir = replace(data_dir,'.','p');
-    data_dir = replace(data_dir,'+','');
-    cd(raw_data_dir);
-    if ~isfolder(data_dir)
-        % make data folder to store data for different seeds
-        mkdir(data_dir);
-
-        % also add .txt version of executed main.m file
-        copyfile(fullfile(src_dir,append(mfilename,'.m')),...
-                 fullfile(raw_data_dir,data_dir,append(mfilename,'.txt')));
-    end
     fn = sprintf('seed_%d.mat',seed);
-    fn = fullfile(raw_data_dir,data_dir,fn);
+    if ~isfield(opts,'raw_dir')
+        % Helper function to trim to minimal digits in scientific notation
+        trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
+        % Also remove . if nothing follows
+        trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
+        
+        % Apply formatting
+        Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);  Ncl_str = trimmed_exp(Ncl);
+        Qk_str  = trimmed_exp(Qk); Rk_str  = trimmed_exp(Rk); dRk_str = trimmed_exp(dRk);
+        data_dir2 = sprintf('Re_%s_p_%d_f_%d_N_%s_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',Re_str,p,f,N_str,Ncl_str,Qk_str,Rk_str,dRk_str);
+        data_dir2 = replace(data_dir2,'.','p');
+        data_dir2 = replace(data_dir2,'+','');
+        data_dir = fullfile(data_dir,data_dir2);
+        if ~isfolder(data_dir)
+            % make data folder to store data for different seeds
+            mkdir(data_dir);
+    
+            % also add .txt version of executed main.m file
+            copyfile(fullfile(src_dir,append(mfilename,'.m')),...
+                     fullfile(data_dir,append(mfilename,'.txt')));
+        end
+    end
+    fn = fullfile(data_dir,fn);
     fprintf('Saving data to file: \n\t%s \n',fn);
     save(fn,'Re','p','f','N','Ncl','Qk','Rk','dRk','seed','Nbar',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
@@ -326,7 +338,6 @@ if opts.save
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
     fprintf('File saved successfully!\n');
-    cd(src_dir);
 end
 
 %% Plotting
@@ -382,7 +393,7 @@ if opts.plot
         '$\widehat{\mathcal{Z}}_\mathrm{c,lcf}^*$', ...
         'CL-SPC', ...
         '$L_f^*$', ...
-        '$\widehat{\mathcal{Z}}_\mathrm{b}',...
+        '$\widehat{\mathcal{Z}}_\mathrm{b}$',...
         '$\widehat{\mathcal{Z}}_\mathrm{c,b}^*$',...
         'Interpreter','latex');
     ylabel('$y_k$','Interpreter','latex')

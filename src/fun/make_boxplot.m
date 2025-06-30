@@ -29,14 +29,15 @@ cost_tot = nan(9,numfiles);
 for kf = 1:numfiles
     fp = fullfile(data_dir,matfiles(kf).name); % file path
     cost_tot(:,kf) = load(fp).cost_tot;     % load data
+    % cost_tot(:,kf) = load(fp).FroIDerror(:,2);
 end
 
-figure(5);
+% figure(5);
 boxplot(cost_tot(:),repmat(CzNames(:),numfiles,1));
 ax = gca;
 ax.FontSize = opts.FontSize;
 ax.TickLabelInterpreter = 'latex';
-ylim([0 100]);
+% ylim([0 1000]);
 ylabel('$\bar{\mathcal{J}}$','interpreter','latex');
 grid on;
 end
