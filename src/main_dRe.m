@@ -25,7 +25,7 @@ arguments (Input)
 end
 
 %% get value of N
-Re_all = linspace(opts.Re_min,opts.Re_max,nRe);
+Re_all = logspace(log10(opts.Re_min),log10(opts.Re_max),nRe);
 opts2.Re = Re_all(iRe);
 
 %% ================= handle path in raw data directory ====================
@@ -55,9 +55,9 @@ opts2.raw_dir{2} = subdir1;
 
 % ------------------------- set name of subdir2 ---------------------------
 nDigits = ceil(log10(nRe + 1));
-format_subdir2 = ['%0', num2str(nDigits), 'd_Re_%s'];
-Re_s = trimmed_exp(opts2.Re);
-subdir2 = sprintf(format_subdir2,iRe,Re_s);
+format_subdir2 = ['%0', num2str(nDigits), 'd_Re_%.2e'];
+subdir2 = sprintf(format_subdir2,iRe,opts2.Re);
+subdir2 = replace(subdir2,'.','p'); % replace . with p
 opts2.raw_dir{3} = subdir2;
 
 %% ==================== pass options to main function ======================

@@ -151,7 +151,7 @@ eigs = pole(sys_cl);
 itk = 0;
 while any(abs(eigs) > 1)
     % analysis A matrix of closed-loop system
-    plotABCD2(A,B,C,D,p,f,nu,ny,nxc);
+    % plotABCD2(A,B,C,D,p,f,nu,ny,nxc);
 
     itk = itk + 1;
 
@@ -174,7 +174,7 @@ if itk > 0
     C(end-nrows*ny+1:end,:)   = A((nu+ny)*p-nrows*ny+1:(nu+ny)*p,:);
     sys_cl = ss(A,B,C,D,-1);
 
-    plotABCD2(A,B,C,D,p,f,nu,ny,nxc)
+    % plotABCD2(A,B,C,D,p,f,nu,ny,nxc)
 end
 
 % ------------------- get approximate optimal IV --------------------------

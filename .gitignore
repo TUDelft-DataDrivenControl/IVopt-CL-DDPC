@@ -19,6 +19,7 @@ src/loop_var.m
 src/make_figures.m
 src/make_ObsvLuLyGu.m
 src/temp2raw.m
+src/**/submit_job_*.sh
 *.asv
 *.err
 *.out

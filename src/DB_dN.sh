@@ -5,7 +5,7 @@ submit_job_array() {
     local index=$1
 
     # Generate a unique SLURM submission script for each set of parameters
-    script_name="./dN/iN${index}/submit_job_array_${index}.sh"
+    script_name="./dN/iN${index}/submit_job_iN${index}.sh"
 
     # Create the SLURM submission script
     cat > "$script_name" <<EOL
@@ -28,7 +28,7 @@ module load matlab
 task_id=\$SLURM_ARRAY_TASK_ID
 seed_val=\$(( (${index} - 1)*100 + task_id ))
 
-matlab -nosplash -nodesktop -r "index=${index}; task_id=\${task_id}; seed_val=\${seed_val}; fprintf('seed = %d, index = %d, task_id = %d\n', seed_val, index, task_id); main_dN(10,task_id,seed=seed_val); quit"
+matlab -nosplash -nodesktop -r "index=${index}; task_id=\${task_id}; seed_val=\${seed_val}; fprintf('seed = %d, index = %d, task_id = %d\n', seed_val, index, task_id); tic; main_dN(10,index,seed=seed_val); toc, quit"
 echo "Finished MATLAB calculations"
 
 EOL
