@@ -11,9 +11,9 @@ function [plant,nx,nu,ny,A,B,C,D,K,Re] = model_Landau1995(options)
 %     doi: 10.1016/j.automatica.2024.112070.
 
 arguments
-   options.K (4,1) double  = [0.1784; -0.6523; 0.2020; 2.2910] % <- not in [1], so from [2]
-   options.Re (1,1) double = 4.81*1e-3                         % <- varies in [1], used [2]
-   options.At_poles (1,4) double = nan(1,4)                    % <- not in [1]
+   options.K (4,1) double  = 1.9*[0.0939; -0.3433; 0.1063; 1.2058]; % <- not in [1], so from [2]
+   options.Re (1,1) double = 4.81*1e-3                              % <- varies in [1], used [2]
+   options.At_poles (1,4) double = nan(1,4)                         % <- not in [1]
 end
 
 %% system matrices

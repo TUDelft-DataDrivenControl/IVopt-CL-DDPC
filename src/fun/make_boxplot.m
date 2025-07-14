@@ -1,15 +1,14 @@
-function make_boxplot(data_dir,opts)
+function make_boxplot(opts)
 arguments (Input)
-    data_dir char
     opts.FontSize (1,1) double = 12;
 end
 % creates nice box plots based on seed_%d.mat files in specified directory
 
 % ------------------------- find .mat files -------------------------------
-cwd = pwd;    % save location
-cd(data_dir); % move to new location
+% cwd = pwd;    % save location
+% cd(data_dir); % move to new location
 matfiles = dir('seed_*.mat'); % find seed_%d.mat files
-cd(cwd);      % move back to old location
+% cd(cwd);      % move back to old location
 
 numfiles = length(matfiles);
 
@@ -27,9 +26,9 @@ CzNames = {'$\mathcal{Z}_\mathrm{ol}$';...                  1) open-loop IV
 % ------------------------- extracting the data ---------------------------
 cost_tot = nan(9,numfiles);
 for kf = 1:numfiles
-    fp = fullfile(data_dir,matfiles(kf).name); % file path
-    cost_tot(:,kf) = load(fp).cost_tot;     % load data
-    % cost_tot(:,kf) = load(fp).FroIDerror(:,2);
+    fp = fullfile(pwd,matfiles(kf).name); % file path
+    % cost_tot(:,kf) = load(fp).cost_tot;     % load data
+    cost_tot(:,kf) = load(fp).FroIDerror(:,2);
 end
 
 % figure(5);
