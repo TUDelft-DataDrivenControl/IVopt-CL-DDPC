@@ -9,6 +9,7 @@ validateattributes(ref,{'double'},{'size',[ny Nbar]});
 
 ref = [ref zeros(ny,ceil(Nbar/ny/f)*ny*f-Nbar)]; % padding ref with zeros for simulation
 Ref = reshape(ref,ny*f,[]);
+Wp  = [Up;Yp;Uf];
 Ziv = Ziv_init;
 
 %% construct constant matrices
@@ -52,7 +53,9 @@ I2 = eye(ny*f);
 for kit = 1:nit_max
 
 % ------------------------------ identification ---------------------------
-Lest = Yf*Ziv.'*pinv([Up;Yp;Uf]*Ziv.');
+% Lest = Yf*Ziv.'*pinv([Up;Yp;Uf]*Ziv.');
+Ziv = Wp*Ziv.'/(Ziv*Ziv.')*Ziv;
+Lest = Yf*Ziv.'/(Ziv*Ziv.');
 % % Lest = Yf*pinv([Up;Yp;Uf]);
 alpha_u = Lest(:,1:p*nu);
 alpha_y = Lest(:,p*nu+1:p*(nu+ny));

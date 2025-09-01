@@ -8,7 +8,7 @@ arguments (Input)
     opts.plot       logical = false;
     opts.p    (1,1) double  = 20;       % window lengths
     opts.f    (1,1) double  = 20;
-    opts.N    (1,1) double  = 1e4;      % number of Hankel matrix columns
+    opts.N    (1,1) double  = 1e4;      % number of data matrix columns
     opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
     opts.dRk  (1,1) double  = 1;        % weights
     opts.Rk   (1,1) double  = 1;
@@ -67,14 +67,14 @@ fprintf('Setting simulation settings...\n');
 switch opts.sys
     case 1
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
-        Zol = makeweight(33,5,0.5);  Zol = c2d(Zol,plant.Ts,'tustin');
+        W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
         fn_Cz0 = 'Cz0_Landau1995.mat';
     case 2
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
         plant.Ts = 1;
-        Zol = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
+        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
         W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
         W2 = ss(1e-1);
         fn_Cz0 = 'Cz0_Bemporad2002.mat';
@@ -93,7 +93,7 @@ switch opts.sys
         nx = size(A,1); nu = size(B,2); ny = size(C,1);
         
         plant = ss(A,[B K], C, [D eye(ny,nu)],1);
-        Zol = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
+        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
         W2 = ss(1e-1);
         fn_Cz0 = 'Cz0_Favoreel1999.mat';
@@ -101,7 +101,7 @@ switch opts.sys
         [plant,Cz0,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023();
         fn_Cz0 = 'Cz0_Wang2023.mat';
         plant.Ts = 1;
-        Zol = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
+        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
         W2 = [];%ss(1e-1);
 end
@@ -113,6 +113,9 @@ yk_name = arrayfun(@(j) sprintf('y0_%d', j), 1:ny, 'UniformOutput', false);
 plant.u(1:nu)     =  uk_name;
 plant.u(nu+1:end) =  ek_name;
 plant.y = yk_name;
+
+% saving to opts structure
+[opts.ny,opts.nu,opts.plant] = deal(ny,nu,plant);
 
 % ----------------------- make/load initial controller --------------------
 switch opts.sys
@@ -138,8 +141,10 @@ Qk = Qk*eye(ny);   Q = kron(speye(f),Qk);
 Nbar = p + f + N -1; % sim. length of initial controller
 
 % ------------------------------ set references ---------------------------
-% yr0  = make_reference(Nbar,ny);
-yr0 = idinput(Nbar,'prbs',[],[-1 1]).';
+yr0  = make_reference(Nbar,ny);
+% yr0 = idinput(Nbar,'prbs',[],[-1 1]).';
+
+wr = lsim(Cz0,yr0).'; % for the form u_k = w_k - Cz(q) y_k
 [~,~,Rf_yr0] = make_Hankel(yr0,p,f);
 
 % -> references for SPC controllers
@@ -158,14 +163,6 @@ end
 rk_name = arrayfun(@(j) sprintf('r0_%d', j), 1:ny, 'UniformOutput', false); % r_k
 conOpts = connectOptions("Simplify",false);
 Tcl0 = connect(Cz0,plant,fbsum{:},[rk_name(:).',ek_name(:).'],[uk_name(:).',yk_name(:).'],conOpts);
-
-% ---------------------- simulation without noise -------------------------
-[uy0_2,~,~] = lsim(Tcl0,[yr0;zeros(ny,Nbar)],[]); uy0_2 = uy0_2.';
-u0_2 = uy0_2(1:nu,:); y0_2 = uy0_2(nu+1:end,:); clear uy0_2;
-
-% create Hankel matrices
-[~,Up_r02,Uf_r02] = make_Hankel(u0_2,p,f); % - data w/o noise
-[~,Yp_r02,Yf_r02] = make_Hankel(y0_2,p,f);
 
 % ----------------------- simulation with noise ---------------------------
 e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % create innovation noise
@@ -192,20 +189,55 @@ end
 u0 = uy0(1:nu,:); y0 = uy0(nu+1:end,:); clear uy0; % get inputs and outputs
 xcl0_plant = xcl0(size(Cz0.A,1)+1:size(Cz0.A,1)+nx,end);  % get final state of plant
 
-% create Hankel matrices
+% create data matrices
 [~,Up_r01,Uf_r01] = make_Hankel(u0,p,f); % - data w/ noise
 [~,Yp_r01,Yf_r01] = make_Hankel(y0,p,f);
+[~,Ep_r01,Ef_r01] = make_Hankel(y0,p,f);
+
+% ------------------- simulations without future noise --------------------
+Uf_r02 = nan(nu*f,N);
+Yf_r02 = nan(ny*f,N);
+tic
+for kN = 1:N
+    kk = p+kN;
+    uy_f_iv_opt = lsim(Tcl0,[yr0(:,kk:kk+f-1);zeros(ny,f)],[],xcl0(:,kk).').';
+    Uf_r02(:,kN) = reshape(uy_f_iv_opt(1:nu,:),nu*f,1);
+    Yf_r02(:,kN) = reshape(uy_f_iv_opt(nu+(1:ny),:),ny*f,1);
+end
+toc
 
 %% Get Subspace Predictive Controllers
+% determine past data length to use - varrho
+[Ac,Bc,Cc,Dc] = ssdata(Cz0);
+nxc = size(Ac,1);
+Gamma_c = make_ext_obsv(Ac,Cc,nxc);
+if rank(Gamma_c)~= nxc
+    error('Controller is not observable');
+end
+% rho = lag of the controller
+rho = nan;
+for k = 1:nxc
+    if rank(Gamma_c(1:nu*k,:)) == nxc
+        rho = k;
+        break;
+    end
+end
+
+% get max of past controller & plant windows
+varrho = max(rho,p);
+
 % ----------------------------- get IVs -----------------------------------
 fprintf('Obtaining IVs...\n');
 
 % 1) open-loop IV (i.e. least-squares regression)
-Zol = [Up_r01;Yp_r01;Uf_r01];
+Zol  = [Up_r01;Yp_r01;Uf_r01];
 
 % 2) optimal IV
-% Zopt = [Up_r02;Yp_r02;Uf_r02];
-Zopt = [Up_r01;Yp_r01;Uf_r02];
+% Zopt = [Up_r01;Yp_r01;Uf_r02];
+Zopt  = [Up_r01;Yp_r01;Uf_r02;Yf_r02];
+Zopt_2= new_IV(Zopt,Zol,p*(nu+ny));
+[u_iv,u_iv_std] = diag_stats(flipud(Uf_r02));
+[y_iv,y_iv_std] = diag_stats(flipud(Yf_r02));
 
 % 3) composed IV using LCF
 [~,Vc,Uc] = lncf(ss(Cz0));
@@ -213,30 +245,34 @@ Hcv = make_blk_tril_toeplitz(Vc.A,Vc.B,Vc.C,Vc.D,f);
 Hcu = make_blk_tril_toeplitz(Uc.A,Uc.B,Uc.C,Uc.D,f);
 IV_Theta = Hcv*Uf_r01 + Hcu*Yf_r01;
 Ziv3 = [Up_r01; Yp_r01; IV_Theta; Rf_yr0];
+Ziv3_2 = new_IV(Ziv3,Zol,p*(nu+ny));
 
 % 4) approx. optimal IV w/o controller information
-[u_iv4,y_iv4] = approx_IV_no_controller_info(u0,y0,yr0,p,p,f);
-[~,Up_iv4,Uf_iv4] = make_Hankel(u_iv4,p,f);
-[~,Yp_iv4,~] = make_Hankel(y_iv4,p,f);
-% Ziv4 = [Up_iv4;Yp_iv4;Uf_iv4];
-Ziv4 = [Up_r01;Yp_r01;Uf_iv4];
+[Uf_iv4,Yf_iv4] = approx_IV_no_controller_info(u0,y0,yr0,rho,opts);
+% [~,Up_iv4,Uf_iv4] = make_Hankel(u_iv4,p,f);
+% [~,Yp_iv4,Yf_iv4] = make_Hankel(y_iv4,p,f);
+Ziv4 = [Up_r01;Yp_r01;Uf_iv4;Yf_iv4];
+Ziv4_2 = new_IV(Ziv4,Zol,p*(nu+ny));
+[u_iv4,u_iv4_std] = diag_stats(flipud(Uf_iv4));
+[y_iv4,y_iv4_std] = diag_stats(flipud(Yf_iv4));
 
 % 5) approx. optimal IV w/ controller information - init. LCF
-[u_iv5,y_iv5,xCz_iv5] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv3,Cz0,1);
-[~,Up_iv5,Uf_iv5] = make_Hankel(u_iv5,p,f);
-[~,Yp_iv5,~] = make_Hankel(y_iv5,p,f);
-% Ziv5 = [Up_iv5;Yp_iv5;Uf_iv5];
-Ziv5 = [Up_r01;Yp_r01;Uf_iv5];
+[Uf_iv5,Yf_iv5,xCz_iv5] = approx_IV_controller_info_v2(u0,y0,yr0,rho,p,f,Ziv3,Cz0,1,plant,e0);
+Ziv5 = [Up_r01;Yp_r01;Uf_iv5;Yf_iv5];
+Ziv5_2 = new_IV(Ziv5,Zol,p*(nu+ny));
+[u_iv5,u_iv5_std] = diag_stats(flipud(Uf_iv5));
+[y_iv5,y_iv5_std] = diag_stats(flipud(Yf_iv5));
 
 % 8) basic IV
 Ziv8 = [Up_r01; Yp_r01; Rf_yr0];
+Ziv8_2 = new_IV(Ziv8,Zol,p*(nu+ny));
 
 % 9) approx optimal IV w/ controller information - init. basic IV
 [u_iv9,y_iv9,xCz_iv9] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv8,Cz0,1);
 [~,Up_iv9,Uf_iv9] = make_Hankel(u_iv9,p,f);
-[~,Yp_iv9,~] = make_Hankel(y_iv9,p,f);
-% Ziv9 = [Up_iv9;Yp_iv9;Uf_iv9];
-Ziv9 = [Up_r01;Yp_r01;Uf_iv9];
+[~,Yp_iv9,Yf_iv9] = make_Hankel(y_iv9,p,f);
+Ziv9 = [Up_r01;Yp_r01;Uf_iv9;Yf_iv9];
+Ziv9_2 = new_IV(Ziv9,Zol,p*(nu+ny));
 
 % ---------------------- get (CL-)SPC controllers -------------------------
 fprintf('Obtaining controllers...\n');
@@ -259,56 +295,29 @@ Cz1.u(end-ny+(1:ny)) = yrkf_name; % yr_{k+f}
 Cz1.y = uk_name;                  % u_k
 
 % 2) optimal IV
-% W2  = eye(ny*p+(nu+ny)*f);
-% Lf2 = IV_GLS(Yf_r01,Zopt,Zol,W2);
-% HEf2 = Yf_r01-Lf2*Zol;
-% W2 = (HEf2*HEf2.')/N;
-% Lf2 = IV_GLS(Yf_r01,Zopt,Zol,W2);
-Lf2 = Yf_r01*Zopt.'*pinv(Zol*Zopt.');
-
-[~,Ep_r01,Ef_r01] = make_Hankel(e0,p,f); % - data w/ noise
-% Zopt2 = [Zopt;Yf_r02];
-% Xopt = Zol*Zopt.'/(Zopt*Zopt.')*Zopt;
-Xopt = [[Up_r01;Yp_r01];...
-         Uf_r01*Zopt.'/(Zopt*Zopt.')*Zopt];
-Lf2 = Yf_r01*Xopt.'/(Xopt*Xopt.');
-V2 = Yf_r01-Lf2*Zol;
-% T = timetable(V2.','TimeStep',1);
-% Mdl = varm(5*ny,5);
-% EstMdl = estimate(Mdl,V2(1:5,:).');
-% V2 = V2.';
-% xV2 = V2(1:ny,:);
-% [xV2,~,~] = make_Hankel(xV2,f,0);
-% yV2 = V2(:,1:N-f+1);
-% Hf_est = yV2*xV2.'/(xV2*xV2.');
-% [Hf_est,Hf_blocks,S,alpha_hat] = est_Hf(yV2,xV2,ny,f);
-% Hf_est = est_Hf(yV2,xV2,ny,f)
-% [~,Hf_est2] = qr(V2.','econ'); Hf_est2 = Hf_est2.';
-% Hf_est2 = diag(diag(Hf_est2))\Hf_est2;
-Sigma_sqrt_est = chol(V2*V2.'/N,'lower');
-% Hf = make_blk_tril_toeplitz(A,K,C,eye(ny,ny),f);
-% V3 = Sigma_est\V2;
-% Se = build_Hankel_selection_matrix_sparse(f, N);
-% Cov1 = nw_covariance(V3, floor(4*(N/100)^(2/9)));
-% Cov2 = cov(V3.');
-Ytrans = Sigma_sqrt_est\Yf_r01;
-Xtrans = Sigma_sqrt_est\Xopt;
-Lf2 = Ytrans*Xtrans.'/(Xtrans*Xtrans.');
+% Lf2 = IV_GLS(Yf_r01,Zopt,Zol);
+Lf_3 = IV_GLS_vec(Yf_r01,Zopt,Zol,ny,0);
+% Lf2 = Yf_r01*Zopt.'*pinv(Zol*Zopt.');
+Lf2_2 = Yf_r01*Zopt_2.'/(Zopt_2*Zopt_2.');
+Lf2 = IV_GMM_vec(Yf_r01,Zopt,Zol,ny,nu,p,f);
 [Cz2,x1_0_SPC] = Lf_2_SPC(Lf2,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f,up=up0,yp=yp0,urf=urf,yrf=yrf);
 Cz2.u = Cz1.u; Cz2.y = Cz1.y;
 
 % 3) SPC using LCF
 Lf3 = Yf_r01*Ziv3.'*pinv(Zol*Ziv3.');
+% Lf3 = Yf_r01*Ziv3_2.'/(Ziv3_2*Ziv3_2.');
 Cz3 = Lf_2_SPC(Lf3,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz3.u = Cz1.u; Cz3.y = Cz1.y;
 
 % 4) SPC using approximation of optimal IV w/o controller information
-Lf4 = Yf_r01*Ziv4.'*pinv(Zol*Ziv4.');
+% Lf4 = Yf_r01*Ziv4.'*pinv(Zol*Ziv4.');
+Lf4 = Yf_r01*Ziv4_2.'/(Ziv4_2*Ziv4_2.');
 Cz4 = Lf_2_SPC(Lf4,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz4.u = Cz1.u; Cz4.y = Cz1.y;
 
 % 5) SPC using approximation of optimal IV w/ controller info. - init LCF
-Lf5 = Yf_r01*Ziv5.'*pinv(Zol*Ziv5.');
+% Lf5 = Yf_r01*Ziv5.'*pinv(Zol*Ziv5.');
+Lf5 = Yf_r01*Ziv5_2.'/(Ziv5_2*Ziv5_2.');
 Cz5 = Lf_2_SPC(Lf5,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz5.u = Cz1.u; Cz5.y = Cz1.y;
 
@@ -325,11 +334,13 @@ Cz7.u = Cz1.u; Cz7.y = Cz1.y;
 
 % 8) basic IV
 Lf8 = Yf_r01*Ziv8.'*pinv(Zol*Ziv8.');
+% Lf8 = Yf_r01*Ziv8_2.'/(Ziv8_2*Ziv8_2.');
 Cz8 = Lf_2_SPC(Lf8,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz8.u = Cz1.u; Cz8.y = Cz1.y;
 
 % 9) approx optimal IV w/ controller information - init. basic IV
-Lf9 = Yf_r01*Ziv9.'*pinv(Zol*Ziv9.');
+% Lf9 = Yf_r01*Ziv9.'*pinv(Zol*Ziv9.');
+Lf9 = Yf_r01*Ziv9_2.'/(Ziv9_2*Ziv9_2.');
 Cz9 = Lf_2_SPC(Lf9,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
 Cz9.u = Cz1.u; Cz9.y = Cz1.y;
 
@@ -494,8 +505,7 @@ if opts.plot
         end
     end
     ylim([-15 15]);
-    legend('ref', ...
-        '$\mathcal{Z}_\mathrm{ol}$', ...
+    leg_txt = {'$\mathcal{Z}_\mathrm{ol}$', ...
         '$\mathcal{Z}^*$', ...
         '$\mathcal{Z}_\mathrm{lcf}$',...
         '$\widehat{\mathcal{Z}}_\mathrm{nc}^*$', ...
@@ -504,7 +514,8 @@ if opts.plot
         '$L_f^*$', ...
         '$\widehat{\mathcal{Z}}_\mathrm{b}$',...
         '$\widehat{\mathcal{Z}}_\mathrm{c,b}^*$',...
-        'Interpreter','latex');
+        'Interpreter','latex'};
+    legend('ref', leg_txt{:});
     ylabel('$y_k$','Interpreter','latex')
     
     ax2_2 = nexttile;
@@ -550,6 +561,17 @@ if opts.plot
     cmap = crameri('-davos');
     colormap(cmap);
     colorbar;
+
+% ======================= visualize average stage costs ===================
+    figure(5);
+    xleg = categorical(leg_txt(1:end-2));
+    xleg = reordercats(xleg,leg_txt(1:end-2));
+    bar(xleg,[cost_u cost_y],'stacked');
+    legend({'$\mathcal{J}_u$','$\mathcal{J}_y$'},'interpreter','latex');
+    ax_bar = gca;
+    ax_bar.TickLabelInterpreter = 'latex';
+    max_y = max(cost_tot(~isoutlier(cost_tot)),[],'all');
+    ylim(ax_bar,[0 1.05*max_y]);
 end
 end
 
@@ -576,28 +598,38 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
     Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
 end
 
-function Lf = IV_GLS(Yf,Z,Phi,W)
+function Lf = IV_GLS(Yf,Z,Phi)
     PhiZt = Phi*Z.';
-    Lf = Yf*Z.'*W*PhiZt.'*pinv(PhiZt*W*PhiZt.');
+    CovZPhi = (Z*Z.')\PhiZt.';
+    Lf = Yf*Z.'*CovZPhi/(PhiZt*CovZPhi);
 end
 
-% estimate Lf
-function Lf = get_Lf(Z,Yf,Psi,Hf,Re,Omega,mode)
-    if isempty(mode)
-        mode = 'page';
-    end
-    switch mode
-        case 'page'
-            Z3Psi = (1/N*(Z*Z.'))\Z*Psi.'/N;
-            Lf = Yf*Z.'/N*Z3Psi'/(Psi*Z.'/N*Z3Psi);
-        case 'hankel'
-            Se = build_Hankel_selection_matrix_sparse(f, N);
-            Omega = kron(Z,Hf)*kron(Se*Se.',Re)*kron(Z.',Hf.');
-            PsiZ_invOmega = kron(Psi*Z.',speye(ny*f))*pinv(Omega);
-            Lf = (PsiZ_invOmega*kron(Z*Psi.',speye(ny*f)) )\PsiZ_invOmega*reshape(Yf*Z.',[],1);
-            Lf = reshape(Lf,ny*f,[]);
-        otherwise
-            error(sprintf("Indicate either whether supplied data matrices are either\n\t1) block-Hankel -> 'hankel'\n\t2) Page -> 'page'"));
+function Lf = IV_GLS_vec(Yf,Z,Phi,ny,fac)
+    [fny,N] = size(Yf); f = fny/ny;
+    PhiZt = Phi*Z.';
+    YfZt = Yf*Z.';
+    Lf = IV_GLS(Yf,Z,Phi); % get initial estimate
+    V = Yf-Lf*Phi; % get errors
+    Hf = chol(V*V.'/size(V,2),'lower');
+    Re_est = Hf(1:ny,1:ny)*Hf(1:ny,1:ny).';
+    Hf = Hf/kron(speye(f),Hf(1:ny,1:ny));
+    Se = build_Hankel_selection_matrix_sparse(f, N);
+    M1 = (Se*Se.'-speye(f*N))*fac+speye(f*N);        clear Se;
+    Cov = kron(Z,Hf)*kron(M1,Re_est)*kron(Z.',Hf.'); clear M1;
+    theta = kron(PhiZt,speye(fny))/Cov;              clear Cov;
+    % theta = kron(PhiZt,speye(fny)) * kron(inv(Z*Z.'),Hf.'\kron(speye(f),inv(Re_est))/Hf);
+    theta = (theta*kron(PhiZt.',speye(fny)))\theta*YfZt(:);
+    Lf = reshape(theta,fny,[]);
+end
+
+% improve IV correlation - 2SLS
+function Znew = new_IV(Z,Wp,n_exo)
+    N = size(Z,2);
+    if ~isempty(n_exo)
+        Znew = Wp*Z.'/(Z*Z.'/N)*Z/N;
+    else
+        Znew = [Wp(1:n_exo,:);...
+                Wp*Z.'/(Z*Z.'/N)*Z/N];
     end
 end
 
@@ -628,192 +660,56 @@ function Se = build_Hankel_selection_matrix_sparse(f, N)
     Se = sparse(I, J, V, total_rows, total_cols);
 end
 
-function Sigma_hat = nw_covariance(V, L)
-% NEWEY-WEST COVARIANCE ESTIMATOR FOR MATRIX RESIDUALS
-%   V       : [n x N] matrix of residuals, each column is a residual vector v_t
-%   L       : lag truncation parameter
+function S = newey_west(G, q)
+% NEWEY_WEST Computes the Newey-West HAC covariance matrix estimate
 %
-% Returns:
-%   Sigma_hat : [n x n] HAC covariance estimate
+% INPUTS:
+%   G : m x T matrix of moment residuals (each column is one observation)
+%   q : non-negative integer, bandwidth (lag truncation parameter)
+%
+% OUTPUT:
+%   S : m x m HAC covariance matrix estimate
 
-[n, N] = size(V);
-Sigma_hat = zeros(n, n);
+    [m, T] = size(G);
 
-% Weight function (Bartlett)
-w = @(h, L) 1 - h / (L + 1);
+    % Mean-center the moment residuals
+    G = G - mean(G, 2);
 
-% 0-lag term
-Sigma_hat = V*V.';
-
-% Add lag terms
-for h = 1:L
-    weight = w(h, L);
-    for t = h+1:N
-        Sigma_hat = Sigma_hat + weight * ( ...
-            V(:, t) * V(:, t - h)' + ...
-            V(:, t - h) * V(:, t)' );
+    % Initialize covariance matrix
+    S = (G * G') / T;
+    Gamma_ls = nan(m,m,q);
+    % Apply weighted autocovariances
+    for l = 1:q
+        weight = 1 - l / (q + 1); % Bartlett kernel
+        Gamma_l = (G(:, (l+1):T) * G(:, 1:(T-l))') / T;
+        Gamma_ls(:,:,l) = Gamma_l;
+        S = S + weight * (Gamma_l + Gamma_l');
     end
 end
 
-% Normalize
-Sigma_hat = Sigma_hat / N;
+function Lf = IV_GMM_vec(Yf,Z,Phi,ny,nu,p,f)
+    N = size(Yf,2);
+    d = p*(nu+ny);
+    fny = f*ny;
 
-end
+    % 2SLS
+    Z2= new_IV(Z,Phi,d);
+    Lf = Yf*Z2.'/(Z2*Z2.');
+    nz = size(Z2,1);
 
-% function [Hf, A_blocks, S, alpha_hat] = est_Hf(V, E, ny, f)
-function H_estimated_full_sparse = est_Hf(V,E,ny,f)
-N = size(E,2);
-% Assume V, E, ny, f, N are defined here
+    % get errors
+    V = Yf-Lf*Phi; % get errors
+    % VZ = V*Z2.';
 
-% --- Single-Step Estimation Code with Sparse Matrices ---
-
-% 1. Dimensions
-total_rows = (f - 1) * ny * N;
-total_cols = (f - 1) * ny^2;
-
-% Pre-allocate M_design as a sparse matrix
-M_design_sparse = sparse(total_rows, total_cols);
-
-% Prepare Y_stacked
-Y_stacked = zeros(total_rows, 1); % Pre-allocate for efficiency
-
-% Pre-calculate (E_k^T \otimes I_ny) blocks efficiently
-% Store them in a cell array for easy access by block index
-kron_blocks = cell(f, 1);
-for k = 1:f
-    Ek = E((k-1)*ny+1 : k*ny, :);
-    % Kron(Ek', eye(ny)) itself can be a large dense matrix.
-    % However, it often has a block-diagonal like structure if Ek' has structure.
-    % If ny is large, this block can still be very dense if Ek' is dense.
-    % For optimal sparsity, one would typically use sparse(kron(Ek',eye(ny)))
-    % only if Ek' is sparse or ny is small relative to N for E_k'
-    % But kron(Ek', eye(ny)) is generally dense if Ek is dense.
-    % The sparsity comes from the *arrangement* of these dense blocks in M_design_sparse.
-    kron_blocks{k} = kron(Ek', eye(ny));
-end
-
-
-for k_row = 1:(f-1) % Corresponds to V_{k_row+1}, so k from 2 to f in original formulation
-
-    % Fill Y_stacked part: v_{k_row+1} - e_{k_row+1}
-    V_kp1 = V(k_row*ny+1 : (k_row+1)*ny, :);
-    E_kp1 = E(k_row*ny+1 : (k_row+1)*ny, :);
+    % intermediate values
+    PhiZt = Phi*Z2.';
+    YfZt  = Yf*Z2.';
     
-    % row_start and row_end indices for Y_stacked
-    current_Y_row_start = (k_row - 1) * ny * N + 1;
-    current_Y_row_end = k_row * ny * N;
-    Y_stacked(current_Y_row_start : current_Y_row_end) = V_kp1(:) - E_kp1(:);
-
-    % Fill M_design_sparse row
-    for k_col = 1:k_row % Only fill lower triangular part (and diagonal)
-        % M_design_sparse(k_row, k_col) corresponds to block B_{k_row - k_col + 1}
-        current_block_type_idx = k_row - k_col + 1; % This is the index for kron_blocks
-        
-        % Block matrix to insert
-        block_to_insert = kron_blocks{current_block_type_idx};
-        
-        % Calculate row/column start/end for insertion within M_design_sparse
-        current_M_row_start = (k_row - 1) * ny * N + 1;
-        current_M_row_end = k_row * ny * N;
-        current_M_col_start = (k_col - 1) * ny^2 + 1;
-        current_M_col_end = k_col * ny^2;
-        
-        % Insert the block into the sparse matrix
-        % Note: If block_to_insert itself can be sparse, it should be made sparse here too.
-        % For now, assuming kron_blocks{.} are regular dense matrices.
-        M_design_sparse(current_M_row_start : current_M_row_end, ...
-                        current_M_col_start : current_M_col_end) = block_to_insert;
-    end
-end
-
-% Solve for the stacked vectorized H blocks using sparse backslash
-% MATLAB's backslash automatically optimizes for sparse matrices
-h_stacked_estimate_sparse = M_design_sparse \ Y_stacked; 
-
-% Reshape the stacked vector back into H blocks
-H_blocks_estimated_single_step_sparse = cell(f, 1);
-H_blocks_estimated_single_step_sparse{1} = eye(ny); % H_0 is known
-
-for k = 1:(f-1)
-    start_idx = (k-1) * ny^2 + 1;
-    end_idx = k * ny^2;
-    H_blocks_estimated_single_step_sparse{k+1} = reshape(h_stacked_estimate_sparse(start_idx:end_idx), ny, ny);
-end
-
-% Optional: Reconstruct the full H matrix if needed (can also be sparse)
-H_estimated_full_sparse = sparse(ny*f, ny*f);
-for r = 1:f
-    for c = 1:r 
-        block_idx = r-c+1; 
-        H_block = H_blocks_estimated_single_step_sparse{block_idx};
-        
-        start_row = (r-1)*ny + 1;
-        end_row = r*ny;
-        start_col = (c-1)*ny + 1;
-        end_col = c*ny;
-        
-        H_estimated_full_sparse(start_row:end_row, start_col:end_col) = H_block;
-    end
-end
-
-%{
-% Estimate Hf from V = Hf * E using vec(Hf) = S * alpha
-% Inputs:
-%   V, E       : [f*ny x N] data matrices
-%   ny         : block size
-%   f          : number of blocks
-%
-% Outputs:
-%   Hf         : full matrix [f*ny x f*ny]
-%   A_blocks   : cell array {1 x f}, each ny x ny
-%   S          : structure matrix mapping alpha to vec(Hf)
-%   alpha_hat  : estimated unique parameter vector (stacked vec(A_k))
-
-fn = f * ny;
-N = size(E, 2);
-
-% Step 1: Construct S: vec(Hf) = S * alpha
-S = zeros(fn^2, f * ny^2);
-K = kron(eye(f), eye(ny^2));  % fixed
-
-for i = 1:f
-    for j = 1:i
-        block_idx = i - j + 1;
-        row_idx = (i-1)*ny + (1:ny);
-        col_idx = (j-1)*ny + (1:ny);
-
-        % Create binary mask for block (i,j)
-        M = zeros(fn, fn);
-        M(row_idx, col_idx) = 1;
-
-        % Vectorize and assign using structure matrix
-        vecM = reshape(M, [], 1);  % [fn^2 x 1]
-        
-        % Use block rows of K
-        row_start = (block_idx - 1) * ny^2 + 1;
-        row_end = block_idx * ny^2;
-        
-        S = S + vecM * K(row_start:row_end, :);  % [fn^2 x f*ny^2]
-    end
-end
-
-% Step 2: Build design matrix X = (E^T ⊗ I) * S
-X_big = kron(E', eye(fn));  % [N*fn x fn^2]
-X = X_big * S;              % [N*fn x f*ny^2]
-
-% Step 3: Solve for alpha
-y = reshape(V, [], 1);      % vec(V)
-alpha_hat = (X' * X) \ (X' * y);
-
-% Step 4: Recover vec(Hf) and reshape
-vec_Hf = S * alpha_hat;
-Hf = reshape(vec_Hf, fn, fn);
-
-% Step 5: Split into blocks
-A_blocks = cell(1, f);
-for k = 1:f
-    A_blocks{k} = reshape(alpha_hat((k-1)*ny^2 + (1:ny^2)), ny, ny);
-end
-%}
-
+    % estimate covariance
+    Cov = newey_west(V,f);
+    % Cov = kron(Z*Z.',Cov);
+    % Cov = kron(speye(nz),Cov);
+    theta = kron(PhiZt/(Z2*Z2.'),speye(fny)/Cov); clear Cov;
+    theta = (theta*kron(PhiZt.',speye(fny)))\theta*YfZt(:);
+    Lf = reshape(theta,fny,[]);
 end

@@ -27,16 +27,18 @@ CzNames = {'$\mathcal{Z}_\mathrm{ol}$';...                  1) open-loop IV
 cost_tot = nan(9,numfiles);
 for kf = 1:numfiles
     fp = fullfile(pwd,matfiles(kf).name); % file path
-    % cost_tot(:,kf) = load(fp).cost_tot;     % load data
-    cost_tot(:,kf) = load(fp).FroIDerror(:,2);
+    cost_tot(:,kf) = load(fp).cost_tot;     % load data
+    % cost_tot(:,kf) = load(fp).FroIDerror(:,2);
 end
 
 % figure(5);
-boxplot(cost_tot(:),repmat(CzNames(:),numfiles,1));
+boxplot(cost_tot(:),repmat(CzNames(:),numfiles,1));%,BoxStyle='filled');
 ax = gca;
 ax.FontSize = opts.FontSize;
 ax.TickLabelInterpreter = 'latex';
-% ylim([0 1000]);
+y_max = cost_tot(~isinf(cost_tot));
+y_max = max(y_max(~isoutlier(y_max,'median')),[],'all');
+ylim([0 1.05*y_max]);
 ylabel('$\bar{\mathcal{J}}$','interpreter','latex');
 grid on;
 end
