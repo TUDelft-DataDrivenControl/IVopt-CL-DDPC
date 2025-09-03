@@ -1,4 +1,4 @@
-function [Uf_iv,Yf_iv,xCz_iv] = approx_IV_controller_info_v2(u,y,wr,rho,p,f,Ziv_init,Cz,nit_max,plant,e)
+function [Uf_iv,Yf_iv] = approx_IV_controller_info_v2(u,y,w,rho,p,f,Ziv_init,Cz,nit_max,plant,e)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
@@ -6,16 +6,13 @@ function [Uf_iv,Yf_iv,xCz_iv] = approx_IV_controller_info_v2(u,y,wr,rho,p,f,Ziv_
 % feedback law:
 %       u_k = C_{fb}(q) (w_k - y_k)
 %
-% The only knowledge that is assumed of C_{fb} is an accurate upper bound
-% of its lag: rho
-%
 % Resulting composition of data matrix D:
 %       D = [U_{\varrho}; Y_{\varrho}; W_{\rho}; W_f]
 
 [nu,Nbar] = size(u);
 ny = size(y,1);
-validateattributes(y,  {'double'},{'size',[ny Nbar]});
-validateattributes(wr,{'double'},{'size',[ny Nbar]});
+validateattributes(y, {'double'},{'size',[ny Nbar]});
+validateattributes(w, {'double'},{'size',[ny Nbar]});
 
 %% determine past data length to use - varrho
 
@@ -37,54 +34,23 @@ validateattributes(wr,{'double'},{'size',[ny Nbar]});
 varrho = max(rho,p);
 
 %% ===================== make the actual matrices =========================
-
-function [Ksu,Ksy] = get_Ksuy(A,B,C,D,M,s)
-    if isempty(M)
-        nA = size(A,1);
-        nC = size(C,1);
-        M = zeros(nA,nC);
-    end
-    tA = A-M*C;
-    tB = B-M*D;
-    tAs_pinv = tA^s*pinv(make_ext_obsv(A,C,s));
-    Ksy = make_ext_ctrb(tA,M, s,rev=true) + tAs_pinv;
-    Ksu = make_ext_ctrb(tA,tB,s,rev=true) - tAs_pinv*make_blk_tril_toeplitz(A,B,C,D,s);
-end
-
 %==========================================================================
 %--------------------------- the controller -------------------------------
 %==========================================================================
-% (1)       u_f = r_f - Lcur u_rho - Lcyr y_rho - Tcf y_f
+% (1)      u_f = Lce er_rho + Lcu u_rho + Tcf er_f
 % where:
-%   rho   = lag of the controller
-%   u_f   = future inputs             (nu*f   | 1)
-%   r_f   = future exogenous inputs   (nu*f   | 1)
-%   u_rho = past inputs               (nu*rho | 1)
-%   y_rho = past outputs              (ny*rho | 1)
-%   y_f   = future outputs            (ny*f   | 1)
+%   rho    = lag of the controller
+%   u_f    = future inputs                  (nu*f   | 1)
+%   u_rho  = past inputs                    (nu*rho | 1)
+%   er_rho = w_rho - y_rho (tracking error)
+%       w_rho  = past exogenous inputs      (ny*rho | 1)
+%       y_rho  = past outputs               (ny*rho | 1)
+%   er_f   = w_f - y_f     (tracking error)
+%       w_f    = future exogenous inputs    (ny*f   | 1)
+%       y_f    = future outputs             (ny*f   | 1)
+
 [Ac,Bc,Cc,Dc] = ssdata(Cz);
-% (extended) observability matrices
-Gam_cf = make_ext_obsv(Ac,Cc,f);
-Gam_cr = make_ext_obsv(Ac,Cc,rho);
-
-% (extended) reversed controllability matrices
-Kcr = make_ext_ctrb(Ac,Bc,rho,rev=true);
-
-% Toeplitz matrices
-Tcf = make_blk_tril_toeplitz(Ac,Bc,Cc,Dc,f);
-Tcr = make_blk_tril_toeplitz(Ac,Bc,Cc,Dc,rho);
-
-% other matrices
-Acr = Ac^rho;
-Acrpinv = Acr*pinv(Gam_cr);
-
-% construct Lcur & Lcyr
-Lcur = Gam_cf*Acrpinv;
-Lcyr = Gam_cf*(Kcr-Acrpinv*Tcr);
-
-% [Lcur,Lcyr] = get_Ksuy(Ac,Bc,Cc,Dc,[],rho);
-% Lcur = Gam_cf*Lcur;
-% Lcyr = Gam_cf*Lcyr;
+[Lce, Lcu, Tcf] = get_lifted_mats(Ac,Bc,Cc,Dc,[],rho,f);
 
 %==========================================================================
 %------------------------------- the plant --------------------------------
@@ -101,59 +67,39 @@ Lcyr = Gam_cf*(Kcr-Acrpinv*Tcr);
 B = BK(:,1:nu); K = BK(:,end-ny+1:end);
 D = DI(:,1:nu);
 
-% (extended) observability matrices
-Gam_f = make_ext_obsv(A,C,f);
-Gam_p = make_ext_obsv(A,C,p);
-
-% (extended) reversed controllability matrices
-tKpu = make_ext_ctrb(A-K*C,B-K*D,p,rev=true);
-tKpy = make_ext_ctrb(A-K*C,K,p,rev=true);
-
-% Toeplitz matrices
-Hf  = make_blk_tril_toeplitz(A,K,C,eye(ny),f);
-Hp  = make_blk_tril_toeplitz(A,K,C,eye(ny),p);
-Tuf = make_blk_tril_toeplitz(A,B,C,D,f);            % <-- need to estimate
-Tup = make_blk_tril_toeplitz(A,B,C,D,p);
-
-% other matrices
-tAp = (A-K*C)^p;
-tAppinv = tAp*pinv(Gam_p);
-
-% construct Lup, Lyp, Be
-Lup = Gam_f*(tKpu - tAppinv*Tup);
-Lyp = Gam_f*(tKpy + tAppinv);
-Be  = Gam_f*tAppinv*Hp;
+[Lup, Lyp, Tuf, Hf, Be] = get_lifted_mats(A,B,C,D,K,p,f);
 
 %==========================================================================
 %------------------------- the closed-loop system -------------------------
 %==========================================================================
-% (3a) u_f = Mu*(-Guu u_v - Guy y_v +        r_f - Tcf Hf e_f + Tcf Be e_p)
-% (3b) y_f =      Gyu u_v + Gyy y_v + Tuf Mu r_f +  My Hf e_f -  My Be e_p
+% (3a) u_f = Guu u_v + Guy y_v + Guw w_vf - Mu Tcf (Hf e_f - Be e_p)
+% (3b) y_f = Gyu u_v + Gyy y_v + Gyu w_vf +     My (Hf e_f - Be e_p)
 % where
 %   v = varrho = max(rho,p)
 %   u_v = past inputs               (nu*v | 1)
 %   y_v = past outputs              (ny*v | 1)
 %   Mu  = (I + Tcf Tuf)^{-1}
 %   My  = (I + Tuf Tcu)^{-1} = I - Tuf Mu Tcf
-%   Guu s.t. Guu u_v =         Lcur u_rho + Tcf Lup u_p
-%   Guy s.t. Guy y_v =         Lcyr y_rho + Tcf Lyp y_p
-%   Gyu s.t. Gyu u_v = -Tuf Mu Lcur u_rho +  My Lup u_p
-%   Gyy s.t. Gyy y_v = -Tuf Mu Lcyr y_rho +  My Lyp y_p
+%   Guu s.t. Guu u_v =    Mu ( Lcu u_rho - Tcf Lup u_p )
+%   Guy s.t. Guy y_v =    Mu ( Lce y_rho - Tcf Lyp y_p )
+%   Gyu s.t. Gyu u_v = My Lup u_p + Tuf Mu Lcu u_rho
+%   Gyy s.t. Gyy y_v = My Lyp y_p - Tuf Mu Lce y_rho
 
 % defining matrices
 invMu = eye(nu*f) + Tcf*Tuf;  % = I + Tcf Tuf
 Mu = inv(invMu);
-My = eye(ny*f) - Tuf/invMu*Tcf;
-Guu = [zeros(f*nu,(varrho-p)*nu)     Tcf*Lup] + ...
-      [zeros(f*nu,(varrho-rho)*nu)   Lcur];
-Guy = [zeros(f*nu,(varrho-p)*ny)     Tcf*Lyp] + ...
-      [zeros(f*nu,(varrho-rho)*ny)   Lcyr];
-Gyu = [zeros(f*ny,(varrho-p)*nu)     My*Lup] + ...
-      [zeros(f*ny,(varrho-rho)*nu)  -Tuf/invMu*Lcur];
-Gyy = [zeros(f*ny,(varrho-p)*ny)     My*Lyp] + ...
-      [zeros(f*ny,(varrho-rho)*ny)  -Tuf/invMu*Lcyr];
+TufMu = Tuf/invMu;
+My = eye(ny*f) - TufMu*Tcf;
 
-xCz_iv_actual = make_ext_ss(nu,ny,f,varrho,invMu,Mu,Tuf/invMu,Guu,Guy,Gyu,Gyy);
+Guu = invMu\add_over( Lcu,-Tcf*Lup);
+Guy = invMu\add_over(-Lce,-Tcf*Lyp);
+Guw = invMu\[Lce Tcf];
+Gu = [Guu Guy Guw];
+
+Gyu = add_over(My*Lup,  TufMu*Lcu);
+Gyy = add_over(My*Lyp, -TufMu*Lce);
+Gyw = Tuf*Guw;
+Gy = [Gyu Gyy Gyw];
 
 %% ===================== estimating system matrices =======================
 % steps:
@@ -165,149 +111,220 @@ xCz_iv_actual = make_ext_ss(nu,ny,f,varrho,invMu,Mu,Tuf/invMu,Guu,Guy,Gyu,Gyy);
 % S6) construct estimates of Gyu, Gyy, Guu, Guy
 
 % make hankel matrices
-[~,Uv,Uf] = make_Hankel(u,varrho,f);    
-[~,Yv,Yf] = make_Hankel(y,varrho,f);
-[~,Rv,Rf] = make_Hankel(wr,varrho,f);
-[~,Ev,Ef] = make_Hankel(e,varrho,f);
+[~,Uv,Uf] = make_Hankel(u,varrho,f);   
+[~,Yv,Yf] = make_Hankel(y,varrho,f); 
+[~,Wr,Wf] = make_Hankel(w,varrho,f); % Wr -> rho instead of varrho deep
+% [~,Ev,Ef] = make_Hankel(e,varrho,f);
 Ncol = size(Uv,2);
 
-% S1) ------------------------ CL-regression ------------------------------
-Wv = [Uv;Yv];  Wp = [Uv(end-nu*p+1:end,:);Yv(end-nu*p+1:end,:)];
-WvRf = [Wv;Rf];
-MuILuy_est = [Uf;Yf]*WvRf.'/(WvRf*WvRf.');
-MuLu_est = MuILuy_est(1:nu*f,:);
-Ly_est = MuILuy_est(nu*f+1:end,:);
+% select specific rho and p long matrices
+Ur = Uv(end-rho*nu+1:end,:); Up = Uv(end-p*nu+1:end,:);
+Yr = Yv(end-rho*ny+1:end,:); Yp = Yv(end-p*ny+1:end,:);
+Wr = Wr(end-rho*ny+1:end,:);
+% Ep = Ev(end-p*ny+1:end,:);
 
-% S2a) ----------------------- get Mu -------------------------------------
-Mu_est1 = MuLu_est(:,end-nu*f+1:end);
-Mu_est1 = Mu_est1.*kron(tril(ones(f)),ones(nu)); % impose causal structure
-Mu_est1 = blk_toeplitz_mean(Mu_est1,nu,nu);      % avg. over blk-diags
-invMu_est1 = inv(Mu_est1);
+Rw_rf = [Lce Tcf]*[Wr;Wf]; % f*nu x N
 
-% S2b) ----------------------- get Tuf*Mu ---------------------------------
-TuMu_est1 = Ly_est(:,end-nu*f+1:end);
-TuMu_est1 = TuMu_est1.*kron(tril(ones(f)),ones(ny,nu)); % impose causal structure
-TuMu_est1 = blk_toeplitz_mean(TuMu_est1,ny,nu);         % avg. over blk-diags
+DMr = [Uv;Yv;Rw_rf];
+DMw = [Uv;Yv;Wr;Wf];
 
-% S3) ------------------------ get Tuf ------------------------------------
-Tu_est2 = TuMu_est1/Mu_est1;
+iuf = 1:nu*f;
+iyf = f*nu+(1:ny*f);
 
-% S4) ------------------------ get Mu -------------------------------------
-invMu_est2 = eye(f*nu)+Tcf*Tu_est2;
-Mu_est2 = inv(invMu_est2);
+%% initial estimate:
+uyG_r = [Uf;Yf]*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
 
-% S5) ------------------------ get Lup, Lyp -------------------------------
-TuMu_est2 = Tu_est2/invMu_est2;
-My_est = eye(f*ny) - TuMu_est2*Tcf;
+% extract Mu & Tuf*Mu estimates
+Mu_0 = uyG_r(iuf,end-f*nu+1:end);
+TufMu_0 = uyG_r(iyf,end-f*nu+1:end);
 
-% uf = rf - Lcu_l ul - Lcy_l yl - Tc*yf
-% yf = Lu up + Ly yp + Tu uf + H ef + B ep
-% rf - Lclu_l ul - Lcy_l yl - (I + Tc Tu) uf = Tc (Lu up + Ly yp + H ef + B ep)
-% |__________________ LHS _________________|           \ RHS /
+% make estimates for [Guu Guy Guw; Gyu Gyy Gyw]
+Guy_0 = [uyG_r(:,1:end-f*nu) [Mu_0;TufMu_0]*[Lce Tcf]];
+% Gu_0 = Guy_0(1:nu*f,:);
+% Gy_0 = Guy_0(nu*f+1:end,:);
 
-% estimating [Tc;My]*[Lup Lyp] -> Lup & Lyp
-UY_v_part = Lcur*Uv(end-nu*rho+1:end,:) + Lcyr*Yv(end-nu*rho+1:end,:);
+% block-lower triangularize & average
+Mu_1    = blk_tril_avg(Mu_0,   nu,nu);
+TufMu_1 = blk_tril_avg(TufMu_0,ny,nu);
 
-LHS_u =            Rf -           UY_v_part - invMu_est2*Uf;
-LHS_y = -TuMu_est2*Rf + TuMu_est2*UY_v_part + Yf;
-TcMyLuy_est = [LHS_u;LHS_y]*Wp.'/(Wp*Wp.');
-Luy_est = pinv([Tcf;My_est])*TcMyLuy_est;
+%{
+% error analysis: if Be is more prominent than Hf, Mu_0-Mu may have columns
+%       errors that are conducive to columnwise averaging based on error on
+%       non-causal block-triangular part of Mu_0
 
-Lup_est = Luy_est(:,1:nu*p);
-Lyp_est = Luy_est(:,nu*p+(1:ny*f));
+triu_Mu0 = Mu_0.*kron(triu(ones(f),1),ones(nu));
+triu_Mu0(triu_Mu0==0) = nan;
+[std_Mu0_err,avg_Mu0_err] = std(triu_Mu0,0,1,'omitnan');
+avg_Mu0_err = avg_Mu0_err(2:end); std_Mu0_err = std_Mu0_err(2:end);
 
-% S6) ------------------ get Gyu, Gyy, Guu, Guy ---------------------------
-Guu_est = [zeros(f*nu,(varrho-p)*nu)     Tcf*Lup_est] + ...
-          [zeros(f*nu,(varrho-rho)*nu)   Lcur];
-Guy_est = [zeros(f*nu,(varrho-p)*ny)     Tcf*Lyp_est] + ...
-          [zeros(f*nu,(varrho-rho)*ny)   Lcyr];
+err_all = mean(Mu_0-Mu,1);
 
-Gyu_est = [zeros(f*ny,(varrho-p)*nu)     My_est*Lup_est] + ...
-          [zeros(f*ny,(varrho-rho)*nu)  -TuMu_est2*Lcur];
-Gyy_est = [zeros(f*ny,(varrho-p)*ny)     My_est*Lyp_est] + ...
-          [zeros(f*ny,(varrho-rho)*ny)  -TuMu_est2*Lcyr];
+figure();
+Vertices = [ [2:f*nu fliplr(2:f*nu)];...
+             [avg_Mu0_err-std_Mu0_err fliplr(avg_Mu0_err+std_Mu0_err)] ];
+patch('Faces',1:(f*nu-2)*2,'Vertices',Vertices(:,2:end-1).','FaceAlpha',0.25,'FaceColor','b','EdgeColor','none');
+hold on;
+plot(2:f*nu,avg_Mu0_err,'b');
+plot(err_all,'k');
 
-%% ===================== construct ext. state-space =======================
-xCz_iv = make_ext_ss(nu,ny,f,varrho,invMu_est2,Mu_est2,TuMu_est2,Guu_est,Guy_est,Gyu_est,Gyy_est);
+figure();
+subplot(1,2,1);
+imagesc_vik([Mu;Mu_0;Mu_1;Mu*0])
+subplot(1,2,2); pinvDMr = pinv(DMr);
+imagesc_vik([Mu*0;Mu_0-Mu;Mu_1-Mu;...
+    -Mu*Tcf*(Hf*Ef)*pinvDMr(:,end-f*nu+1:end);...
+    -Mu*Tcf*(-Be*Ep)*pinvDMr(:,end-f*nu+1:end);...
+    -Mu*Tcf*(Hf*Ef-Be*Ep)*pinvDMr(:,end-f*nu+1:end)]);
+sgtitle('Mu')
+%}
 
-%% plotting
+%% option 1 to get Uf_iv & Yf_iv
+Guy_1 = [Guy_0(:,1:end-(f+rho)*nu) [Mu_1;TufMu_1]*[Lce Tcf]];
+UY_iv = Guy_1*DMw;
+Uf_iv = UY_iv(iuf,:);
+Yf_iv = UY_iv(iyf,:);
 
-figure(1);
-tl = tiledlayout(3,1,'TileSpacing','compact');
+%% plotting Gu & Gy
+%{
+% plotting
+figure();
+subplot(1,2,1);
+imagesc_vik([Mu;Mu_0;Mu_1])
+subplot(1,2,2)
+imagesc_vik([Mu*0;Mu_0-Mu;Mu_1-Mu]);
+sgtitle('Mu')
+
+figure();
+subplot(1,2,1);
+imagesc_vik([Tuf*Mu;TufMu_0;TufMu_1])
+subplot(1,2,2);
+imagesc_vik([Tuf*Mu*0;TufMu_0-Tuf*Mu;TufMu_1-Tuf*Mu])
+sgtitle('Tuf*Mu')
+
+figure();
+subplot(2,2,1);
+imagesc_vik([Guw; Mu_0*[Lce Tcf]; Mu_1*[Lce Tcf]])
+subplot(2,2,3);
+imagesc_vik([Gyw; TufMu_0*[Lce Tcf]; TufMu_1*[Lce Tcf]])
+subplot(2,2,2);
+imagesc_vik([Guw*0; Mu_0*[Lce Tcf]-Guw; Mu_1*[Lce Tcf]-Guw])
+subplot(2,2,4);
+imagesc_vik([Gyw*0; TufMu_0*[Lce Tcf]-Gyw; TufMu_1*[Lce Tcf]-Gyw])
+
+Gus = {Gu; Gu_0; Guy_1(iuf,:)}; %uyG_w(iuf,:);
+Gys = {Gy; Gy_0; Guy_1(iyf,:)}; %uyG_w(iyf,:); 
+
+figure();
+tl = tiledlayout(2,2,"TileSpacing",'compact');
+
+% Gu
 nexttile;
-imagesc_vik(invMu)
+nG = length(Gus);
+imagesc_vik(cell2mat(Gus)); hold on;
+for yl = nu*f*(1:nG-1)+0.5
+    yline(yl);
+end
+xline(varrho*nu+0.5); xline(varrho*(nu+ny)+0.5);
+
+% error in Gu
+ax21 = nexttile;
+imagesc_vik(cell2mat(Gus)-repmat(Gu,nG,1)); hold on;
+for yl = (nu*f)*(1:nG-1)+0.5
+    yline(yl);
+end
+xline(varrho*nu+0.5); xline(varrho*(nu+ny)+0.5);
+
+% Gy
 nexttile;
-imagesc_vik(invMu_est1)
-nexttile;
-imagesc_vik(invMu_est2)
-set(gcf,'Position',[213   478   560   420]);
-title(tl,'$I+\mathcal{T}^\mathrm{c}\mathcal{T}^\mathrm{u}$','Interpreter','latex');
+imagesc_vik(cell2mat(Gys)); hold on;
+for yl = (ny*f)*(1:nG-1)+0.5
+    yline(yl);
+end
+xline(varrho*nu+0.5); xline(varrho*(nu+ny)+0.5);
 
-figure(2);
-tl2 = tiledlayout(3,1,'TileSpacing','compact');
-nexttile;
-imagesc_vik(Mu)
-nexttile;
-imagesc_vik(Mu_est1)
-nexttile;
-imagesc_vik(Mu_est2)
-set(gcf,'Position',[775   480   560   420]);
-title(tl2,'$(I+\mathcal{T}^\mathrm{c}\mathcal{T}^\mathrm{u})^{-1}$','Interpreter','latex');
+% error in Gy
+ax22 = nexttile;
+imagesc_vik(cell2mat(Gys)-repmat(Gy,nG,1)); hold on;
+for yl = (ny*f)*(1:nG-1)+0.5
+    yline(yl);
+end
+xline(varrho*nu+0.5); xline(varrho*(nu+ny)+0.5);
 
-figure(3);
-tl3 = tiledlayout(3,1,'TileSpacing','compact');
-nexttile;
-imagesc_vik(Tuf); ylabel('actual');
-nexttile;
-imagesc_vik(Tu_est2); ylabel('estimate');
-nexttile;
-Tu2 = Tuf.*(tril(ones(size(Tuf)),0)+triu(nan(size(Tuf)),1));
-dTu = (Tu2-Tu_est2)./Tu2*100;
-dTu(isinf(dTu)) = nan;
-imagesc_vik(dTu); ylabel('difference %')
-set(gcf,'Position',[1336   480   560   420]);
-title(tl3,'$\mathcal{T}^\mathrm{u}$','Interpreter','latex');
+% set text -> differences
+for k = 2:nG
+    % dGu
+    dGu = Gus{k}-Gu;
+    yp_Gu = (k-1)*nu*f + (nu*f)/2;
 
-%% method 1: by Hankel matrices
+    % dGy
+    dGy = Gys{k}-Gy;
+    yp_Gy = (k-1)*ny*f + (ny*f)/2;
 
-% [U_iv; Y_iv] = L_cl*[Wv;Rf]
-% L_cl = [-Mu*Guu, -Mu*Guy,     Mu;
-%             Gyu,     Gyy, Tuf*Mu];
-
-L_cl_est = [-invMu_est2\Guu_est, -invMu_est2\Guy_est, Mu_est2;...
-                        Gyu_est,             Gyy_est, TuMu_est2];
-
-L_cl_act = [-invMu\Guu, -invMu\Guy, Mu;...
-                Gyu,     Gyy, Tuf/invMu];
-
-% ------------------------ get approximate IV -----------------------------
-
-% compute 'noiseless' uf & yf
-UfYf_iv = L_cl_act*WvRf;
-Uf_iv = UfYf_iv(1:nu*f,:);
-Yf_iv = UfYf_iv(nu*f+1:end,:);
-
-
-%% method 2: by simulation
-
+    xp = 0;
+    for k2 = 1:3
+        switch k2
+            case 1
+                dxp =  varrho*nu;
+            case 2
+                dxp = varrho*ny;
+            case 3
+                dxp = (rho+f)*nu;
+        end
+        text(ax21,xp+dxp/2,yp_Gu,sprintf('%.2f',norm( dGu(:,xp+(1:dxp)) )));%, 'fro' ) ));
+        text(ax22,xp+dxp/2,yp_Gy,sprintf('%.2f',norm( dGy(:,xp+(1:dxp)) )));%, 'fro' ) ));
+        xp = xp + dxp;
+    end
+end
+%}
 end
 
-function SS_ext = make_ext_ss(nu,ny,f,varrho,invMu,Mu,TufMu,Guu,Guy,Gyu,Gyy)
-Su = [zeros(varrho*nu,f*nu) eye(varrho*nu)];
-Sy = [zeros(varrho*nu,f*nu) eye(varrho*nu)];
+%% Helper functions
+function [Lup,Lyp,Tuf, varargout] = get_lifted_mats(A,B,C,D,K,p,f)
+    nyC = size(C,1);
+    if isempty(K)
+        nxA = size(A,1);
+        K = zeros(nxA,nyC);
+    end
 
-Ce_uf = [-invMu\Guu, -invMu\Guy]; De_uf = Mu;
-Ce_yf = [Gyu, Gyy];               De_yf = TufMu;
-Ce = [Ce_uf;Ce_yf];               De = [De_uf; De_yf];
+    % make 'effective' controllability matrices
+    tA = A-K*C;
+    tB = B-K*D;
+    tAp_pinv = tA^p*pinv(make_ext_obsv(A,C,p));
+    Kyp = make_ext_ctrb(tA,K, p,rev=true) + tAp_pinv;
+    Kup = make_ext_ctrb(tA,tB,p,rev=true) - tAp_pinv*make_blk_tril_toeplitz(A,B,C,D,p);
 
-AeBe_uf = Su*[eye(varrho*nu,varrho*(nu+ny)+nu*f);
-              Ce_uf De_uf];
-AeBe_yf = Sy*[circshift( eye(varrho*ny,varrho*(nu+ny)+nu*f), varrho*nu, 2 );
-              Ce_yf De_yf];
-AeBe = [AeBe_uf;AeBe_yf];
+    Gamf = make_ext_obsv(A,C,f);
 
-Ae = AeBe(:,1:varrho*(nu+ny));
-Be = AeBe(:,end-nu*f+1:end);
-
-SS_ext = ss(Ae,Be,Ce,De,[]);
+    Lup = Gamf*Kup;
+    Lyp = Gamf*Kyp;
+    Tuf = make_blk_tril_toeplitz(A,B,C,D,f);
+    
+    if nargout >= 4
+        varargout{1}  = make_blk_tril_toeplitz(A,K,C,eye(nyC),f); % = Hf
+    end
+    if nargout >= 5
+        Hp  = make_blk_tril_toeplitz(A,K,C,eye(nyC),p);
+        varargout{2}  = Gamf*tAp_pinv*Hp; % = Be
+    end
 end
+
+function mat3 = add_over(mat1,mat2)
+% adds matrices with necessary prepending of zeros
+[s11,s12] = size(mat1);
+validateattributes(mat2,  {'double'},{'size',[s11 NaN]});
+
+s22 = size(mat2,2);
+if s22 >= s12
+    mat3 = mat2;
+    mat3(:,end-s12+1:end) = mat3(:,end-s12+1:end) + mat1;
+else
+    mat3 = mat1;
+    mat3(:,end-s22+1:end) = mat3(:,end-s22+1:end) + mat2;
+end
+end
+
+function Mat = blk_tril_avg(Mat,dim1,dim2)
+    Mat = make_blk_tril(Mat, [dim1,dim2]);
+    Mat = blk_toeplitz_mean(Mat,dim1,dim2);
+end
+
