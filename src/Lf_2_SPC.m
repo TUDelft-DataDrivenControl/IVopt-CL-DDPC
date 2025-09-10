@@ -1,14 +1,8 @@
-function [Cz_SPC, x0] = Lf_2_SPC(Lf, up2usol, yp2usol, urf2usol, yrf2usol, nu, ny, p, f, options)
+function [Cz_SPC, x0] = Lf_2_SPC(Lf, usol_funs, opts, options)
 arguments (Input)
     Lf      double
-    up2usol function_handle
-    yp2usol function_handle
-    urf2usol function_handle
-    yrf2usol function_handle
-    nu       (1,1) double
-    ny       (1,1) double
-    p        (1,1) double
-    f        (1,1) double
+    usol_funs struct
+    opts     struct
     options.up double = []
     options.yp double = []
     options.urf double = []
@@ -18,12 +12,13 @@ arguments (Output)
     Cz_SPC ss
     x0 double
 end
+[nu,ny,p,f] = deal(opts.nu,opts.ny,opts.p,opts.f);
 
 % --- Get controller matrices ---
-Cup  = up2usol(Lf);
-Cyp  = yp2usol(Lf);
-Curf = urf2usol(Lf);
-Cyrf = yrf2usol(Lf);
+Cup  = usol_funs.up(Lf);   % up  -> uk*
+Cyp  = usol_funs.yp(Lf);   % yp  -> uk*
+Curf = usol_funs.urf(Lf);  % urf -> uk*
+Cyrf = usol_funs.yrf(Lf);  % yrf -> uk*
 C = [Cup Cyp Curf Cyrf];  % u_k = C * x_k
 
 % --- Sizes ---
@@ -74,10 +69,12 @@ D = zeros(nu, n_input);
 
 % --- Create state-space system ---
 Cz_SPC = ss(A, B, C, D, []);
-% Cz_SPC.InputName{1} = 'y_k';
-% Cz_SPC.InputName{2} = 'ur_{k+f}';
-% Cz_SPC.InputName{3} = 'yr_{k+f}';
-% Cz_SPC.OutputName   = 'u_k';
+
+% naming the state-space system
+Cz_SPC.u(1:ny)          = opts.yk_name;   % y_k
+Cz_SPC.u(ny+1:ny+nu)    = opts.urkf_name; % ur_{k+f}
+Cz_SPC.u(end-ny+(1:ny)) = opts.yrkf_name; % yr_{k+f}
+Cz_SPC.y                = opts.uk_name;   % u_k
 
 % --- Initial state (optional) ---
 if nargout == 2

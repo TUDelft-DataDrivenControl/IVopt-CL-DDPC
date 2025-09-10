@@ -15,9 +15,8 @@ arguments (Input)
     opts.Qk   (1,1) double  = 1e2;
     opts.seed (1,1) double  = 1;
     opts.save       logical = true;     % save data
-    opts.raw_dir    cell;
+    opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
     opts.sys  (1,1) double = 1;         % flag for model selection
-    opts.SNR  (1,1) double              % noise to signal ratio [-] (not in dB)
 end
 [Re, p, f, N, Ncl, dRk, Rk, Qk, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.dRk, opts.Rk, opts.Qk, opts.seed);
 rng(seed);
@@ -45,7 +44,7 @@ addpath(fullfile(bin_dir,'external','crameri_colours')); % <- add path for 2) he
 end
 
 if opts.save
-    % go to save, and add to path raw data directory
+    % go to, save, and add to path raw data directory
     cd(src_dir); cd('..'); cd(append('data',filesep,'raw')); data_dir = pwd;
     if isfield(opts,'raw_dir')
         % add opts.raw_dir to raw data path if it exists
@@ -115,17 +114,14 @@ plant.u(nu+1:end) =  ek_name;
 plant.y = yk_name;
 
 % saving to opts structure
-[opts.ny,opts.nu,opts.plant] = deal(ny,nu,plant);
+[opts.ny,opts.nu,opts.uk_name,opts.yk_name] = deal(ny,nu,uk_name,yk_name);
 
 % ----------------------- make/load initial controller --------------------
-switch opts.sys
-    case {1,2,3,4}
-        if isfile(fn_Cz0)
-            Cz0 = load(fn_Cz0).Cz0;
-        else
-            [Cz0,~,~,~] = mixsyn(plant(:,1:nu),W1,[],W3);
-            save(fn_Cz0,"Cz0");
-        end
+if isfile(fn_Cz0)
+    Cz0 = load(fn_Cz0).Cz0;
+else
+    [Cz0,~,~,~] = mixsyn(plant(:,1:nu),W1,[],W3);
+    save(fn_Cz0,"Cz0");
 end
 % naming signals
 Cz0.u = arrayfun(@(j) sprintf('er0_%d', j), 1:ny, 'UniformOutput', false);
@@ -144,7 +140,6 @@ Nbar = p + f + N -1; % sim. length of initial controller
 yr0  = make_reference(Nbar,ny);
 % yr0 = idinput(Nbar,'prbs',[],[-1 1]).';
 
-wr = lsim(Cz0,yr0).'; % for the form u_k = w_k - Cz(q) y_k
 [~,~,Rf_yr0] = make_Hankel(yr0,p,f);
 
 % -> references for SPC controllers
@@ -166,25 +161,6 @@ Tcl0 = connect(Cz0,plant,fbsum{:},[rk_name(:).',ek_name(:).'],[uk_name(:).',yk_n
 
 % ----------------------- simulation with noise ---------------------------
 e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % create innovation noise
-
-% adjust Re to match SNR (if specified)
-if isfield(opts,'SNR') && ~isempty(opts.SNR)
-    % SNR calculated for OL: input vs. noise
-    yu_e = lsim(plant(:,1:nu)*Tcl0(1:nu,ny+1:end),e0, []);
-    ye   = lsim(plant(:,nu+1:end),e0, []);
-    Pyur = sum(y0_2.^2);
-    Pyue = sum(yu_e.^2);
-    Pye  = sum(ye.^2);
-    SNR = (Pyur + Pyue)/Pye;
-    SNR_min = Pyue/Pye; % obtained when Re = Inf
-    SNR_lb = SNR_min*1.01;
-    if opts.SNR <= SNR_lb
-        opts.SNR = SNR_lb;
-    end
-    SNR_ratio = opts.SNR/SNR;%Pyur/(Pye*opts.SNR-Pyue); % = (target SNR) / (actual SNR)
-    Re = Re*SNR_ratio;
-    e0 = e0*sqrt(SNR_ratio);
-end
 [uy0,~,xcl0] = lsim(Tcl0,[yr0;e0],[]); uy0 = uy0.'; xcl0 = xcl0.';
 u0 = uy0(1:nu,:); y0 = uy0(nu+1:end,:); clear uy0; % get inputs and outputs
 xcl0_plant = xcl0(size(Cz0.A,1)+1:size(Cz0.A,1)+nx,end);  % get final state of plant
@@ -206,7 +182,7 @@ for kN = 1:N
 end
 toc
 
-%% Get Subspace Predictive Controllers
+%% Instrumental Variable Matrices
 % determine past data length to use - varrho
 [Ac,Bc,Cc,Dc] = ssdata(Cz0);
 nxc = size(Ac,1);
@@ -222,135 +198,214 @@ for k = 1:nxc
         break;
     end
 end
+opts.rho = rho; % save to structure
 
-% get max of past controller & plant windows
-varrho = max(rho,p);
+% ============= create data structure and explain cases ===================
+%    Name   |       Description
+% ----------|----------------------------------------------------------
+%   iv1     | SPC using open-loop IV
+%   iv2a    | SPC using optimal IV
+%   iv2b    | SPC using optimal IV + Yf_iv
+%   iv2c    | SPC using optimal IV + Yf_iv + 2SLS
+%   iv3a    | SPC using LCF-IV
+%   iv3b    | SPC using LCF-IV + 2SLS
+%   iv4a    | SPC using approx. opt. IV w/o controller info.
+%   iv4b    | SPC using approx. opt. IV w/o controller info. + Yf_iv
+%   iv4c    | SPC using approx. opt. IV w/o controller info. + Yf_iv + 2SLS
+%   iv5a    | SPC using approx. opt. IV w/  controller info.
+%   iv5b    | SPC using approx. opt. IV w/  controller info. + Yf_iv
+%   iv5c    | SPC using approx. opt. IV w/  controller info. + Yf_iv + 2SLS
+%   iv6a    | SPC using basic IV: future reference
+%   iv6b    | SPC using basic IV: future reference + 2SLS
+%   CLSPC   | CL-SPC
+%   actLf   | SPC using the actual matrix Lf
 
-% ----------------------------- get IVs -----------------------------------
+% make structure array for data
+Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3b','iv4a','iv4b','iv4c',...
+         'iv5a','iv5b','iv5c','iv6a','iv6b','CLSPC','actLf'};
+Descr = {...
+'open-loop IV',...                                        iv1    + SPC
+'optimal IV',...                                          iv2a   + SPC
+'optimal IV + Yf_iv',...                                  iv2b   + SPC
+'optimal IV + Yf_iv + 2SLS',...                           iv2c   + SPC
+'LCF-IV',...                                              iv3a   + SPC
+'LCF-IV + 2SLS',...                                       iv3b   + SPC
+'approx. opt. IV w/o controller info.',...                iv4a   + SPC
+'approx. opt. IV w/o controller info. + Yf_iv',...        iv4b   + SPC
+'approx. opt. IV w/o controller info. + Yf_iv + 2SLS',... iv4c   + SPC
+'approx. opt. IV w/  controller info.',...                iv5a   + SPC
+'approx. opt. IV w/  controller info. + Yf_iv',...        iv5b   + SPC
+'approx. opt. IV w/  controller info. + Yf_iv + 2SLS',... iv5c   + SPC
+'basic IV: future reference',...                          iv6a   + SPC   
+'basic IV: future reference + 2SLS',...                   iv6a   + SPC
+'CL-SPC',...                                              CLSPC
+'SPC using the actual matrix Lf'};%                       actLf  + SPC
+nCz = numel(Cases);
+
+% ========================== calculate IVs ================================
+% some necessary calculations before assigning IVs using IV_4_DDPC class
 fprintf('Obtaining IVs...\n');
 
-% 1) open-loop IV (i.e. least-squares regression)
-Zol  = [Up_r01;Yp_r01;Uf_r01];
-
-% 2) optimal IV
-% Zopt = [Up_r01;Yp_r01;Uf_r02];
-Zopt  = [Up_r01;Yp_r01;Uf_r02;Yf_r02];
-Zopt_2= new_IV(Zopt,Zol,p*(nu+ny));
-[u_iv,u_iv_std] = diag_stats(flipud(Uf_r02));
-[y_iv,y_iv_std] = diag_stats(flipud(Yf_r02));
-
-% 3) composed IV using LCF
+% ---------------------- (3) LCF-IV ---------------------------------------
+% see "Data-Driven Predictive Control Using  Closed-Loop Data: An
+% Instrumental  Variable Approach" (2023) by Wang et al.
+% DOI: 10.1109/LCSYS.2023.3340444
 [~,Vc,Uc] = lncf(ss(Cz0));
 Hcv = make_blk_tril_toeplitz(Vc.A,Vc.B,Vc.C,Vc.D,f);
 Hcu = make_blk_tril_toeplitz(Uc.A,Uc.B,Uc.C,Uc.D,f);
 IV_Theta = Hcv*Uf_r01 + Hcu*Yf_r01;
-Ziv3 = [Up_r01; Yp_r01; IV_Theta; Rf_yr0];
-Ziv3_2 = new_IV(Ziv3,Zol,p*(nu+ny));
 
-% 4) approx. optimal IV w/o controller information
-[Uf_iv4,Yf_iv4] = approx_IV_no_controller_info(u0,y0,yr0,rho,opts);
-% [~,Up_iv4,Uf_iv4] = make_Hankel(u_iv4,p,f);
-% [~,Yp_iv4,Yf_iv4] = make_Hankel(y_iv4,p,f);
-Ziv4 = [Up_r01;Yp_r01;Uf_iv4;Yf_iv4];
-Ziv4_2 = new_IV(Ziv4,Zol,p*(nu+ny));
-[u_iv4,u_iv4_std] = diag_stats(flipud(Uf_iv4));
-[y_iv4,y_iv4_std] = diag_stats(flipud(Yf_iv4));
+% ---------------------- (4) w/o controller info. -------------------------
+% w/o -> don't known Cz0 exactly, but know rho & feedback configuration
+[Uf_iv4,Yf_iv4] = approx_IV_no_controller_info(u0,y0,yr0,opts);
 
-% 5) approx. optimal IV w/ controller information - init. LCF
-[Uf_iv5,Yf_iv5,xCz_iv5] = approx_IV_controller_info_v2(u0,y0,yr0,rho,p,f,Ziv3,Cz0,1,plant,e0);
-Ziv5 = [Up_r01;Yp_r01;Uf_iv5;Yf_iv5];
-Ziv5_2 = new_IV(Ziv5,Zol,p*(nu+ny));
-[u_iv5,u_iv5_std] = diag_stats(flipud(Uf_iv5));
-[y_iv5,y_iv5_std] = diag_stats(flipud(Yf_iv5));
+% ---------------------- (5) w/ controller info. --------------------------
+[Uf_iv5,Yf_iv5] = approx_IV_controller_info(u0,y0,yr0,opts,Cz0);
 
-% 8) basic IV
-Ziv8 = [Up_r01; Yp_r01; Rf_yr0];
-Ziv8_2 = new_IV(Ziv8,Zol,p*(nu+ny));
+% =========================== assign IVs ==================================
+% using an instance of the IV_4_DDPC class
 
-% 9) approx optimal IV w/ controller information - init. basic IV
-[u_iv9,y_iv9,xCz_iv9] = approx_IV_controller_info(u0,y0,yr0,p,f,Ziv8,Cz0,1);
-[~,Up_iv9,Uf_iv9] = make_Hankel(u_iv9,p,f);
-[~,Yp_iv9,Yf_iv9] = make_Hankel(y_iv9,p,f);
-Ziv9 = [Up_r01;Yp_r01;Uf_iv9;Yf_iv9];
-Ziv9_2 = new_IV(Ziv9,Zol,p*(nu+ny));
+% ---------------------- (1) open-loop IV ---------------------------------
+% 1) i.e. 'normal' least-squares regression)
+Z = IV_4_DDPC(u0,y0,p,f); % initializes IV object & makes open-loop IV ('iv1')
 
+for kIV = 2:nCz-2 % loop over remaining IV names
+    IV_name = Cases{kIV};    % IV name
+    IV_descr = Descr{kIV};   % IV description
+
+    switch IV_name
+% ---------------------- (2) optimal IV -----------------------------------
+        case 'iv2a'         % 2a) w/o Yf_iv (result for minimum asymptotic variance)
+            Z0 = Uf_r02;
+            TSLS = false;
+        case 'iv2b'         % 2b) = iv2a + Yf_iv
+            Z0 = [Uf_r02;Yf_r02];
+            TSLS = false;
+        case 'iv2c'         % 2c) = iv2a + Yf_iv + 2SLS
+            Z0 = [Uf_r02;Yf_r02];
+            TSLS = true;
+    
+% ---------------------- (3) LCF-IV ---------------------------------------
+        case 'iv3a'         % 3a) orignal form of LCF-IV
+            Z0 = [IV_Theta; Rf_yr0];
+            TSLS = false;
+        case 'iv3b'         % 3b) => 3a) + 2SLS
+            Z0 = [IV_Theta; Rf_yr0];
+            TSLS = true;
+    
+% ---------------------- (4) w/o controller info. -------------------------
+        case 'iv4a'         % 4a) without Yf_iv
+            Z0 = Uf_iv4;
+            TSLS = false;
+        case 'iv4b'         % 4b) => 4a) + Yf_iv
+            Z0 = [Uf_iv4;Yf_iv4];
+            TSLS = false;
+        case 'iv4c'         % 4c) => 4a) + Yf_iv + 2SLS
+            Z0 = [Uf_iv4;Yf_iv4];
+            TSLS = true;
+    
+% ---------------------- (5) w/ controller info. --------------------------
+        case 'iv5a'         % 5a) without Yf_iv
+            Z0 = Uf_iv5;
+            TSLS = false;
+        case 'iv5b'         % 5b) => 5a) + Yf_iv
+            Z0 = [Uf_iv5;Yf_iv5];
+            TSLS = false;
+        case 'iv5c'         % 5c) => 5a) + Yf_iv + 2SLS
+            Z0 = [Uf_iv5;Yf_iv5];
+            TSLS = true;
+    
+% ---------------------- (6) basic IV -------------------------------------
+        case 'iv6a'         % 6a) IV composed of future reference signal
+            Z0 = Rf_yr0;
+            TSLS = false;
+        case 'iv6b'         % 6b) => 6a) + SLS
+            Z0 = Rf_yr0;
+            TSLS = true;
+    
+    end
+    
+    % create IV based on Z0, TSLS flag, and description
+    Z.add_IV(IV_name,Z0,TSLS=TSLS,descr=IV_descr);
+
+end
+
+% ============= calc. mean & std. dev. of IV trajectories =================
+% ---------------------- (1) open-loop IV ---------------------------------
+% see u0 & y0, std. dev. = 0
+
+% ---------------------- (2) optimal IV -----------------------------------
+[u_iv2a,u_iv2a_std] = diag_stats(Uf_r02,nr=nu,anti=true); % w/o Yf_iv
+[y_iv2b,y_iv2b_std] = diag_stats(Yf_r02,nr=ny,anti=true); % w/  Yf_iv
+Uf_iv2c = Z.iv2c_;                                        % w/  Yf_iv + 2SLS
+[u_iv2c,u_iv2c_std] = diag_stats(Uf_iv2c,nr=nu,anti=true); 
+
+% ---------------------- (3) LCF-IV ---------------------------------------
+[y_iv3a,y_iv3a_std] = diag_stats(IV_Theta,nr=nu,anti=true); % interpretation of IV_Theta
+Uf_iv3b = Z.iv3b_;                                        % w/ 2SLS
+[u_iv3b,u_iv3b_std] = diag_stats(Uf_iv3b,nr=nu,anti=true);
+
+% ---------------------- (4) w/o controller info. -------------------------
+[u_iv4a,u_iv4a_std] = diag_stats(Uf_iv4,nr=nu,anti=true); % w/o Yf_iv
+[y_iv4b,y_iv4b_std] = diag_stats(Yf_iv4,nr=ny,anti=true); % w/  Yf_iv
+Uf_iv4c = Z.iv4c_;                                        % w/  Yf_iv + 2SLS
+[u_iv4c,u_iv4c_std] = diag_stats(Uf_iv4c,nr=nu,anti=true);
+
+% ---------------------- (5) w/ controller info. --------------------------
+[u_iv5a,u_iv5a_std] = diag_stats(Uf_iv5,nr=nu,anti=true); % w/o Yf_iv
+[y_iv5b,y_iv5b_std] = diag_stats(Yf_iv5,nr=ny,anti=true); % w/  Yf_iv
+Uf_iv5c = Z.iv5c_;                                        % w/  Yf_iv + 2SLS
+[u_iv5c,u_iv5c_std] = diag_stats(Uf_iv5c,nr=nu,anti=true);
+
+% ---------------------- (6) basic IV --------------------------
+y_iv6a = yr0(:,p+1:end);                                  % reference
+Uf_iv6b = Z.iv6b_;                                        % reference + 2SLS
+[u_iv6b,u_iv6b_std] = diag_stats(Uf_iv6b,nr=nu,anti=true);
+
+%% Get Subspace Predictive Controllers
 % ---------------------- get (CL-)SPC controllers -------------------------
 fprintf('Obtaining controllers...\n');
-[up2usol, yp2usol, urf2usol, yrf2usol] = get_solver(nu,ny,p,f,Q,R,dR);
+
+% make functions to get SPC controllers
+usol_funs = get_solver(nu,ny,p,f,Q,R,dR); % structure w/ up2usol, yp2usol, urf2usol, yrf2usol
+
+% name channels in SPC controllers
+urkf_name = arrayfun(@(j) sprintf('ur%d_%d',f, j), 1:nu, 'UniformOutput', false);
+yrkf_name = arrayfun(@(j) sprintf('yr%d_%d',f, j), 1:ny, 'UniformOutput', false);
+[opts.urkf_name,opts.yrkf_name] = deal(urkf_name,yrkf_name);
 
 % for initial state of SPC controllers
 up0 = u0(:,end-p+1:end); up0 = up0(:);  % past input data
 yp0 = y0(:,end-p+1:end); yp0 = yp0(:);  % past output data
-urf = ur1(:,1:f); urf = urf(:);         % future input references
-yrf = yr1(:,1:f); yrf = yrf(:);         % future output references
+urf = ur1(:,1:f);        urf = urf(:);  % future input references
+yrf = yr1(:,1:f);        yrf = yrf(:);  % future output references
 
-% 1) SPC using open-loop IV
-Lf1 = Yf_r01*Zol.'*pinv(Zol*Zol.');
-Cz1 = Lf_2_SPC(Lf1,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-urkf_name = arrayfun(@(j) sprintf('ur%d_%d',f, j), 1:nu, 'UniformOutput', false);
-yrkf_name = arrayfun(@(j) sprintf('yr%d_%d',f, j), 1:ny, 'UniformOutput', false);
-Cz1.u(1:ny)          = yk_name;   % y_k
-Cz1.u(ny+1:ny+nu)    = urkf_name; % ur_{k+f}
-Cz1.u(end-ny+(1:ny)) = yrkf_name; % yr_{k+f}
-Cz1.y = uk_name;                  % u_k
+% create controllers
+for iCz = 1:nCz
+    Czn = Cases{iCz}; % name of controller
+    switch Czn
+% -------------------------- (1-6) SPCs based on an IV --------------------
+        case Cases(1:nCz-2)
+            Lf.(Czn) = Yf_r01*Z.(Czn).'*pinv(Z.iv1*Z.(Czn).');
+            if iCz > 1
+                Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts);
+            else
+                % also create initial state of the controller
+                [Cz.(Czn),x1_0_SPC] = Lf_2_SPC(Lf.(Czn),usol_funs,opts,up=up0,yp=yp0,urf=urf,yrf=yrf);
+            end
 
-% 2) optimal IV
-% Lf2 = IV_GLS(Yf_r01,Zopt,Zol);
-Lf_3 = IV_GLS_vec(Yf_r01,Zopt,Zol,ny,0);
-% Lf2 = Yf_r01*Zopt.'*pinv(Zol*Zopt.');
-Lf2_2 = Yf_r01*Zopt_2.'/(Zopt_2*Zopt_2.');
-Lf2 = IV_GMM_vec(Yf_r01,Zopt,Zol,ny,nu,p,f);
-[Cz2,x1_0_SPC] = Lf_2_SPC(Lf2,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f,up=up0,yp=yp0,urf=urf,yrf=yrf);
-Cz2.u = Cz1.u; Cz2.y = Cz1.y;
+% -------------------------- (7) CL-SPC -----------------------------------
+        case 'CLSPC'
+            Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
+            Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts);
 
-% 3) SPC using LCF
-Lf3 = Yf_r01*Ziv3.'*pinv(Zol*Ziv3.');
-% Lf3 = Yf_r01*Ziv3_2.'/(Ziv3_2*Ziv3_2.');
-Cz3 = Lf_2_SPC(Lf3,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz3.u = Cz1.u; Cz3.y = Cz1.y;
-
-% 4) SPC using approximation of optimal IV w/o controller information
-% Lf4 = Yf_r01*Ziv4.'*pinv(Zol*Ziv4.');
-Lf4 = Yf_r01*Ziv4_2.'/(Ziv4_2*Ziv4_2.');
-Cz4 = Lf_2_SPC(Lf4,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz4.u = Cz1.u; Cz4.y = Cz1.y;
-
-% 5) SPC using approximation of optimal IV w/ controller info. - init LCF
-% Lf5 = Yf_r01*Ziv5.'*pinv(Zol*Ziv5.');
-Lf5 = Yf_r01*Ziv5_2.'/(Ziv5_2*Ziv5_2.');
-Cz5 = Lf_2_SPC(Lf5,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz5.u = Cz1.u; Cz5.y = Cz1.y;
-
-% 6) CL-SPC
-Lf6 = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
-Cz6 = Lf_2_SPC(Lf6,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz6.u = Cz1.u; Cz6.y = Cz1.y;
-
-% 7) optimal Lf
-[Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(A,B,C,D,K,p,f);
-Lf7 = [Up2Yf_inno Yp2Yf_inno Uf2Yf_inno];
-Cz7 = Lf_2_SPC(Lf7,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz7.u = Cz1.u; Cz7.y = Cz1.y;
-
-% 8) basic IV
-Lf8 = Yf_r01*Ziv8.'*pinv(Zol*Ziv8.');
-% Lf8 = Yf_r01*Ziv8_2.'/(Ziv8_2*Ziv8_2.');
-Cz8 = Lf_2_SPC(Lf8,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz8.u = Cz1.u; Cz8.y = Cz1.y;
-
-% 9) approx optimal IV w/ controller information - init. basic IV
-% Lf9 = Yf_r01*Ziv9.'*pinv(Zol*Ziv9.');
-Lf9 = Yf_r01*Ziv9_2.'/(Ziv9_2*Ziv9_2.');
-Cz9 = Lf_2_SPC(Lf9,up2usol,yp2usol,urf2usol,yrf2usol,nu,ny,p,f);
-Cz9.u = Cz1.u; Cz9.y = Cz1.y;
-
-% collect controllers and Lf estimates in cell array
-nCz = 9;
-[Lfs,Czs] = deal(cell(nCz,1));
-Lfs{1} = Lf1; Lfs{2} = Lf2; Lfs{3} = Lf3; Lfs{4} = Lf4; Lfs{5} = Lf5;
-Lfs{6} = Lf6; Lfs{7} = Lf7; Lfs{8} = Lf8; Lfs{9} = Lf9;
-Czs{1} = Cz1; Czs{2} = Cz2; Czs{3} = Cz3; Czs{4} = Cz4; Czs{5} = Cz5;
-Czs{6} = Cz6; Czs{7} = Cz7; Czs{8} = Cz8; Czs{9} = Cz9;
+% -------------------------- (8) SPC w/ actual Lf -------------------------
+        case 'actLf'
+            [Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(A,B,C,D,K,p,f);
+            Lf.(Czn) = [Up2Yf_inno Yp2Yf_inno Uf2Yf_inno];
+            Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts);
+    end
+end
 
 %% Run closed-loop simulations
 fprintf('Running closed-loop simulations...\n');
@@ -364,43 +419,51 @@ Tcl_in  = [urkf_name(:)',yrkf_name(:)',ek_name(:)'];
 Tcl_out = [uk_name(:)',yk_name(:)'];
 Tcls = cell(nCz,1);
 for kCz = 1:nCz
-    Tcls{kCz} = connect(Czs{kCz},plant,Tcl_in,Tcl_out,conOpts);
+    Czn = Cases{kCz};
+    Tcl.(Czn) = connect(Cz.(Czn),plant,Tcl_in,Tcl_out,conOpts);
 end
 
 % define data structures
-[u_cl, y_cl] = deal(cell(nCz,1));
 for kCz = 1:nCz
-    uy_cl = lsim(Tcls{kCz},[ur1(:,f+1:end);yr1(:,f+1:end);e1],[],x1_0_cl).';
-    u_cl{kCz} = uy_cl(1:nu,:);
-    y_cl{kCz} = uy_cl(nu+1:end,:);
+    Czn = Cases{kCz}; % controller name
+    uy_cl = lsim(Tcl.(Czn),[ur1(:,f+1:end);yr1(:,f+1:end);e1],[],x1_0_cl).';
+    u_cl.(Czn) = uy_cl(1:nu,:);
+    y_cl.(Czn) = uy_cl(nu+1:end,:);
 end
 fprintf('Closed-loop simulations finished!\n');
 
 %% Calculate average stage costs
 fprintf('Calculate average stage costs...\n');
 
+% -------------------------- create functions -----------------------------
 % average of (u_k-ur_k).' * Rk * (u_k-ur_k) over Ncl steps
-cost_uk = @(u) reshape(ur1(:,1:Ncl)-u,[],1).'*kron(speye(Ncl),Rk)*reshape(ur1(:,1:Ncl)-u,[],1); 
-cost_u1 = cellfun(@(u) cost_uk(u)/Ncl, u_cl);
+cost_fun_uk = @(u) reshape(ur1(:,1:Ncl)-u,[],1).'*kron(speye(Ncl),Rk)*reshape(ur1(:,1:Ncl)-u,[],1);
 
 % average of du_k.' * dRk * du_k over Ncl steps
-cost_duk = @(u) reshape(u-[u0(:,end) u(:,2:end)],[],1).'*kron(speye(Ncl),dRk)*reshape(u-[u0(:,end) u(:,2:end)],[],1);
-cost_u2 = cellfun(@(u) cost_duk(u)/Ncl,u_cl);
+cost_fun_duk = @(u) reshape(u-[u0(:,end) u(:,2:end)],[],1).'*kron(speye(Ncl),dRk)*reshape(u-[u0(:,end) u(:,2:end)],[],1);
 
 % average of (y_k-yr_k).' * Rk * (y_k-yr_k) over Ncl steps
-cost_yk = @(y) reshape(yr1(:,1:Ncl)-y,[],1).'*kron(speye(Ncl),Qk)*reshape(yr1(:,1:Ncl)-y,[],1);
-cost_y  = cellfun(@(y) cost_yk(y)/Ncl,y_cl);
+cost_fun_yk = @(y) reshape(yr1(:,1:Ncl)-y,[],1).'*kron(speye(Ncl),Qk)*reshape(yr1(:,1:Ncl)-y,[],1);
 
-% total costs
-cost_u  = cost_u1 + cost_u2;
-cost_tot= cost_u + cost_y; % total cost
+% -------------------------- perform calculations -------------------------
+for kCz = 1:nCz
+    Czn = Cases{kCz};
+    
+    cost_u1.(Czn) = cost_fun_uk( u_cl.(Czn))/Ncl;
+    cost_u2.(Czn) = cost_fun_duk(u_cl.(Czn))/Ncl;
+    cost_y.(Czn)  = cost_fun_yk( y_cl.(Czn))/Ncl;
+    cost_u.(Czn)  = cost_u1.(Czn) + cost_u2.(Czn);
+    cost_tot.(Czn)= cost_u.(Czn)  + cost_y.(Czn);  % total cost
+end
 
 %% Identification error analysis
 fprintf('Calculate identification errors...\n');
 
 FroIDerror = zeros(kCz,3);
 for kCz = 1:nCz
-    IDerror = Lfs{kCz}-Lf7;
+    Czn = Cases{kCz};
+
+    IDerror = Lf.(Czn)-Lf.actLf;
     cols = 1:p*nu;
     FroIDerror(kCz,1) = norm(IDerror(:,cols),'fro');
     cols = p*nu+(1:p*ny);
@@ -439,7 +502,7 @@ if opts.save
     save(fn,'Re','p','f','N','Ncl','Qk','Rk','dRk','seed','Nbar',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
         'u0_2','y0_2','Lfs','Czs','Tcls','u_cl','y_cl',...
-        'u_iv4','y_iv4','u_iv5','y_iv5','u_iv9','y_iv9',...
+        'u_iv4a','y_iv4b','u_iv5a','y_iv5b','u_iv9','y_iv9',...
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
     fprintf('File saved successfully!\n');
@@ -448,34 +511,47 @@ end
 %% Plotting
 if opts.plot
     close all;
-% ===================== initial closed-loop data (& IVs) ==================
-    % free (noisy) response
-    [y0_3,~,~] = lsim(plant,[zeros(nu,Nbar);e0],[]); y0_3 = y0_3.';
+% ============================= IV trajectories ===========================
+    
+    cCram = crameri('roma', 8); % colors
 
+    % free (noisy) response
+    [y0_free,~,~] = lsim(plant,[zeros(nu,Nbar);e0],[]); y0_free = y0_free.';
+    
     figure(1);
     tiledlayout(2,1,'TileSpacing','compact');
     
-    ax1_11 = nexttile;
-    plot(y0,'LineWidth',2); hold on; 
-    plot(y0_2,'--','LineWidth',2);
-    plot(y_iv4);
-    plot(y_iv5);
-    plot(y_iv9);
-    plot(yr0);
-    plot(e0);
+    ax1_11 = nexttile; % for Yf_iv
+    plot(y_iv6a,'Color','b','LineWidth',2); hold on;                       % reference 
+    plot(y0(:,p+1:end),'LineWidth',2,'Color','k');                         % actual output
+    plot(e0(:,p+1:end),'Color','r','LineStyle','--');                      % innovation noise
+    plotMeanWithStd(y_iv2b,y_iv2b_std,Color=cCram(1,:),LineStyle='-');     % optimal IV
+    plotMeanWithStd(y_iv4b,y_iv4b_std,Color=cCram(4,:),LineStyle='--');    % w/o controller info  
+    plotMeanWithStd(y_iv5b,y_iv5b_std,Color=cCram(6,:),LineStyle='-');     % w/  controller info
+    plotMeanWithStd(y_iv3a,y_iv3a_std,Color=cCram(8,:),LineStyle='-');     % LCF-IV - IV_Theta)
     yLim1 = ax1_11.YLim;
-    plot(y0_3); % free response
+    plot(y0_free(:,p+1:end),'g');                                          % free response
     ylim(yLim1);
-    legend({'$y$','$y_{iv}^*$','$y_{iv}^{nc}$','$y_{iv}^{c,lcf}$','$y_{iv}^{c,b}$','ref','$e$','$y_{\mathrm{free}}$'},'Interpreter','latex');
+    legend('3a,6a) ref',     'actual output',   'noise',...
+           '2b) opt. IV', '4b) w/o Cz info', '5b) w/  Cz info',...
+           '3a)  LCF-IV Theta','free resp.')
+    % legend({'$y$','$y_{iv}^*$','$y_{iv}^{nc}$','$y_{iv}^{c,lcf}$','$y_{iv}^{c,b}$','ref','$e$','$y_{\mathrm{free}}$'},'Interpreter','latex');
     grid on;
     ylabel('$y_k$','Interpreter','latex');
     
-    ax1_12 = nexttile;
-    plot(u0,'LineWidth',2); hold on;
-    plot(u0_2,'--','LineWidth',2);
-    plot(u_iv4);
-    plot(u_iv5);
-    plot(u_iv9);
+    ax1_12 = nexttile; % for Uf_iv
+    plotMeanWithStd(u_iv6b,u_iv6b_std,Color='b',lineWidth=2); hold on;     % reference + 2SLS
+    plot(u0(:,p+1:end),'LineWidth',2,'Color','k');                         % actual output
+    plotMeanWithStd(u_iv2a,u_iv2a_std,Color=cCram(1,:),LineStyle='-');     % optimal IV
+    plotMeanWithStd(u_iv2c,u_iv2c_std,Color=cCram(2,:),LineStyle='--');    % optimal IV + Yf_iv + 2SLS
+    plotMeanWithStd(u_iv3b,u_iv3b_std,Color=cCram(3,:),LineStyle='-');     % LCF-IV + 2SLS
+    plotMeanWithStd(u_iv4a,u_iv4a_std,Color=cCram(4,:),LineStyle='--');    % w/o controller info
+    plotMeanWithStd(u_iv4c,u_iv4c_std,Color=cCram(5,:),LineStyle='-');     % w/o controller info + Yf_iv + 2SLS
+    plotMeanWithStd(u_iv5a,u_iv5a_std,Color=cCram(6,:),LineStyle='-');     % w/  controller info
+    plotMeanWithStd(u_iv5c,u_iv5c_std,Color=cCram(7,:),LineStyle='--');    % w/  controller info + Yf_iv + 2SLS
+    legend('6b)  ref + 2SLS',        'actual input',    '2ab) opt. IV',...
+           '2c)  opt. IV + 2SLS',    '3b)  LCF + 2SLS', '4ab) w/o Cz info',...
+           '4c)  w/o Cz info + 2SLS','5ab) w/ Cz info', '5c)  w/ Cz info + 2SLS')
     grid on;
     ylabel('$u_k$','Interpreter','latex');
     xlabel('Time','Interpreter','latex');
@@ -483,76 +559,63 @@ if opts.plot
     linkaxes([ax1_11,ax1_12],'x');
 
 % ======================= closed-loop simulation data =====================
+    % Load a Crameri colormap (e.g., 'batlow')
+    colors = crameri('batlow', nCz);  % nCz colors for controllers
+    
+    % Define line and marker styles
+    lineStyles = {'-','--',':','-.'};    % line styles
+    markerStyles = {'o','s','^','d','none'};    % include 'none' to skip markers
+    
     figure(2);
     tiledlayout(2,1,'TileSpacing','compact');
     
     ax2_1 = nexttile;
-    stairs(yr1, 'k-','LineWidth',2); hold on;
+    stairs(yr1, 'k-','LineWidth',2,'DisplayName','ref'); hold on;
+    
     for kCz = 1:nCz
-        switch kCz
-            case {2,7}
-                plot(y_cl{kCz}, 'LineWidth',2);
-            case 1
-                plot(y_cl{kCz},'--');
-            case {3,5}
-                plot(y_cl{kCz},'--^','MarkerSize',3);
-            case 4
-                plot(y_cl{kCz},'--o','LineWidth',2,'MarkerSize',3);
-            case 6
-                plot(y_cl{kCz},'-.')
-            case {8,9}
-                plot(y_cl{kCz},'-','Marker','.');            
-        end
+        Czn = Cases{kCz}; % controller name
+        ls = lineStyles{mod(kCz-1,length(lineStyles))+1};
+        ms = markerStyles{mod(kCz-1,length(markerStyles))+1};
+        stairs(y_cl.(Czn), 'Color', colors(kCz,:), 'LineStyle', ls, ...
+             'Marker', ms, 'LineWidth',1.5, 'DisplayName', Czn);
     end
-    ylim([-15 15]);
-    leg_txt = {'$\mathcal{Z}_\mathrm{ol}$', ...
-        '$\mathcal{Z}^*$', ...
-        '$\mathcal{Z}_\mathrm{lcf}$',...
-        '$\widehat{\mathcal{Z}}_\mathrm{nc}^*$', ...
-        '$\widehat{\mathcal{Z}}_\mathrm{c,lcf}^*$', ...
-        'CL-SPC', ...
-        '$L_f^*$', ...
-        '$\widehat{\mathcal{Z}}_\mathrm{b}$',...
-        '$\widehat{\mathcal{Z}}_\mathrm{c,b}^*$',...
-        'Interpreter','latex'};
-    legend('ref', leg_txt{:});
-    ylabel('$y_k$','Interpreter','latex')
+    
+    ylim([-15 15]); grid on;
+    ylabel('$y_k$','Interpreter','latex');
+    legend show
     
     ax2_2 = nexttile;
-    plot(ur1, 'k-','LineWidth',2); hold on;
+    stairs(ur1, 'k-','LineWidth',2,'DisplayName','ref'); hold on;
+    
     for kCz = 1:nCz
-        switch kCz
-            case {2,7}
-                plot(u_cl{kCz}, 'LineWidth',2);
-            case 1
-                plot(u_cl{kCz},'--');
-            case {3,5}
-                plot(u_cl{kCz},'--^','MarkerSize',3);
-            case 4
-                plot(u_cl{kCz},'--o','LineWidth',2,'MarkerSize',3);
-            case 6
-                plot(u_cl{kCz},'-.')
-            case {8,9}
-                plot(u_cl{kCz},'-','Marker','.');            
-        end
+        Czn = Cases{kCz}; % controller name
+        ls = lineStyles{mod(kCz-1,length(lineStyles))+1};
+        ms = markerStyles{mod(kCz-1,length(markerStyles))+1};
+        stairs(u_cl.(Czn), 'Color', colors(kCz,:), 'LineStyle', ls, ...
+             'Marker', ms, 'LineWidth',1.5, 'DisplayName', Czn);
     end
-    ylim([-30 30]);
+    
+    ylim([-30 30]); grid on;
     ylabel('$u_k$','Interpreter','latex');
     xlabel('Time', 'Interpreter','latex');
+    legend show
     
     linkaxes([ax2_1 ax2_2], 'x');
+
     
 % ======================= visualize identification results ================
     cabsmax = 0;
     for kCz = 1:nCz
-        cabsmax = max(max(abs(Lfs{kCz}),[],"all"),cabsmax);
+        Czn = Cases{kCz}; % controller name
+        cabsmax = max(max(abs(Lf.(Czn)),[],"all"),cabsmax);
     end
     
     figure(3);
     tiledlayout(nCz,1,'TileSpacing','compact');
     for kCz = 1:nCz
+        Czn = Cases{kCz}; % controller name
         nexttile;
-        imagesc_vik(Lfs{kCz},cmax=cabsmax);
+        imagesc_vik(Lf.(Czn),cmax=cabsmax);
     end
     
 % ======================= visualize identification error ==================
@@ -564,8 +627,8 @@ if opts.plot
 
 % ======================= visualize average stage costs ===================
     figure(5);
-    xleg = categorical(leg_txt(1:end-2));
-    xleg = reordercats(xleg,leg_txt(1:end-2));
+    xleg = categorical(Cases);
+    xleg = reordercats(xleg,Cases);
     bar(xleg,[cost_u cost_y],'stacked');
     legend({'$\mathcal{J}_u$','$\mathcal{J}_y$'},'interpreter','latex');
     ax_bar = gca;
@@ -598,118 +661,107 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
     Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
 end
 
-function Lf = IV_GLS(Yf,Z,Phi)
-    PhiZt = Phi*Z.';
-    CovZPhi = (Z*Z.')\PhiZt.';
-    Lf = Yf*Z.'*CovZPhi/(PhiZt*CovZPhi);
-end
+function [hFill,hLine] = plotMeanWithStd(mean_vals, std_devs, opts)
+% plotMeanWithStd - Plot mean values with shaded standard deviation bands
+%
+% Syntax:
+%   plotMeanWithStd(mean_vals, std_devs)
+%   plotMeanWithStd(mean_vals, std_devs, opts)
+%
+% Description:
+%   This function visualizes a mean curve with its uncertainty (standard
+%   deviation) as a shaded region. The shaded patch is excluded from the
+%   legend, ensuring the legend only describes the mean line. Plot
+%   appearance can be customized via the options structure `opts`.
+%
+% Inputs:
+%   mean_vals (1,:) double
+%       Vector of mean values to plot.
+%
+%   std_devs (1,:) double
+%       Vector of standard deviations corresponding to `mean_vals`.
+%       Must be the same length as `mean_vals`.
+%
+%   opts (optional) struct with fields:
+%       .Color  - Line/patch color. Can be:
+%                       * MATLAB short color char (e.g. 'b','r','g')
+%                       * RGB triplet (e.g. [0 0.447 0.741])
+%                     Default: 'b'
+%       .LineStyle - Line style for mean curve (e.g. '-', '--', ':')
+%                     Default: '-'
+%       .faceAlpha - Transparency of shaded area (0 = transparent,
+%                     1 = opaque). Default: 0.2
+%       .lineWidth - Width of mean line. Default: 2
+%       .x         - x-axis values corresponding to `mean_vals`.
+%                     Must be same length as `mean_vals`.
+%                     Default: 1:length(mean_vals)
+%
+% Outputs:
+%   hFill - handle to shaded patch (excluded from legend)
+%   hLine - handle to mean line (included in legend)
+%
+% Example:
+%   x = linspace(0,2*pi,100);
+%   y = sin(x);
+%   s = 0.1*ones(size(y));
+%   opts.Color = [0.2 0.6 0.8];
+%   opts.LineStyle = '--';
+%   opts.lineWidth = 3;
+%   plotMeanWithStd(y, s, opts);
 
-function Lf = IV_GLS_vec(Yf,Z,Phi,ny,fac)
-    [fny,N] = size(Yf); f = fny/ny;
-    PhiZt = Phi*Z.';
-    YfZt = Yf*Z.';
-    Lf = IV_GLS(Yf,Z,Phi); % get initial estimate
-    V = Yf-Lf*Phi; % get errors
-    Hf = chol(V*V.'/size(V,2),'lower');
-    Re_est = Hf(1:ny,1:ny)*Hf(1:ny,1:ny).';
-    Hf = Hf/kron(speye(f),Hf(1:ny,1:ny));
-    Se = build_Hankel_selection_matrix_sparse(f, N);
-    M1 = (Se*Se.'-speye(f*N))*fac+speye(f*N);        clear Se;
-    Cov = kron(Z,Hf)*kron(M1,Re_est)*kron(Z.',Hf.'); clear M1;
-    theta = kron(PhiZt,speye(fny))/Cov;              clear Cov;
-    % theta = kron(PhiZt,speye(fny)) * kron(inv(Z*Z.'),Hf.'\kron(speye(f),inv(Re_est))/Hf);
-    theta = (theta*kron(PhiZt.',speye(fny)))\theta*YfZt(:);
-    Lf = reshape(theta,fny,[]);
-end
+    arguments
+        mean_vals (1,:) double
+        std_devs  (1,:) double {mustBeEqualLength(mean_vals,std_devs)}
+        opts.Color  = 'b'
+        opts.LineStyle = '-'
+        opts.faceAlpha (1,1) double {mustBeGreaterThanOrEqual(opts.faceAlpha,0),mustBeLessThanOrEqual(opts.faceAlpha,1)} = 0.2
+        opts.lineWidth (1,1) double {mustBePositive} = 2
+        opts.x (1,:) double {mustBeEqualLength(opts.x,std_devs)} = 1:length(mean_vals)
+    end
 
-% improve IV correlation - 2SLS
-function Znew = new_IV(Z,Wp,n_exo)
-    N = size(Z,2);
-    if ~isempty(n_exo)
-        Znew = Wp*Z.'/(Z*Z.'/N)*Z/N;
+    x = opts.x;
+
+    % Upper and lower bounds
+    upper = mean_vals + std_devs;
+    lower = mean_vals - std_devs;
+
+    % Convert to RGB if short color char is given
+    if ischar(opts.Color) || isstring(opts.Color)
+        colorRGB = getColorFromChar(opts.Color);
     else
-        Znew = [Wp(1:n_exo,:);...
-                Wp*Z.'/(Z*Z.'/N)*Z/N];
+        colorRGB = opts.Color;
+    end
+
+    % Fill area between bounds (not shown in legend)
+    hFill = fill([x fliplr(x)], [upper fliplr(lower)], colorRGB, ...
+        'FaceAlpha', opts.faceAlpha, 'EdgeColor', 'none', ...
+        'HandleVisibility','off'); 
+    hold on;
+
+    % Plot mean line (included in legend)
+    hLine = plot(x, mean_vals, 'Color', colorRGB, ...
+        'LineWidth', opts.lineWidth, 'LineStyle', opts.LineStyle);
+end
+
+function rgb = getColorFromChar(c)
+% getColorFromChar - Convert MATLAB short color names to RGB triplets
+    switch char(c)
+        case 'y', rgb = [1 1 0];
+        case 'm', rgb = [1 0 1];
+        case 'c', rgb = [0 1 1];
+        case 'r', rgb = [1 0 0];
+        case 'g', rgb = [0 1 0];
+        case 'b', rgb = [0 0 1];
+        case 'w', rgb = [1 1 1];
+        case 'k', rgb = [0 0 0];
+        otherwise
+            error('Unknown color specifier: %s', c);
     end
 end
 
-function Se = build_Hankel_selection_matrix_sparse(f, N)
-% Constructs sparse selection matrix H such that:
-% vec(E_{f,N}) = H * e_tilde
-% where:
-% - E_{f,N} is a Hankel matrix with f rows and N columns,
-% - e_tilde = [e_1; e_2; ...; e_{N+f-1}],
-% - each e_t is scalar (dimension 1).
-
-    total_rows = f * N;
-    total_cols = N + f - 1;
-    nz = f * N;  % number of nonzero entries (all ones)
-
-    I = (1:nz)';                     % row indices
-    J = zeros(nz, 1);                % column indices
-    V = ones(nz, 1);                 % values (always 1)
-
-    idx = 1;
-    for col = 1:N
-        for row = 1:f
-            J(idx) = row + col - 1;
-            idx = idx + 1;
-        end
+function mustBeEqualLength(a,b)
+% mustBeEqualLength - Validation function for equal-length vectors
+    if length(a) ~= length(b)
+        error('Inputs must be the same length.');
     end
-
-    Se = sparse(I, J, V, total_rows, total_cols);
-end
-
-function S = newey_west(G, q)
-% NEWEY_WEST Computes the Newey-West HAC covariance matrix estimate
-%
-% INPUTS:
-%   G : m x T matrix of moment residuals (each column is one observation)
-%   q : non-negative integer, bandwidth (lag truncation parameter)
-%
-% OUTPUT:
-%   S : m x m HAC covariance matrix estimate
-
-    [m, T] = size(G);
-
-    % Mean-center the moment residuals
-    G = G - mean(G, 2);
-
-    % Initialize covariance matrix
-    S = (G * G') / T;
-    Gamma_ls = nan(m,m,q);
-    % Apply weighted autocovariances
-    for l = 1:q
-        weight = 1 - l / (q + 1); % Bartlett kernel
-        Gamma_l = (G(:, (l+1):T) * G(:, 1:(T-l))') / T;
-        Gamma_ls(:,:,l) = Gamma_l;
-        S = S + weight * (Gamma_l + Gamma_l');
-    end
-end
-
-function Lf = IV_GMM_vec(Yf,Z,Phi,ny,nu,p,f)
-    N = size(Yf,2);
-    d = p*(nu+ny);
-    fny = f*ny;
-
-    % 2SLS
-    Z2= new_IV(Z,Phi,d);
-    Lf = Yf*Z2.'/(Z2*Z2.');
-    nz = size(Z2,1);
-
-    % get errors
-    V = Yf-Lf*Phi; % get errors
-    % VZ = V*Z2.';
-
-    % intermediate values
-    PhiZt = Phi*Z2.';
-    YfZt  = Yf*Z2.';
-    
-    % estimate covariance
-    Cov = newey_west(V,f);
-    % Cov = kron(Z*Z.',Cov);
-    % Cov = kron(speye(nz),Cov);
-    theta = kron(PhiZt/(Z2*Z2.'),speye(fny)/Cov); clear Cov;
-    theta = (theta*kron(PhiZt.',speye(fny)))\theta*YfZt(:);
-    Lf = reshape(theta,fny,[]);
 end

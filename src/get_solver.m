@@ -1,4 +1,4 @@
-function [up2usol, yp2usol, urf2usol, yrf2usol,varargout] = get_solver(nu,ny,p,f,Q,R,dR)
+function [get_usol,varargout] = get_solver(nu,ny,p,f,Q,R,dR)
 arguments (Input)
     nu (1,1) double
     ny (1,1) double
@@ -76,7 +76,13 @@ urf2uk_ = jacobian(u_sol,urf_(:));
 urf2uk_v1 = casadi.Function('get_urffac',{Lest_},{urf2uk_});
 urf2usol = @(Lest) full(urf2uk_v1(Lest));
 
-if nargout > 4
+% put results into a structure
+get_usol.up  = up2usol;
+get_usol.yp  = yp2usol;
+get_usol.urf = urf2usol;
+get_usol.yrf = yrf2usol;
+
+if nargout > 1
 % get Uf from Up, Uf, Yp, Yf, YRf URf
 ICu_ = casadi.SX.zeros(nu*f,nu*(p+f));
 ICy_ = casadi.SX.zeros(nu*f,ny*(p+f));

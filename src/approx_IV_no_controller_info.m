@@ -1,4 +1,4 @@
-function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,rho,opts)
+function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using no knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
@@ -12,7 +12,7 @@ function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,rho,opts)
 % Resulting composition of data matrix D:
 %       D = [U_{\varrho}; Y_{\varrho}; W_{\rho}; W_f]
 
-[p,f,nu,ny] = deal(opts.p,opts.f,opts.nu,opts.ny);
+[rho,p,f,nu,ny] = deal(opts.rho,opts.p,opts.f,opts.nu,opts.ny);
 varrho = max(rho,p);
 
 [~,Nbar] = size(u);
