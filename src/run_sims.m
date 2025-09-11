@@ -108,11 +108,11 @@ for kCz = 1:nCz
 
     IDerror = Lf.(Czn)-Lf.actLf;
     cols = 1:p*nu;
-    FroIDerror.(Czn).Up = norm(IDerror(:,cols)); % part affecting Up
+    FroIDerror.(Czn).Up = norm(IDerror(:,cols),'fro'); % part affecting Up
     cols = p*nu+(1:p*ny);
-    FroIDerror.(Czn).Yp = norm(IDerror(:,cols)); % part affecting Yp
+    FroIDerror.(Czn).Yp = norm(IDerror(:,cols),'fro'); % part affecting Yp
     cols = p*(nu+ny)+(1:f*nu);
-    FroIDerror.(Czn).Uf = norm(IDerror(:,cols)); % part affecting Uf
+    FroIDerror.(Czn).Uf = norm(IDerror(:,cols),'fro'); % part affecting Uf
 end
 
 end
