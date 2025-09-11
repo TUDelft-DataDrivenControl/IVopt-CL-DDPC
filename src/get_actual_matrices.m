@@ -1,4 +1,5 @@
-function [Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(A,B,C,D,K,p,f)
+function [Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(plant,p,f)
+[A,B,C,D,K] = plant2ABCDK(plant);
 [ny,nu] = size(D);
 
 At = A-K*C;

@@ -1,14 +1,11 @@
-function [get_usol,varargout] = get_solver(nu,ny,p,f,Q,R,dR)
+function [get_usol,varargout] = get_solver(opts,Q,R,dR)
 arguments (Input)
-    nu (1,1) double
-    ny (1,1) double
-    p  (1,1) double
-    f  (1,1) double
+    opts struct
     Q        double {mustBeMatrix}
     R        double {mustBeMatrix}
     dR       double {mustBeMatrix}
 end
-
+[nu,ny,p,f] = deal(opts.nu,opts.ny,opts.p,opts.f);
 % making controller matrices
 uf_ = casadi.SX.sym('uf',nu,f);
 urf_ = casadi.SX.sym('urf',nu,f);

@@ -1,8 +1,9 @@
-function [Cz_SPC, x0] = Lf_2_SPC(Lf, usol_funs, opts, options)
+function [Cz_SPC, x0] = Lf_2_SPC(Lf, usol_funs, opts, sigs, options)
 arguments (Input)
     Lf      double
     usol_funs struct
     opts     struct
+    sigs struct % signal names
     options.up double = []
     options.yp double = []
     options.urf double = []
@@ -71,10 +72,10 @@ D = zeros(nu, n_input);
 Cz_SPC = ss(A, B, C, D, []);
 
 % naming the state-space system
-Cz_SPC.u(1:ny)          = opts.yk_name;   % y_k
-Cz_SPC.u(ny+1:ny+nu)    = opts.urkf_name; % ur_{k+f}
-Cz_SPC.u(end-ny+(1:ny)) = opts.yrkf_name; % yr_{k+f}
-Cz_SPC.y                = opts.uk_name;   % u_k
+Cz_SPC.u(1:ny)          = sigs.yk;   % y_k
+Cz_SPC.u(ny+1:ny+nu)    = sigs.urkf; % ur_{k+f}
+Cz_SPC.u(end-ny+(1:ny)) = sigs.yrkf; % yr_{k+f}
+Cz_SPC.y                = sigs.uk;   % u_k
 
 % --- Initial state (optional) ---
 if nargout == 2

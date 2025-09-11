@@ -1,4 +1,4 @@
-function [Uf_iv,Yf_iv] = approx_IV_controller_info_v2(u,y,w,opts,Cz)
+function [Uf_iv,Yf_iv] = approx_IV_controller_info(u,y,w,opts,Cz)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
@@ -121,29 +121,34 @@ Gy = [Gyu Gyy Gyw];
 
 % select specific rho and p long matrices
 Wr = Wr(end-rho*ny+1:end,:);
+Up = Uv(end-p*nu+1:end,:); Ur = Uv(end-rho*nu+1:end,:);
+Yp = Yv(end-p*ny+1:end,:); Yr = Yv(end-rho*ny+1:end,:);
 
 % contribibution from Wr and Wf to rf
-Rw_rf = [Lce Tcf]*[Wr;Wf]; % f*nu x N
+Rw_rf = [Lce Tcf]*[Wr;Wf] + Lcu*Ur - Lce*Yr; % f*nu x N
 
-DMr = [Uv;Yv;Rw_rf];
+DMr = [Up;Yp;Rw_rf];
 
 iuf = 1:nu*f;
 iyf = f*nu+(1:ny*f);
-vnuy = varrho*(nu+ny);
+pnuy = p*(nu+ny);
 
 %% initial estimate:
 G_0 = [Uf;Yf]*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
 
 % extract Mu & Tuf*Mu estimates
-Mu_0    = G_0(iuf,vnuy+(1:f*nu));   % Mu
-TufMu_0 = G_0(iyf,vnuy+(1:f*nu));   % Tuf*Mu
+Mu_0    = G_0(iuf,pnuy+(1:f*nu));   % Mu
+TufMu_0 = G_0(iyf,pnuy+(1:f*nu));   % Tuf*Mu
 
 % block-lower triangularize & average
 Mu_1    = blk_tril_avg(Mu_0,   nu,nu);
 TufMu_1 = blk_tril_avg(TufMu_0,ny,nu);
 
-%% option 1 to get Uf_iv & Yf_iv
-UY_iv = [G_0(:,1:vnuy) [Mu_1;TufMu_1]]*DMr;
+% re-estimate remaining parameters taking into account contribution of [Mu_1;TufMu_1]*Rw_rf
+G_1 = ([Uf;Yf]-[Mu_1;TufMu_1]*Rw_rf)*pinv([Up;Yp]);
+
+%% estimate Uf_iv & Yf_iv
+UY_iv = [G_1 [Mu_1;TufMu_1]]*DMr;
 Uf_iv = UY_iv(iuf,:);
 Yf_iv = UY_iv(iyf,:);
 

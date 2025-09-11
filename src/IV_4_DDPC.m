@@ -77,7 +77,7 @@ classdef IV_4_DDPC < dynamicprops
                 obj
                 IVname char
                 Z0 double {mustBeMatrix}
-                opt.TSLS logical = false;
+                opt.method double {mustBeMember(opt.method,[0,1])} = 0;
                 opt.descr char = '';
             end
             
@@ -97,9 +97,10 @@ classdef IV_4_DDPC < dynamicprops
             P2=addprop(obj,IVname_); % hidden property
             P2.Hidden = true;
             
-            % perform 2SLS?
-            if opt.TSLS
-                Z0 = obj.TSLS(obj.Uf,Z0);
+            % extra method to apply to Z0?
+            switch opt.method
+                case 1 % do 2SLS
+                    Z0 = obj.TSLS(obj.Uf,Z0);
             end
 
             obj.(IVname_) = Z0; % set hidden property
@@ -148,6 +149,7 @@ classdef IV_4_DDPC < dynamicprops
         end
 
         end
+    
     end
 end
 
