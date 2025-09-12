@@ -87,7 +87,7 @@ if opts.save
         mkdir(data_dir);
 
         % copy dependent .m files to data_dir\mfiles
-        copy_dependencies(src_dir,data_dir);
+        copy_dependencies(src_dir,data_dir,'main.m');
     end
     
     %----------------------- add path to data directory -------------------
@@ -99,8 +99,8 @@ if opts.save
     fn_short = strrep(fn,proj_dir,'');
     fprintf('Saving data to file: \n\t%s \n',fn_short);
     save(fn,'opts',...
-        'plant','Cz0','Tcl0','yr0','yr1','ur1','e0','u0','y0','xcl0',...
-        'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv',...
+        'plant','Cz0','Tcl0','yr0','yr1','ur1','e1','e0','u0','y0','xcl0',...
+        'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv','Cases',...
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
     fprintf('File saved successfully!\n');

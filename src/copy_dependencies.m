@@ -1,9 +1,9 @@
-function copy_dependencies(src_dir,data_dir)
+function copy_dependencies(src_dir,data_dir,funname)
 % copies all .m file dependencies of the main.m file as .txt files as .txt
 % files in the data_dir directory
 
 % add .txt version of executed main.m file & dependent functions
-fList = matlab.codetools.requiredFilesAndProducts('main.m');
+fList = matlab.codetools.requiredFilesAndProducts(funname);
 
 % exclude files from bin\external & files w/o .m extension
 cd(src_dir); cd('..'); cd('bin'); cd('external'); binext_dir = pwd;
