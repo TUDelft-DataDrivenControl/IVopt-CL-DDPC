@@ -1,17 +1,7 @@
 function plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,opts2)
 % plot_IV_trajectories - Compare IV trajectories with mean/std or explicit bounds
 %
-% Inputs:
-%   u_iv, y_iv : structs with fields for mean/std OR mean/lower/upper
-%   opts        : struct with dimensions {nu,p,f,N}
-%   plant       : system object (optional, for free response sim)
-%   u0,y0,e0    : optional signals
-%   opts2.useBounds (default=false) - use plotAvgWithBounds instead of plotMeanWithStd
-%   opts2.useFill   (default=true)  - toggle shading on/off
-%   opts2.showFields (default=all)  - cell array of fields to plot (e.g. {'m4a','m2b'})
-%
-% Example:
-%   plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,struct('useBounds',true,'useFill',false))
+% Adds line style cycling across plotted cases.
 
     arguments
         u_iv struct
@@ -35,6 +25,9 @@ function plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,opts2)
     load("pdir.mat",'pdir');
     addpath(fullfile(pdir,'bin','external','crameri_colours'))
     cCram = crameri('roma', 8); % colors
+
+    % Define line styles to cycle through
+    lineStyles = {'-','--',':','-.'};
 
     % Free (noisy) response only if e0 was passed
     if ~isempty(e0) && ~isempty(plant)
@@ -75,15 +68,17 @@ function plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,opts2)
             case 'm4b', label = '4b) w/o Cz info'; col = cCram(4,:);
             case 'm5b', label = '5b) w/ Cz info'; col = cCram(6,:);
             case 'm3a', label = '3a) LCF-IV Theta'; col = cCram(8,:);
-            otherwise, label = field; col = [0 0 0]; % fallback
+            otherwise, label = field; col = [0 0 0];
         end
+
+        thisStyle = lineStyles{mod(k-1,numel(lineStyles))+1}; % cycle
 
         if opts2.useBounds
             plotAvgWithBounds(y_iv.(field), y_iv.(['l' field(2:end)]), y_iv.(['u' field(2:end)]), ...
-                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill);
+                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill, LineStyle=thisStyle);
         else
             plotMeanWithStd(y_iv.(field), y_iv.(['s' field(2:end)]), ...
-                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill);
+                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill, LineStyle=thisStyle);
         end
     end
 
@@ -112,13 +107,18 @@ function plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,opts2)
             case 'm5c', label = '5c) w/ Cz info + 2SLS'; col = cCram(7,:);
             otherwise, label = field; col = [0 0 0];
         end
+        
+        switch field
+            case 'm2a', thisStyle = '-';
+            otherwise, thisStyle = lineStyles{mod(k-1,numel(lineStyles))+1}; % cycle
+        end
 
         if opts2.useBounds
             plotAvgWithBounds(u_iv.(field), u_iv.(['l' field(2:end)]), u_iv.(['u' field(2:end)]), ...
-                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill);
+                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill, LineStyle=thisStyle);
         else
             plotMeanWithStd(u_iv.(field), u_iv.(['s' field(2:end)]), ...
-                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill);
+                Color=col, DisplayName=label, faceAlpha=opts2.FaceAlpha*opts2.useFill, LineStyle=thisStyle);
         end
     end
 
