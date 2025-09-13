@@ -47,7 +47,7 @@ Uf_iv5 = Z.iv5a_;
 
 % 5b) w/  Yf_iv
 Yf_iv5 = Z.iv5b_(iyf,:);
-[u_iv.m5b,u_iv.s5b] = diag_stats(Yf_iv5,nr=ny,anti=true);
+[y_iv.m5b,y_iv.s5b] = diag_stats(Yf_iv5,nr=ny,anti=true);
 
 % 5c) w/  Yf_iv + 2SLS
 Uf_iv5c = Z.iv5c_;
