@@ -21,7 +21,8 @@ classdef IV_4_DDPC < dynamicprops
         Uf
         Yp
         Yf
-        Wp % [Up; Yp]
+        Wp   % [Up; Yp]
+        iv1_ % = Uf
     end
     properties (Dependent) % IVs
         iv1
@@ -69,6 +70,9 @@ classdef IV_4_DDPC < dynamicprops
         % iv1: open-loop IV
         function Z = get.iv1(obj)
             Z = [obj.Wp;obj.Uf];
+        end
+        function Z = get.iv1_(obj) % mirrors use of _ for other iv names
+            Z = obj.Uf;
         end
 
         % method to add other IVs
