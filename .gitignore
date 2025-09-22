@@ -26,3 +26,4 @@ src/**/submit_job_*.sh
 *.e[0-9]*
 *.o[0-9]*
 Job[0-9]*
+src/pdir.mat
