@@ -43,14 +43,15 @@ arguments
     opts.RowHeightFactor (1,1) double = 1
     opts.BoxHeightFactor (1,1) double = 1
     opts.YSpacingFactor (1,1) double = 0.2
-    opts.MaxRelWidth  double = []; % max relative width "of legend relative to axes" (default = 0.2)
+    opts.MaxRelWidth  double = []; % max relative width "of legend relative to axes" (default = 0.2 * opts.cols)
     opts.MaxRelHeight double = []; % max relative height ""                          (default = 1)
     opts.RelScaling (1,1) logical = true;        % apply above relative scaling to potentially enlarge figure
     opts.FontSize (1,1) double = 12
     opts.Location (1,1) string {mustBeMember(opts.Location, ...
         ["northwest","northeast","southwest","southeast","north","south","east","west","center"])} = "northeast"
+    opts.cols (1,1) double {mustBeInteger,mustBeGreaterThanOrEqual(opts.cols,1)} = 1
 end
-opts = validateOptions(opts);
+opts = validateOptions(opts,entries);
 
 %% Preliminaries
 pos0      = opts.Position;
@@ -78,7 +79,7 @@ axLeg = axes('Parent',hParentFig,'Position',[0.5 0.5 0.2 0.2],'YDir','reverse',.
     'Visible','on','Box','on','XLim',[0 1],'YLim',[0 1],...
     'XTick',[],'YTick',[]);
 
-[xRange_pix, yRange_pix, rowH_pix, boxH_pix, ySpacer_pix, MaxTextW_pix, MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts);
+[xRange_pix, yRange_pix, rowH_pix, boxH_pix, ySpacer_pix, MaxTextW_pix_all, MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts);
 fixedWH_pix = [xRange_pix, yRange_pix];
 
 % -------- set legend width and height in pixels ---------------
@@ -151,9 +152,11 @@ axLeg.Position = pos;
 
 % Determine corresponding 'data' dimensions (i.e. in legend coordinates)
 [MaxTextW,MaxTextH] = findMaxLegendTextWH(axLeg,entries,fontSize,'data');
+MaxTextW_pix = max(MaxTextW_pix_all);
 xPix2Data = MaxTextW / MaxTextW_pix;
 yPix2Data = MaxTextH / MaxTextH_pix;
 
+MaxTextW_all = MaxTextW_pix_all * xPix2Data;
 rowH    = rowH_pix    * yPix2Data;
 boxH    = boxH_pix    * yPix2Data;
 ySpacer = ySpacer_pix * yPix2Data;
@@ -162,23 +165,30 @@ xPad    = xPad_pix    * xPix2Data;
 boxW    = boxW_pix    * xPix2Data;
 textX   = textX_pix   * xPix2Data;
 
-for k = 1:numel(entries)
-    yCenter = (k-0.5)*rowH + (k-1)*ySpacer + yPad;
+nEntries = numel(entries);
+[i_all,j_all] = ind2sub([opts.rows,opts.cols],1:nEntries);
+for k = 1:nEntries
+    i = i_all(k);
+    j = j_all(k);
+
+    yCenter = (i-0.5)*rowH + (i-1)*ySpacer + yPad;
     y0 = yCenter - boxH/2;
     y1 = yCenter + boxH/2;
 
+    xBase = sum(MaxTextW_all(1:j-1)) + (textX+2*xPad)*(j-1);
+
     % Patch
-    patch(axLeg, [0 boxW boxW 0]+xPad, [y0 y0 y1 y1], entries(k).Color, ...
+    patch(axLeg, [0 boxW boxW 0]+xPad + xBase, [y0 y0 y1 y1], entries(k).Color, ...
         'FaceAlpha', entries(k).Alpha, 'EdgeColor','none');
 
     % Line
-    line(axLeg, [0 boxW]+xPad, [yCenter yCenter], ...
+    line(axLeg, [0 boxW]+xPad + xBase, [yCenter yCenter], ...
         'Color', entries(k).Color, ...
         'LineStyle', entries(k).LineStyle, ...
         'LineWidth', entries(k).LineWidth);
 
     % Label
-    text(axLeg, xPad+textX, yCenter, entries(k).Text, ...
+    text(axLeg, xPad+textX + xBase, yCenter, entries(k).Text, ...
         'Interpreter','latex', ...
         'VerticalAlignment','middle', ...
         'FontSize',12);
@@ -308,7 +318,7 @@ posFig = posFig(idx);
 
 end
 
-function [xRange_pix, yRange_pix,rowH_pix,boxH_pix,ySpacer_pix,MaxTextW_pix,MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts)
+function [xRange_pix, yRange_pix,rowH_pix,boxH_pix,ySpacer_pix,MaxTextW_pix_all,MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts)
 rowHfac   = opts.RowHeightFactor;
 boxHfac   = opts.BoxHeightFactor;
 ySpaceFac = opts.YSpacingFactor;
@@ -318,12 +328,22 @@ yPad_pix  = opts.YPadding;
 boxW_pix  = opts.BoxWidth;
 textX_pix = boxW_pix + xPad_pix;
 
-nEntries = numel(entries); % number of legend entries
-yRangeFun = @(rowH,ySpacer,yPad) nEntries*rowH + (nEntries-1)*ySpacer +2*yPad;
-xRangeFun = @(textX,MaxTextWidth,xPad) textX + MaxTextWidth + 2*xPad;
 
-% measure text height and width (in pixels)
-[MaxTextW_pix,MaxTextH_pix] = findMaxLegendTextWH(axLeg,entries,fontSize,'pixels');
+% measure text height and width (in pixels) for each column in the legend
+nEntries = numel(entries);
+[~,j] = ind2sub([opts.rows,opts.cols],1:nEntries);
+MaxTextW_pix_all = nan(1,opts.cols);
+MaxTextH_pix_all = nan(1,opts.cols);
+for kc = 1:opts.cols
+    [MaxTextW_pix_all(kc),MaxTextH_pix_all(kc)] = findMaxLegendTextWH(axLeg,entries(j==kc),fontSize,'pixels');
+end
+MaxTextH_pix = max(MaxTextH_pix_all);
+
+% way to calculate the width
+xRangeFun = @(textX,MaxTextWidth_sum,xPad) textX*opts.cols + MaxTextWidth_sum + (opts.cols-1)*2*xPad + 2*xPad;
+
+% way to calculate the height
+yRangeFun = @(rowH,ySpacer,yPad) opts.rows*rowH + (opts.rows-1)*ySpacer +2*yPad;
 
 % -> calculate dependent constants
 rowH_pix    = rowHfac   * MaxTextH_pix;
@@ -331,7 +351,7 @@ boxH_pix    = boxHfac   * MaxTextH_pix;
 ySpacer_pix = ySpaceFac * MaxTextH_pix;
 
 % determine desired legend width and height in pixels
-xRange_pix = xRangeFun(textX_pix,MaxTextW_pix,xPad_pix);
+xRange_pix = xRangeFun(textX_pix,sum(MaxTextW_pix_all),xPad_pix);
 yRange_pix = yRangeFun(rowH_pix,ySpacer_pix,yPad_pix);
 end
 
@@ -355,7 +375,10 @@ Pos = Pos(idx);
 hobj.Units = oldUnits;
 end
 
-function opts = validateOptions(opts)
+function opts = validateOptions(opts,entries)
+% calculate number of rows
+opts.rows = ceil(numel(entries)/opts.cols);
+
 % Validate Position if the user provided one (empty means "not provided")
 if ~isempty(opts.Position)
     validateattributes(opts.Position, {'numeric'}, ...
@@ -378,7 +401,7 @@ end
 
 % set defaults for MaxRelWidth & MaxRelHeight
 if isempty(opts.MaxRelWidth)
-    opts.MaxRelWidth = 0.2;
+    opts.MaxRelWidth = 0.2 * opts.cols;
 end
 if isempty(opts.MaxRelHeight)
     opts.MaxRelHeight = 0.9;
@@ -393,4 +416,5 @@ if ~isempty(opts.MaxRelWidth)
     validateattributes(opts.MaxRelHeight, {'numeric'}, ...
         {'scalar','real','finite','>=',0,'<=',0.9},mfilename,'MaxRelHeight');
 end
+
 end
