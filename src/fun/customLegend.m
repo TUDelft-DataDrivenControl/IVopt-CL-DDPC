@@ -1,12 +1,12 @@
-function axLeg = customLegend(entries, parentFig, opts)
+function axLeg = customLegend(entries, hParentAx, opts)
 %CUSTOMLEGEND Create a custom legend with patch+line+LaTeX text
 % The legend auto-resizes/repositions itself to fit all text inside.
 %
-%   axLeg = customLegend(parentFig, entries)
-%   axLeg = customLegend(parentFig, entries, Name,Value,...)
+%   axLeg = customLegend(parentAx, entries)
+%   axLeg = customLegend(parentAx, entries, Name,Value,...)
 %
 % Inputs:
-%   parentFig : figure or axes handle
+%   parentAx  : axes handle
 %   entries   : struct array with fields:
 %                 .Color      : RGB triplet or short color name
 %                 .Alpha      : Face transparency (0–1)
@@ -35,93 +35,122 @@ function axLeg = customLegend(entries, parentFig, opts)
 %% Argument validation
 arguments
     entries (1,:) struct
-    parentFig {mustBeA(parentFig,["matlab.ui.Figure","matlab.graphics.axis.Axes"])} = gca
-    opts.Position = []; % explicit [x y w h], empty = auto
+    hParentAx {mustBeA(hParentAx,"matlab.graphics.axis.Axes")} = gca
+    opts.Position = []; % explicit [x y w h] relative to axis, empty = auto
     opts.XPadding (1,1) double = 5  % [pixels]
     opts.YPadding (1,1) double = 5  % [pixels]
     opts.BoxWidth (1,1) double = 30 % [pixels]
     opts.RowHeightFactor (1,1) double = 1
     opts.BoxHeightFactor (1,1) double = 1
     opts.YSpacingFactor (1,1) double = 0.2
+    opts.MaxRelWidth  double = []; % max relative width "of legend relative to axes" (default = 0.2)
+    opts.MaxRelHeight double = []; % max relative height ""                          (default = 1)
+    opts.RelScaling (1,1) logical = true;        % apply above relative scaling to potentially enlarge figure
     opts.FontSize (1,1) double = 12
     opts.Location (1,1) string {mustBeMember(opts.Location, ...
         ["northwest","northeast","southwest","southeast","north","south","east","west","center"])} = "northeast"
 end
-% Validate Position if the user provided one (empty means "not provided")
-if ~isempty(opts.Position)
-    validateattributes(opts.Position, {'numeric'}, ...
-        {'vector','numel',4,'real','finite','>=',0,'<=',1}, ...
-        mfilename, 'Position');
-    opts.Position = reshape(opts.Position, 1, 4);
-end
+opts = validateOptions(opts);
 
 %% Preliminaries
 pos0      = opts.Position;
-rowHfac   = opts.RowHeightFactor;
-boxHfac   = opts.BoxHeightFactor;
-ySpaceFac = opts.YSpacingFactor;
 fontSize  = opts.FontSize;
 xPad_pix  = opts.XPadding;
 yPad_pix  = opts.YPadding;
 boxW_pix  = opts.BoxWidth;
 textX_pix = boxW_pix + xPad_pix;
 
-% --- Resolve legend position ---
-if isempty(pos0)
-    % If no explicit Position, fall back to Location
-    pos = CompassPositionHandler(opts.Location);    
-else
-    pos = pos0;
-end
+% get parent figure
+hParentFig = ancestor(hParentAx,'figure');
 
-% If parent is an axes, get its figure
-if isa(parentFig,'matlab.graphics.axis.Axes')
-    parentAx = parentFig;
-    parentIsAx = true;
-    parentFig = ancestor(parentFig,'figure');
-else
-    parentIsAx = false;
-end
+% save old units
+oldParentAxUnits  = hParentAx.Units;
+oldParentFigUnits = hParentFig.Units;
+
+% for parent axes and figure set units and get normalized position
+hParentAx.Units  = 'normalized';
+hParentFig.Units = 'pixels';
 
 %% Legend scaling: width and height
-nEntries = numel(entries); % number of legend entries
-yRangeFun = @(rowH,ySpacer,yPad) nEntries*rowH + (nEntries-1)*ySpacer +2*yPad;
-xRangeFun = @(textX,MaxTextWidth,xPad) textX + MaxTextWidth + 2*xPad;
 
-axLeg = axes('Parent',parentFig,'Position',pos,'YDir','reverse',...
+% create new axis under the created panel
+axLeg = axes('Parent',hParentFig,'Position',[0.5 0.5 0.2 0.2],'YDir','reverse',...
     'Visible','on','Box','on','XLim',[0 1],'YLim',[0 1],...
     'XTick',[],'YTick',[]);
 
-% measure text height and width (in pixels)
-[MaxTextW_pix,MaxTextH_pix] = findMaxTextWH(axLeg,entries,fontSize,'pixels');
-
-% -> calculate dependent constants
-rowH_pix    = rowHfac   * MaxTextH_pix;
-boxH_pix    = boxHfac   * MaxTextH_pix;
-ySpacer_pix = ySpaceFac * MaxTextH_pix;
-
-% determine desired legend width and height in pixels
-xRange_pix = xRangeFun(textX_pix,MaxTextW_pix,xPad_pix);
-yRange_pix = yRangeFun(rowH_pix,ySpacer_pix,yPad_pix);
+[xRange_pix, yRange_pix, rowH_pix, boxH_pix, ySpacer_pix, MaxTextW_pix, MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts);
+fixedWH_pix = [xRange_pix, yRange_pix];
 
 % -------- set legend width and height in pixels ---------------
+% set width and height in pixels
 axLeg.Units = 'pixels';
-axLeg.Position(3:4) = [xRange_pix, yRange_pix];
-axLeg.Units = 'normalized';
-pos = axLeg.Position;
+axLeg.Position(3:4) = fixedWH_pix;
+
+%% ==================== scale size relative to figure =====================
+if opts.RelScaling
+    % use axLeg.Units = pixels here to preven rescaling of legend upon
+    % rescaling of figure
+    
+    % get position of legend in pixels
+    pos = getPos(axLeg,'pixels');
+
+    % calculate relative width of legend
+    relW  = pos(3)/getPos(hParentAx,'pixels',3);
+    if relW > opts.MaxRelWidth
+        % update width of figure - initial step
+        hParentFig.Position(3) = hParentFig.Position(3)*relW/opts.MaxRelWidth;
+        drawnow;
+        
+        % update width of figure - incremental changes
+        relW  = pos(3)/getPos(hParentAx,'pixels',3);
+        while abs(relW/opts.MaxRelWidth-1) >= 0.01
+            hParentFig.Position(3) = hParentFig.Position(3)+1;
+            drawnow limitrate;
+            relW  = pos(3)/getPos(hParentAx,'pixels',3);
+        end
+    end
+
+    % calculate relative height of le
+    relH = pos(4)/getPos(hParentAx,'pixels',4);
+    if relH > opts.MaxRelHeight
+        % update height of figure - initial step
+        hParentFig.Position(4) = hParentFig.Position(4)*relH/opts.MaxRelHeight;
+        drawnow;
+
+        % update height of figure - incremental changes
+        relH  = pos(4)/getPos(hParentAx,'pixels',4);
+        while abs(relH/opts.MaxRelHeight-1) >= 0.01 || relH > 1
+            hParentFig.Position(4) = hParentFig.Position(4)+1;
+            drawnow limitrate;
+            relH  = pos(4)/getPos(hParentAx,'pixels',4);
+        end
+    end
+
+end
+
+%% ======================== Legend positioning ============================
+% get position of legend in normalized coordinates
+
 if isempty(pos0)
     % If no explicit Position, fall back to Location
-    pos = CompassPositionHandler(opts.Location,pos);
+    pos = CompassPositionHandler(axLeg,hParentAx,opts.Location);
+else
+    pos = axPosRel2figPosRel(hParentAx, pos0, 1:4);
 end
 
-% set position relative to Axis or Figure
-if parentIsAx
-    pos = axPos2figPos(parentAx, pos);
-end
+% prevent making figure too small again
+pos_init = getPos(axLeg,'normalized');
+pos(3) = max(pos(3),pos_init(3));
+pos(4) = max(pos(4),pos_init(4));
+
+% set axLeg position
+axLeg.Units = 'normalized';
 axLeg.Position = pos;
 
+%% Drawing entries
+
 % Determine corresponding 'data' dimensions (i.e. in legend coordinates)
-[MaxTextW,MaxTextH] = findMaxTextWH(axLeg,entries,fontSize,'data');
+[MaxTextW,MaxTextH] = findMaxLegendTextWH(axLeg,entries,fontSize,'data');
 xPix2Data = MaxTextW / MaxTextW_pix;
 yPix2Data = MaxTextH / MaxTextH_pix;
 
@@ -133,7 +162,6 @@ xPad    = xPad_pix    * xPix2Data;
 boxW    = boxW_pix    * xPix2Data;
 textX   = textX_pix   * xPix2Data;
 
-%% Drawing entries
 for k = 1:numel(entries)
     yCenter = (k-0.5)*rowH + (k-1)*ySpacer + yPad;
     y0 = yCenter - boxH/2;
@@ -159,12 +187,8 @@ end
 %% --- Move legend to stay inside parent axes plotting box ---
 
 % get the max/min relative position of the legend
-if parentIsAx
-    set(parentAx,'Units','normalized');
-    innerBox = get(parentAx,'Position');
-else
-    innerBox = [0 0 1 1];
-end
+set(hParentAx,'Units','normalized');
+innerBox = get(hParentAx,'Position');
 
 % legend position
 pos = get(axLeg,'Position');
@@ -178,43 +202,53 @@ axLeg.Position = pos;
 % set units to pixel (fixes width & height)
 set(axLeg,'Units', 'pixels');
 
+%% Reset units
+hParentAx.Units  = oldParentAxUnits;
+hParentFig.Units = oldParentFigUnits;
+
 end
 
 %% Helper functions
-function pos = CompassPositionHandler(Location,pos)
+function posFig = CompassPositionHandler(hLeg,hAx,Location)
 
-if nargin < 2
-    % base width/height (could be tuned)
-    w = 0.25;
-    h = 0.2;
-else
-    w = pos(3);
-    h = pos(4);
-end
+% get positions in normalized coordinates
+posLeg = getPos(hLeg,'normalized');
+posAx  = getPos(hAx, 'normalized');
 
+% get width & height of legend w.r.t. axis
+w = posLeg(3)/posAx(3);
+h = posLeg(4)/posAx(4);
+
+% specify position of legend w.r.t. axis
 switch Location
     case "northwest"
-        pos = [0.05 0.95-h w h];
+        posLegInAx_xy = [0.05 0.95-h];
     case "northeast"
-        pos = [0.95-w 0.95-h w h];
+        posLegInAx_xy = [0.95-w 0.95-h];
     case "southwest"
-        pos = [0.05 0.05 w h];
+        posLegInAx_xy = [0.05 0.05];
     case "southeast"
-        pos = [0.95-w 0.05 w h];
+        posLegInAx_xy = [0.95-w 0.05];
     case "north"
-        pos = [0.5-w/2 0.95-h w h];
+        posLegInAx_xy = [0.5-w/2 0.95-h];
     case "south"
-        pos = [0.5-w/2 0.05 w h];
+        posLegInAx_xy = [0.5-w/2 0.05];
     case "east"
-        pos = [0.95-w 0.5-h/2 w h];
+        posLegInAx_xy = [0.95-w 0.5-h/2];
     case "west"
-        pos = [0.05 0.5-h/2 w h];
+        posLegInAx_xy = [0.05 0.5-h/2];
     case "center"
-        pos = [0.5-w/2 0.5-h/2 w h];
+        posLegInAx_xy = [0.5-w/2 0.5-h/2];
 end
+posLegInAx = [posLegInAx_xy w h];
+
+% convert to position of legend w.r.t. figure
+posFig = axPosRel2figPosRel(hAx, posLegInAx, 1:2);
+posFig = [posFig posLeg(3) posLeg(4)];
+
 end
 
-function [MaxTextW,MaxTextH] = findMaxTextWH(axLeg,entries,fontSize,Units)
+function [MaxTextW,MaxTextH] = findMaxLegendTextWH(axLeg,entries,fontSize,Units)
 htmp = text(axLeg, 0, 0, '', 'Interpreter','latex', ...
     'FontSize',fontSize,'Visible','off','Units',Units);
 MaxTextW = 0;
@@ -229,41 +263,134 @@ end
 delete(htmp);
 end
 
-function posFig = axPos2figPos(axHandle, posAx)
+function posFig = axPosRel2figPosRel(hAx, posLeg, idx)
 %AXPOS2FIGPOS Convert normalized position in axes to normalized position in figure
 %
 % posFig = axPos2figPos(axHandle, posAx)
 %
 % Inputs:
-%   axHandle : handle to the reference axes
-%   posAx    : [x y w h] in normalized units w.r.t. the axes
+%   hAx      : handle to the reference axes
+%   posLeg   : [x y w h] in normalized units w.r.t. the axes
+%   idx      : specifies which of x, y, w, h to provide as output
 %
 % Output:
-%   posFig   : [x y w h] in normalized units w.r.t. the parent figure
-%
-% Note: width/height (w,h) are passed through unchanged.
+%   posFig   : [x y w h] in normalized units w.r.t. the parent axes
 
-    arguments
-        axHandle (1,1) matlab.graphics.axis.Axes
-        posAx (1,4) double {mustBeGreaterThanOrEqual(posAx,0),mustBeLessThanOrEqual(posAx,1)}
+arguments
+    hAx (1,1) matlab.graphics.axis.Axes
+    posLeg (1,4) double
+    idx double = [];
+end
+if ~isempty(idx)
+    validateattributes(idx,{'numeric'},{'vector','real','finite','>=',1,'<=',4})
+    if numel(idx) > 4
+        error('idx may have only 4 indices to specify either, x, y, w or h');
     end
+    idx = reshape(idx,1,numel(idx));
+end
 
-    % Store old units
-    oldAxUnits = axHandle.Units;
-    oldFigUnits = axHandle.Parent.Units;
+% Work in normalized units
+posAx = getPos(hAx,'normalized'); % [x y w h] of axes in *figure normalized* coords
 
-    % Work in normalized units
-    axHandle.Units = 'normalized';
-    axPosFig = axHandle.Position; % [x y w h] of axes in *figure normalized* coords
+% Convert [x,y] from axes-normalized → figure-normalized
+xFig = posAx(1) + posLeg(1) * posAx(3);
+yFig = posAx(2) + posLeg(2) * posAx(4);
 
-    % Convert [x,y] from axes-normalized → figure-normalized
-    xFig = axPosFig(1) + posAx(1) * axPosFig(3);
-    yFig = axPosFig(2) + posAx(2) * axPosFig(4);
+% Convert [w,h] from axes-normalized → figure-normalized
+wFig = posLeg(3) * posAx(3);
+hFig = posLeg(4) * posAx(4);
 
-    % Keep width/height unchanged
-    posFig = [xFig, yFig, posAx(3), posAx(4)];
+% Keep width/height unchanged
+posFig = [xFig, yFig, wFig, hFig];
 
-    % Restore units
-    axHandle.Units = oldAxUnits;
-    axHandle.Parent.Units = oldFigUnits;
+% output only a selection
+posFig = posFig(idx);
+
+end
+
+function [xRange_pix, yRange_pix,rowH_pix,boxH_pix,ySpacer_pix,MaxTextW_pix,MaxTextH_pix] = findLegendSizePix(axLeg,entries,opts)
+rowHfac   = opts.RowHeightFactor;
+boxHfac   = opts.BoxHeightFactor;
+ySpaceFac = opts.YSpacingFactor;
+fontSize  = opts.FontSize;
+xPad_pix  = opts.XPadding;
+yPad_pix  = opts.YPadding;
+boxW_pix  = opts.BoxWidth;
+textX_pix = boxW_pix + xPad_pix;
+
+nEntries = numel(entries); % number of legend entries
+yRangeFun = @(rowH,ySpacer,yPad) nEntries*rowH + (nEntries-1)*ySpacer +2*yPad;
+xRangeFun = @(textX,MaxTextWidth,xPad) textX + MaxTextWidth + 2*xPad;
+
+% measure text height and width (in pixels)
+[MaxTextW_pix,MaxTextH_pix] = findMaxLegendTextWH(axLeg,entries,fontSize,'pixels');
+
+% -> calculate dependent constants
+rowH_pix    = rowHfac   * MaxTextH_pix;
+boxH_pix    = boxHfac   * MaxTextH_pix;
+ySpacer_pix = ySpaceFac * MaxTextH_pix;
+
+% determine desired legend width and height in pixels
+xRange_pix = xRangeFun(textX_pix,MaxTextW_pix,xPad_pix);
+yRange_pix = yRangeFun(rowH_pix,ySpacer_pix,yPad_pix);
+end
+
+% get position in described units but don't change units thereafter
+function Pos = getPos(hobj,Units,idx)
+if nargin < 3
+    idx = 1:4;
+end
+validateattributes(idx, {'numeric'},{'vector','real','finite','>=',1,'<=',4});
+
+oldUnits = hobj.Units;
+hobj.Units = Units;
+
+if isa(hobj,"matlab.graphics.axis.Axes")
+    Pos = plotboxpos(hobj);
+else
+    Pos = hobj.Position;
+end
+
+Pos = Pos(idx);
+hobj.Units = oldUnits;
+end
+
+function opts = validateOptions(opts)
+% Validate Position if the user provided one (empty means "not provided")
+if ~isempty(opts.Position)
+    validateattributes(opts.Position, {'numeric'}, ...
+        {'vector','numel',4,'real','finite','>=',0,'<=',1}, ...
+        mfilename, 'Position');
+    opts.Position = reshape(opts.Position, 1, 4);
+    if ~isempty(opts.MaxRelWidth) && opts.Position(3) > opts.MaxRelWidth
+        error('Position(3) = %f, but must be less than or equal to the MaxRelWidth parameter (=%f)', ...
+            opts.Position(3), opts.MaxRelWidth)
+    elseif isempty(opts.MaxRelWidth)
+        opts.MaxRelWidth = opts.Position(3);
+    end
+    if ~isempty(opts.MaxRelHeight) && opts.Position(4) > opts.MaxRelHeight
+        error('Position(4) = %f, but must be less than or equal to the MaxRelHeight parameter (=%f)', ...
+            opts.Position(4), opts.MaxRelHeight)
+    elseif isempty(opts.MaxRelHeight)
+        opts.MaxRelHeight = opts.Position(4);
+    end
+end
+
+% set defaults for MaxRelWidth & MaxRelHeight
+if isempty(opts.MaxRelWidth)
+    opts.MaxRelWidth = 0.2;
+end
+if isempty(opts.MaxRelHeight)
+    opts.MaxRelHeight = 0.9;
+end
+
+% Validate relative legend dimensons
+if ~isempty(opts.MaxRelWidth)
+    validateattributes(opts.MaxRelWidth, {'numeric'}, ...
+        {'scalar','real','finite','>=',0,'<=',0.9},mfilename,'MaxRelWidth');
+end
+if ~isempty(opts.MaxRelWidth)
+    validateattributes(opts.MaxRelHeight, {'numeric'}, ...
+        {'scalar','real','finite','>=',0,'<=',0.9},mfilename,'MaxRelHeight');
+end
 end
