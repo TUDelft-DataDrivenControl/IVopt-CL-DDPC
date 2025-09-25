@@ -93,7 +93,10 @@ addpath(fullfile(pdir,'bin','external','crameri_colours'))
 cCram = crameri('roma', 9); % colors
 
 fig2 = figure();
+fig2.Units = 'pixels';
+fig2.Position = [2600 500 1000 600];
 tl2  = tiledlayout(2,1,"TileSpacing",'compact');
+fontSize_xyLabel = 15;
 
 % --------------------- plotting for Uf_ivs -------------------------------
 ax2_1 = nexttile(tl2);
@@ -118,15 +121,15 @@ for kIV = 1:num_Uf_ivs
     
     % determine color
     switch iv_name
-        case 'iv6c', label = '6c) ref + 2SLS';         col = [0 0 0];       LineStyle = '-';
-        case 'iv2a', label = '2a) opt. IV';            col = cCram(1,:);    LineStyle = '-.';
-        case 'iv2c', label = '2c) opt. IV + 2SLS';     col = cCram(2,:);    LineStyle = '-.';
-        case 'iv3c', label = '3c) LCF + 2SLS';         col = cCram(3,:);    LineStyle = '--';
-        case 'iv4a', label = '4a) w/o Cz info';        col = cCram(4,:);    LineStyle = ':';
-        case 'iv4c', label = '4c) w/o Cz info + 2SLS'; col = cCram(5,:);    LineStyle = ':';
-        case 'iv5a', label = '5a) w/ Cz info';         col = cCram(6,:);    LineStyle = '-.';
-        case 'iv5c', label = '5c) w/ Cz info + 2SLS';  col = cCram(7,:);    LineStyle = '-.';
-        case 'iv1',  label = '1) OL-IV';               col = cCram(9,:);    LineStyle = '-.';
+        case 'iv6c', label = '$j=6c$: ref + 2SLS';         col = [0 0 0];       LineStyle = '-';
+        case 'iv2a', label = '$j=2a$: opt. IV';            col = cCram(1,:);    LineStyle = '-.';
+        case 'iv2c', label = '$j=2c$: opt. IV + 2SLS';     col = cCram(2,:);    LineStyle = '-.';
+        case 'iv3c', label = '$j=3c$: LCF + 2SLS';         col = cCram(3,:);    LineStyle = '--';
+        case 'iv4a', label = '$j=4a$: w/o Cz info';        col = cCram(4,:);    LineStyle = ':';
+        case 'iv4c', label = '$j=4c$: w/o Cz info + 2SLS'; col = cCram(5,:);    LineStyle = ':';
+        case 'iv5a', label = '$j=5a$: w/ Cz info';         col = cCram(6,:);    LineStyle = '-.';
+        case 'iv5c', label = '$j=5c$: w/ Cz info + 2SLS';  col = cCram(7,:);    LineStyle = '-.';
+        case 'iv1',  label = '$j=1$: OL-IV';               col = cCram(9,:);    LineStyle = '-.';
         otherwise, label = iv_name;                    col = [0 0 0];       LineStyle = '-';
     end
 
@@ -140,7 +143,8 @@ for kIV = 1:num_Uf_ivs
                     'Text',label);
 end
 grid on;
-ylabel('$|U_{\mathrm{f}}^{\mathrm{iv}}-U_{\mathrm{f}}^{\mathrm{iv},*}|_2 /\sqrt{N}$','interpreter','latex')
+ylabel('$\frac{\|\Delta_j U_{\mathrm{f}}^{\mathrm{iv},2a}\|_2}{\sqrt{N}}$',...
+    'Interpreter','latex','Rotation',0,'FontSize',fontSize_xyLabel*1.25);
 axLeg_2_1 = customLegend(u_entries,ax2_1);
 
 % --------------------- plotting for Yf_ivs -------------------------------
@@ -165,12 +169,12 @@ for kIV = 1:num_Yf_ivs
 
     % determine color
     switch iv_name
-        case 'iv1',  label = '1) OL-IV';         col = cCram(9,:);  LineStyle = '--';
-        case 'iv2b', label = '2b) opt. IV';      col = cCram(1,:);  LineStyle = '-.';
-        case 'iv4b', label = '4b) w/o Cz info';  col = cCram(4,:);  LineStyle = ':';
-        case 'iv5b', label = '5b) w/ Cz info';   col = cCram(6,:);  LineStyle = '-.';
-        case 'iv3a', label = '3a) LCF-IV Theta'; col = cCram(8,:);  LineStyle = '--';
-        case 'iv6a', label = '3a,6a) ref';       col = [0 0 0];     LineStyle = '-';
+        case 'iv1',  label = '$j=1$: OL-IV';         col = cCram(9,:);  LineStyle = '--';
+        case 'iv2b', label = '$j=2b$: opt. IV';      col = cCram(1,:);  LineStyle = '-.';
+        case 'iv4b', label = '$j=4b$: w/o Cz info';  col = cCram(4,:);  LineStyle = ':';
+        case 'iv5b', label = '$j=5b$: w/ Cz info';   col = cCram(6,:);  LineStyle = '-.';
+        case 'iv3a', label = '$j=3a$: LCF-IV Theta'; col = cCram(8,:);  LineStyle = '--';
+        case 'iv6a', label = '$j=3a,6a$: ref';       col = [0 0 0];     LineStyle = '-';
         otherwise,   label = field;              col = [0 0 0];     LineStyle = '-';
     end
 
@@ -184,8 +188,9 @@ for kIV = 1:num_Yf_ivs
                     'Text',label);
 end
 grid on;
-ylabel('$|Y_{\mathrm{f}}^{\mathrm{iv}}-Y_{\mathrm{f}}^{\mathrm{iv},*}|_2 /\sqrt{N}$','interpreter','latex')
-xlabel('$N$','interpreter','latex');
+ylabel('$\frac{\|\Delta_j Y_{\mathrm{f}}^{\mathrm{iv},2b}\|_2}{\sqrt{N}}$',...
+    'Interpreter','latex','Rotation',0,'FontSize',fontSize_xyLabel*1.25)
+xlabel('$N$','interpreter','latex','FontSize',fontSize_xyLabel);
 axLeg_2_2 = customLegend(y_entries,ax2_2);
 
 %% remove data path again

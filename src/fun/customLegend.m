@@ -32,6 +32,7 @@ function axLeg = customLegend(entries, parentFig, opts)
 % Output:
 %   axLeg : handle to the legend axes
 
+%% Argument validation
 arguments
     entries (1,:) struct
     parentFig {mustBeA(parentFig,["matlab.ui.Figure","matlab.graphics.axis.Axes"])} = gca
@@ -46,10 +47,6 @@ arguments
     opts.Location (1,1) string {mustBeMember(opts.Location, ...
         ["northwest","northeast","southwest","southeast","north","south","east","west","center"])} = "northeast"
 end
-nEntries = numel(entries); % number of legend entries
-
-yRangeFun = @(rowH,ySpacer,yPad) nEntries*rowH + (nEntries-1)*ySpacer +2*yPad;
-xRangeFun = @(textX,MaxTextWidth,xPad) textX + MaxTextWidth + 2*xPad;
 % Validate Position if the user provided one (empty means "not provided")
 if ~isempty(opts.Position)
     validateattributes(opts.Position, {'numeric'}, ...
@@ -57,6 +54,8 @@ if ~isempty(opts.Position)
         mfilename, 'Position');
     opts.Position = reshape(opts.Position, 1, 4);
 end
+
+%% Preliminaries
 pos0      = opts.Position;
 rowHfac   = opts.RowHeightFactor;
 boxHfac   = opts.BoxHeightFactor;
@@ -85,6 +84,10 @@ else
 end
 
 %% Legend scaling: width and height
+nEntries = numel(entries); % number of legend entries
+yRangeFun = @(rowH,ySpacer,yPad) nEntries*rowH + (nEntries-1)*ySpacer +2*yPad;
+xRangeFun = @(textX,MaxTextWidth,xPad) textX + MaxTextWidth + 2*xPad;
+
 axLeg = axes('Parent',parentFig,'Position',pos,'YDir','reverse',...
     'Visible','on','Box','on','XLim',[0 1],'YLim',[0 1],...
     'XTick',[],'YTick',[]);
@@ -101,7 +104,7 @@ ySpacer_pix = ySpaceFac * MaxTextH_pix;
 xRange_pix = xRangeFun(textX_pix,MaxTextW_pix,xPad_pix);
 yRange_pix = yRangeFun(rowH_pix,ySpacer_pix,yPad_pix);
 
-% set legend width and height in pixels
+% -------- set legend width and height in pixels ---------------
 axLeg.Units = 'pixels';
 axLeg.Position(3:4) = [xRange_pix, yRange_pix];
 axLeg.Units = 'normalized';
@@ -157,7 +160,6 @@ end
 
 % get the max/min relative position of the legend
 if parentIsAx
-    pAxUnits = parentAx.Units;
     set(parentAx,'Units','normalized');
     innerBox = get(parentAx,'Position');
 else
@@ -172,10 +174,9 @@ pos(1) = max(innerBox(1), min(pos(1), innerBox(1)+innerBox(3)-pos(3)));
 pos(2) = max(innerBox(2), min(pos(2), innerBox(2)+innerBox(4)-pos(4)));
 axLeg.Position = pos;
 
-% reset units
-if parentIsAx
-    set(parentAx,'Units',pAxUnits);
-end
+%% handling resizing
+% set units to pixel (fixes width & height)
+set(axLeg,'Units', 'pixels');
 
 end
 
