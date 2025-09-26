@@ -9,7 +9,7 @@ function axLeg = customLegend(entries, hParentAx, opts)
 %   parentAx  : axes handle
 %   entries   : struct array with fields:
 %                 .Color      : RGB triplet or short color name
-%                 .Alpha      : Face transparency (0–1)
+%                 .Alpha      : Face transparency (0�1)
 %                 .LineStyle  : Line style string (e.g. '-', '--', ':')
 %                 .LineWidth  : Line width in points
 %                 .Text       : Label string (LaTeX interpreted)
@@ -104,10 +104,18 @@ if opts.RelScaling
         
         % update width of figure - incremental changes
         relW  = pos(3)/getPos(hParentAx,'pixels',3);
-        while abs(relW/opts.MaxRelWidth-1) >= 0.01
-            hParentFig.Position(3) = hParentFig.Position(3)+1;
+        cW = 1; % counter
+        while abs(relW/opts.MaxRelWidth-1) >= 0.01 && cW <= 100
+            if cW < 3
+                hParentFig.Position(3) = hParentFig.Position(3)*relW/opts.MaxRelWidth;
+            elseif relW > opts.MaxRelWidth
+                hParentFig.Position(3) = hParentFig.Position(3)+1;
+            else
+                hParentFig.Position(3) = hParentFig.Position(3)-1;
+            end
             drawnow limitrate;
             relW  = pos(3)/getPos(hParentAx,'pixels',3);
+            cW = cW + 1;
         end
     end
 
@@ -120,8 +128,15 @@ if opts.RelScaling
 
         % update height of figure - incremental changes
         relH  = pos(4)/getPos(hParentAx,'pixels',4);
-        while abs(relH/opts.MaxRelHeight-1) >= 0.01 || relH > 1
-            hParentFig.Position(4) = hParentFig.Position(4)+1;
+        cH = 1; % counter
+        while (abs(relH/opts.MaxRelHeight-1) >= 0.01 || relH > 1) && cH <= 100
+            if cH < 3
+                hParentFig.Position(4) = hParentFig.Position(4)*relH/opts.MaxRelHeight;
+            elseif relH > opts.MaxRelHeight
+                hParentFig.Position(4) = hParentFig.Position(4)+1;
+            else
+                hParentFig.Position(4) = hParentFig.Position(4)-1;
+            end
             drawnow limitrate;
             relH  = pos(4)/getPos(hParentAx,'pixels',4);
         end
@@ -302,11 +317,11 @@ end
 % Work in normalized units
 posAx = getPos(hAx,'normalized'); % [x y w h] of axes in *figure normalized* coords
 
-% Convert [x,y] from axes-normalized → figure-normalized
+% Convert [x,y] from axes-normalized ? figure-normalized
 xFig = posAx(1) + posLeg(1) * posAx(3);
 yFig = posAx(2) + posLeg(2) * posAx(4);
 
-% Convert [w,h] from axes-normalized → figure-normalized
+% Convert [w,h] from axes-normalized ? figure-normalized
 wFig = posLeg(3) * posAx(3);
 hFig = posLeg(4) * posAx(4);
 
@@ -365,11 +380,19 @@ validateattributes(idx, {'numeric'},{'vector','real','finite','>=',1,'<=',4});
 oldUnits = hobj.Units;
 hobj.Units = Units;
 
-if isa(hobj,"matlab.graphics.axis.Axes")
-    Pos = plotboxpos(hobj);
-else
-    Pos = hobj.Position;
-end
+Pos = hobj.Position;
+% if isa(hobj,"matlab.graphics.axis.Axes")
+%     if isa(get(hobj, 'parent'),"matlab.graphics.layout.TiledChartLayout")
+%         % % disable warning for axes on TiledChartLayout
+%         % warning_id = 'MATLAB:handle_graphics:Layout:NoPositionSetInTiledChartLayout';
+%         % warning('off',warning_id);
+%         Pos = hobj.Position;
+%     else
+%         Pos = plotboxpos(hobj); % would require this function from the File Exchange
+%     end    
+% else
+%     Pos = hobj.Position;
+% end
 
 Pos = Pos(idx);
 hobj.Units = oldUnits;

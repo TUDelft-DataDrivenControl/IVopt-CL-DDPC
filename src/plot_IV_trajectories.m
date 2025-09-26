@@ -47,7 +47,7 @@ function plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,opts2)
         uFields = intersect(opts2.showFields, fieldnames(u_iv));
     end
 
-    figure(1);
+    figure();
     tiledlayout(2,1,'TileSpacing','compact');
 
     % ================= Yf_iv plot =================
