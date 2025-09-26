@@ -2,20 +2,38 @@ function make_fig_m1(m1,N_all,opts)
 arguments
     m1 struct
     N_all double {mustBeVector}
+    opts.Re_all double {mustBeVector} = [];
     opts.fontSize (1,1) double = 15;
     opts.CrameriColors char = 'roma';  % possible colors: see the 'crameri' command
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [2600 500 1000 600]; % figure position
     opts.fillAlpha (1,1) double {mustBeGreaterThanOrEqual(opts.fillAlpha,0),...
                                  mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.XScale char {mustBeMember(opts.XScale,["log","linear"])} = 'log';
+    opts.YScale char {mustBeMember(opts.YScale,["log","linear"])} = 'linear';
     opts.LineWidth (1,1) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LineWidth,0)} = 2;
 end
+
 fontSize  = opts.fontSize;      % font size of x & y labels (scaled later for y due to orientation)
 cColors   = opts.CrameriColors;
 Position  = opts.FigPos;
 fillAlpha = opts.fillAlpha;
 XScale    = opts.XScale;
+YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
+Re_all    = opts.Re_all;
+
+% Determine x-axis: N_all (default) or Re_all (if provided)
+if ~isempty(Re_all)
+    if numel(unique(N_all)) ~= 1
+        error('If Re_all is provided, N_all must have a single unique value.');
+    end
+    N_all = repmat(N_all,1,numel(Re_all));
+    xvals = Re_all;
+    xlab = '$\mathrm{Var}(e_k)$';
+else
+    xvals = N_all;
+    xlab = '$N$';
+end
 
 % --------------------- set colours and make figure -----------------------
 try
@@ -27,7 +45,8 @@ catch ME
    rethrow(ME)
 end
 
-set_xlabel_2   = @() xlabel('$N$','interpreter','latex','FontSize',fontSize);
+
+set_xlabel_2   = @() xlabel(xlab,'interpreter','latex','FontSize',fontSize);
 set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j U_{\mathrm{f}}^{\mathrm{iv},2a}\|_2}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
 set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j Y_{\mathrm{f}}^{\mathrm{iv},2a}\|_2}{\sqrt{N}}$',...
@@ -78,7 +97,7 @@ for kIV = 1:num_Uf_ivs
 
     plotLineWithFill(u_iv.(av_name),u_iv.(lb_name),u_iv.(ub_name), label, ...
         Color=col, FaceAlpha = fillAlpha, LineStyle=LineStyle, LineWidth=LineWidth,...
-         x=N_all, XScale=XScale);
+         x=xvals, XScale=XScale,YScale=YScale);
     hold on;
 
     u_entries(kIV) = struct('Color',col, 'Alpha',fillAlpha, ...
@@ -123,7 +142,7 @@ for kIV = 1:num_Yf_ivs
 
     plotLineWithFill(y_iv.(av_name),y_iv.(lb_name),y_iv.(ub_name), label, ...
         Color=col, FaceAlpha = 0.25, LineStyle=LineStyle, LineWidth=2,...
-         x=N_all, XScale='log');
+         x=xvals, XScale=XScale,YScale=YScale);
     hold on;
 
     y_entries(kIV) = struct('Color',col, 'Alpha',0.25, ...

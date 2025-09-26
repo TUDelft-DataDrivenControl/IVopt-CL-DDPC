@@ -27,3 +27,4 @@ src/**/submit_job_*.sh
 *.o[0-9]*
 Job[0-9]*
 src/pdir.mat
+.github/

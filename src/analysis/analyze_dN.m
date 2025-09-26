@@ -9,7 +9,6 @@ dN_dir = fullfile(pdir,'data','raw','dN');
 
 % add relevant directories to path
 addpath(genpath(src_dir));
-% addpath(genpath(fullfile(pdir,'bin')));
 
 % find <subdir1> candidates:
 % -> subdirectories in data\raw\dN that match the naming convention from name_subdir1 in main_dN
