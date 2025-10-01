@@ -11,7 +11,17 @@ nX = nN; % for scripts performing calculations (agnostic to varying Re or N)
 
 %% initializing measures
 % ======================== initialize measure 0 (m0) ======================
-% Uf & Yf values
+% -> statistics of Uf & Yf values
+% -> structure: m0.<Uf/Yf>.<IVname>.(iX1/2/3...).(mean/median/pctiles)
+%     example: m0.Uf.iv1.iX1.mean         (nu, ndiags)
+%              m0.Yf.iv2b.iX3.pctiles     (ny, ndiags, num_pctiles)
+% -> sliceable cell array containers:
+%    m0_Uf_mean     (num_Uf_ivs, nX)  cells of size (nu, ndiags)
+%    m0_Yf_mean     (num_Yf_ivs, nX)                (ny, ndiags)
+%    m0_Uf_median   (num_Uf_ivs, nX)                (nu, ndiags)
+%    m0_Yf_median   (num_Yf_ivs, nX)                (ny, ndiags)
+%    m0_Uf_pctiles  (num_Uf_ivs, nX)                (nu, ndiags, num_pctiles)
+%    m0_Yf_pctiles  (num_Yf_ivs, nX)                (ny, ndiags, num_pctiles)
 
 % --- IV definitions
 Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'};
@@ -20,15 +30,23 @@ num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
 % initialize cell arrays
-m0_Uf_mean = cell(num_Uf_ivs,nX);                % mean         cell sizes: nu x ndiags
-m0_Yf_mean = cell(num_Yf_ivs,nX);                %                          ny x ndiags
-m0_Uf_median = m0_Uf_mean;                       % median
+m0_Uf_mean = cell(num_Uf_ivs,nX);    % mean         cell sizes: nu x ndiags
+m0_Yf_mean = cell(num_Yf_ivs,nX);    %                          ny x ndiags
+m0_Uf_median = m0_Uf_mean;           % median
 m0_Yf_median = m0_Yf_mean;
-m0_Uf_pctiles = cell(num_Uf_ivs,nX);             % percentiles  cell sizes: nu x ndiags x num_pctiles
-m0_Yf_pctiles = cell(num_Yf_ivs,nX);             %                          ny x ndiags x num_pctiles
+m0_Uf_pctiles = cell(num_Uf_ivs,nX); % percentiles  cell sizes: nu x ndiags x num_pctiles
+m0_Yf_pctiles = cell(num_Yf_ivs,nX); %                          ny x ndiags x num_pctiles
 
 % ======================== initialize measure 1 (m1) ======================
-% -> m1: how well IV approximates optimal IV
+% -> how well IV approximates optimal IV
+% -> structure: m1.<Uf/Yf>.<IVname>.data     (nX, spX)
+%                                  .mean     (nX, 1)
+%                                  .median   (nX, 1)
+%                                  .pctiles  (nX, num_pctiles)
+%     example: m1.Uf.iv1.data(iX,ks)
+% -> sliceable containers:
+%    m1_Uf_data(num_Uf_ivs, nX, spX)
+%    m1_Yf_data(num_Yf_ivs, nX, spX)
 
 pctiles = 0:5:100;
 num_pctiles  = numel(pctiles);
@@ -42,27 +60,35 @@ iyf = nu*f + (1:ny*f);
 
 % ======================== initialize measure 2 (m2) ======================
 % -> identification error (frobenius norm)
-% -> structure: m2.<IDerrorType>.<caseName>.data(nX,spX)
-%                                          .mean
-%                                          .median
-%                                          .pctiles
-%      example: m2.Up.iv1.data(iX,ks) / .mean(iX) / .median(iX) / .pctiles(iX,:)
+% -> structure: m2.<IDerrorType>.<caseName>.data    (nX, spX)
+%                                          .mean    (nX, 1)
+%                                          .median  (nX, 1)
+%                                          .pctiles (nX, num_pctiles)
+%      example: m2.Up.iv1.data(iX,ks)
 % -> sliceable containers:
-%   m2_data(num_IDerrorTypes, num_Cases, nX, spX)
+%    m2_data(num_IDerrorTypes, num_Cases, nX, spX)
+
+% --- types of identification error
+IDerrorTypes = {'Up','Yp','Uf'};
+num_IDerrorTypes = numel(IDerrorTypes);
 
 % --- IV/case names
 Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', ...
          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
 num_Cases = numel(Cases);
 
-IDerrorTypes = {'Up','Yp','Uf'}; % types of identification error
-num_IDerrorTypes = numel(IDerrorTypes);
-
 % --- Preallocate sliceable containers ---
 m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
 
 % ======================== initialize measure 3 (m3) ======================
 % -> DDPC performance
+% -> structure: m3.<costType>.<caseName>.data    (nX, spX)
+%                                       .mean    (nX, 1)
+%                                       .median  (nX, 1)
+%                                       .pctiles (nX, num_pctiles)
+%      example: m3.cost_u.iv1.data(iX,ks)
+% -> sliceable containers:
+%    m3_data(num_cost_types, num_Cases, nX, spX)
 
 % --- cost types and cases
 cost_types = {'cost_u','cost_y','cost_tot'};
@@ -123,7 +149,7 @@ for iN = 1:nN
             Uf_sel = m0_Uf_data2(idxlin);
             Uf_sel = reshape(Uf_sel,nu,[]);
 
-        % calculate mean, median, percentiles
+            % calculate mean, median, percentiles
             m0_Uf_mean2(:,kd)      = mean(Uf_sel,2);
             m0_Uf_median2(:,kd)    = median(Uf_sel,2);
             m0_Uf_pctiles2(:,kd,:) = prctile(Uf_sel,pctiles,2);
