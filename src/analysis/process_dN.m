@@ -1,5 +1,5 @@
 %% iterate over N values - initial data processing
-% get all <subdir2> directories
+% get all <subdir2> directories in data/raw/dN/<subdir1>
 subdir2s = dir(pwd);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
@@ -34,27 +34,32 @@ pctiles = 0:5:100;
 num_pctiles  = numel(pctiles);
 
 % --- Preallocate "sliced" containers ---
-m1_Uf_data     = zeros(num_Uf_ivs, nX, spX);
-m1_Yf_data     = zeros(num_Yf_ivs, nX, spX);
+m1_Uf_data = zeros(num_Uf_ivs, nX, spX);
+m1_Yf_data = zeros(num_Yf_ivs, nX, spX);
 
 % other
 iyf = nu*f + (1:ny*f);
 
 % ======================== initialize measure 2 (m2) ======================
 % -> identification error (frobenius norm)
+% -> structure: m2.<IDerrorType>.<caseName>.data(nX,spX)
+%                                          .mean
+%                                          .median
+%                                          .pctiles
+%      example: m2.Up.iv1.data(iX,ks) / .mean(iX) / .median(iX) / .pctiles(iX,:)
+% -> sliceable containers:
+%   m2_data(num_IDerrorTypes, num_Cases, nX, spX)
 
 % --- IV/case names
 Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', ...
          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
 num_Cases = numel(Cases);
 
-
-IDerrorTypes = {'Up','Yp','Uf'};  % types of identification error
+IDerrorTypes = {'Up','Yp','Uf'}; % types of identification error
+num_IDerrorTypes = numel(IDerrorTypes);
 
 % --- Preallocate sliceable containers ---
-m2_data    = zeros(numel(IDerrorTypes), numel(Cases), nX, spX); % main data
-
-num_IDerrorTypes = numel(IDerrorTypes);
+m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
 
 % ======================== initialize measure 3 (m3) ======================
 % -> DDPC performance
@@ -64,7 +69,7 @@ cost_types = {'cost_u','cost_y','cost_tot'};
 num_cost_types = numel(cost_types);
 
 % --- Preallocate sliceable containers ---
-m3_data    = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
+m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
 
 %% --------------------------- loop over N values -------------------------
 for iN = 1:nN
