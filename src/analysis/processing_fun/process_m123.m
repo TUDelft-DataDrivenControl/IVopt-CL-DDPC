@@ -31,8 +31,7 @@ fprintf('%s',txt_iters);
 parfor ks = 1:spX
     seed = seeds(ks,iX);
     fndata = sprintf('seed_%d.mat',seed);
-    [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-        e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fndata);
+    [FroIDerror,Z,cost_tot,cost_u,cost_y] = load_seedmat(fndata);
     
     % =================================================================
     % m1) how well IV approximates optimal one
@@ -123,9 +122,14 @@ fprintf([repmat('\b',1,numel(txt_iters)),'\tm1, m2, m3: Iterating over seeds\t\t
 end
 
 %% Helper functions
-function [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-          e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fnpath)
-    load(fnpath);
+function [FroIDerror,Z,cost_tot,cost_u,cost_y] = load_seedmat(fnpath)
+    % Only load necessary variables to improve memory usage and performance
+    s = load(fnpath,'FroIDerror','Z','cost_tot','cost_u','cost_y');
+    FroIDerror = s.FroIDerror;
+    Z = s.Z;
+    cost_tot = s.cost_tot;
+    cost_u = s.cost_u;
+    cost_y = s.cost_y;
 end
 
 function parforWaitbar(waitbarHandle,iterations)

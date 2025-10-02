@@ -8,6 +8,12 @@ subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 % iterate over all N values
 nX = numel(subdir2s);
 
+% find Cases used
+seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
+Cases = load(seed_mat_files(1).name,'Cases').Cases;
+% expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', 'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
+num_Cases = numel(Cases);
+
 %% initializing measures
 % ======================== initialize measure 0 (m0) ======================
 % -> statistics of Uf & Yf values
@@ -23,8 +29,8 @@ nX = numel(subdir2s);
 %    m0_Yf_pctiles  (num_Yf_ivs, nX)                (ny, ndiags, num_pctiles)
 
 % --- IV definitions
-Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'};
-Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};
+Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'}; Uf_ivs = intersect(Uf_ivs,Cases);
+Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};                            Yf_ivs = intersect(Yf_ivs,Cases);
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
@@ -70,11 +76,6 @@ iyf = nu*f + (1:ny*f);
 % --- types of identification error
 IDerrorTypes = {'Up','Yp','Uf'};
 num_IDerrorTypes = numel(IDerrorTypes);
-
-% --- IV/case names
-Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', ...
-         'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
-num_Cases = numel(Cases);
 
 % --- Preallocate sliceable containers ---
 m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
