@@ -35,16 +35,24 @@ else
     process_dN;
 end
 
+%% Get monitor positions
+monitors = get(0, 'MonitorPositions');
+monPos = monitors(2,:);
+
 %% Plotting - figure 1: example of Uf_iv (m0)
 
 pX = 5; % index of X to plot this for
 opts.N = N_all(pX);
 make_fig_m0(m0, pX, opts);
+fig1 = gcf;
+fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 
 %% Plotting - figure 2: quality of optimal IV approx. vs. N (m1)
 % -> difference of Uf_iv w.r.t. Uf_iv2a
 % -> difference of Yf_iv w.r.t. Yf_iv2b
 make_fig_m1(m1,N_all);
+fig2 = gcf;
+fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 
 %% Plotting - figure 3: ID error (m2)
 % possible cases:
@@ -77,6 +85,8 @@ noPlotCases = {};
 
 % --------------------------- plotting of figure --------------------------
 make_fig_m2(m2, N_all, useFillCases, noPlotCases);
+fig3 = gcf;
+fig3.OuterPosition(1:2) = monPos(1:2) + [50 150];
 
 %% Plotting - figure 4: DDPC performance (m3)
 % possible cases:
@@ -109,6 +119,8 @@ noPlotCases = {};
 
 % --------------------------- plotting of figure --------------------------
 make_fig_m3(m3, N_all, useFillCases, noPlotCases);
+fig4 = gcf;
+fig4.OuterPosition(1:2) = monPos(1:2) + [50 200];
 
 %% remove data path again
 cd(src_dir);

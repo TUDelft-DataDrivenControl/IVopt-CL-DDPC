@@ -2,7 +2,7 @@ function make_fig_m1(m1,N_all,opts)
 arguments
     m1 struct
     N_all double {mustBeVector}
-    opts.Re_all double {mustBeVector} = [];
+    opts.Re_all double = [];
     opts.fontSize (1,1) double = 15;
     opts.CrameriColors char = 'roma';  % possible colors: see the 'crameri' command
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [2600 500 1000 600]; % figure position
@@ -24,6 +24,9 @@ Re_all    = opts.Re_all;
 
 % Determine x-axis: N_all (default) or Re_all (if provided)
 if ~isempty(Re_all)
+    if ~isvector(Re_all)
+        error('Re_all must be a vector if not left empty.');
+    end
     if numel(unique(N_all)) ~= 1
         error('If Re_all is provided, N_all must have a single unique value.');
     end
@@ -47,9 +50,9 @@ end
 
 
 set_xlabel_2   = @() xlabel(xlab,'interpreter','latex','FontSize',fontSize);
-set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j U_{\mathrm{f}}^{\mathrm{iv},2a}\|_2}{\sqrt{N}}$',...
+set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j U_{\mathrm{f}}^{\mathrm{iv},2a}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
-set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j Y_{\mathrm{f}}^{\mathrm{iv},2a}\|_2}{\sqrt{N}}$',...
+set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j Y_{\mathrm{f}}^{\mathrm{iv},2b}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
 
 fig2 = figure();

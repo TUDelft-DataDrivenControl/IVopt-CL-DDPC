@@ -82,8 +82,8 @@ for kCt = 1:numel(cost_types)
             case {'iv4a','iv4b','iv4c'}, col = cCram(2,:);
             case {'iv5a','iv5b','iv5c'}, col = cCram(4,:);
             case {'iv6a','iv6c'},        col = cCram(5,:);
-            case 'CLSPC', col = cCram(6,:); LineStyle = '-'; label = 'CL-SPC';
-            case 'actLf', col = [0 1 0 ];   LineStyle = '-'; label = 'actual $L_f$'; % green
+            case 'CLSPC', col = cCram(6,:); LineStyle = '-'; label = '$j=7$:CL-SPC';
+            case 'actLf', col = [0 1 0 ];   LineStyle = '-'; label = '$j=8$: actual $L_f$'; % green
         end
         if startsWith(CaseName,'iv')
             label = sprintf('$j=%s$',CaseName(3:end));
@@ -115,11 +115,11 @@ for kCt = 1:numel(cost_types)
     grid on;
     switch Ct
         case 'cost_u'
-            Ct_str = 'inputs';
+            Ct_str = 'u';
         case 'cost_y'
-            Ct_str = 'outputs';
+            Ct_str = 'y';
         case 'cost_tot'
-            Ct_str = 'total';
+            Ct_str = 't';
     end
     title_str = append('$i=\mathrm{',Ct_str,'}$');
     title(title_str,'Interpreter','latex','FontSize',fontSize_xyLabel);

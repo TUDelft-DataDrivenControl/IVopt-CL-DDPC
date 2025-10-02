@@ -93,8 +93,8 @@ for kEt = 1:numel(LfErrorTypes)
             case {'iv4a','iv4b','iv4c'}, col = cCram(2,:);
             case {'iv5a','iv5b','iv5c'}, col = cCram(4,:);
             case {'iv6a','iv6c'},        col = cCram(5,:);
-            case 'CLSPC', col = cCram(6,:); LineStyle = '-'; label = 'CL-SPC';
-            case 'actLf', col = [0 1 0 ];   LineStyle = '-'; label = 'actual $L_f$'; % green
+            case 'CLSPC', col = cCram(6,:); LineStyle = '-'; label = '$j=7$: CL-SPC';
+            case 'actLf', col = [0 1 0 ];   LineStyle = '-'; label = '$j=8$: actual $L_f$'; % green
         end
         if startsWith(CaseName,'iv')
             label = sprintf('$j=%s$',CaseName(3:end));
@@ -134,7 +134,7 @@ for kEt = 1:numel(LfErrorTypes)
     title(title_str,'Interpreter','latex','FontSize',fontSize);
     xlabel(xAxisLabel,'FontSize',fontSize,'Interpreter','latex');
     if kEt == 1
-        ylabel('$\left\| \Delta L_f^{i}\right\|_2$','FontSize',fontSize,'Interpreter','latex');
+        ylabel('$\left\| \Delta L_f^{i}\right\|_{\mathrm{F}}$','FontSize',fontSize,'Interpreter','latex');
     end
 end
 linkaxes([ax3(:)],'x');
