@@ -6,8 +6,7 @@ subdir2s = {subdir2s(isub).name};
 subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 
 % iterate over all N values
-nN = numel(subdir2s);
-nX = nN; % for scripts performing calculations (agnostic to varying Re or N)
+nX = numel(subdir2s);
 
 %% initializing measures
 % ======================== initialize measure 0 (m0) ======================
@@ -98,10 +97,8 @@ num_cost_types = numel(cost_types);
 m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
 
 %% --------------------------- loop over N values -------------------------
-for iN = 1:nN
-    N = N_all(iN);
-
-    iX = iN; % for scripts performing calculations
+for iX = 1:nX
+    N = N_all(iX);
 
     % choose subdir2 corresponding with N value
     subdir2 = choose_subdir_by_number(subdir2s, N);
@@ -111,207 +108,15 @@ for iN = 1:nN
     settingsFile = find_settingsFile();
     load(settingsFile);
     
-    % ======================== calculations for m0 ========================
-    num_diags = f+N-1;
-               
-    % ---------------------------- for Uf ---------------------------------
-    m0_Uf_tictoc = tic;
-    parfor kIVu = 1:num_Uf_ivs
-        iv_name = Uf_ivs{kIVu};
+    % ======================== processing m0, m1, m2, m3 ==================
+    fprintf('Processing N index [%d/%d] (N = %g) in subdir: %s\n', iX, nX, N, subdir2);
+    
+    % ------------------------ calculations for m0 ------------------------
+    [m0_Uf_mean(:,iX), m0_Yf_mean(:,iX), m0_Uf_median(:,iX), m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
 
-        % initialize m0_Uf_...
-        m0_Uf_mean2 = zeros(nu,num_diags);                % mean
-        m0_Uf_median2 = m0_Uf_mean2;                      % median
-        m0_Uf_pctiles2 = zeros(nu,num_diags,num_pctiles); % percentiles
-
-        % get Uf values in all seeds
-        m0_Uf_data2 = zeros(nu*f,N,spX); % initialize
-        for ks = 1:spN
-            seed = seeds(iN,ks);
-            fndata = sprintf('seed_%d.mat',seed);
-            Z = load(fndata,'Z').Z;
-            
-            Uf_iv = Z.([iv_name,'_']);
-            m0_Uf_data2(:,:,ks) = Uf_iv;
-        end
-        
-        % get all values belonging to anti-diagonals over seeds
-        ij_adiags = get_subind_diags(f,N,nr=nu,anti=true); % i & j indices for 2D case
-        for kd = 1:num_diags
-            rows = ij_adiags{kd}(:,1);  % row indices for 2D case
-            cols = ij_adiags{kd}(:,2);  % col indices for 2D case
-
-            % get linear index for 3D case
-            rows2 = repmat(rows,spX,1); % extend (spX seeds)
-            cols2 = repmat(cols,spX,1);
-            i3s = kron( (1:spX).', ones(numel(cols),1) ); % 3rd dim indices
-            idxlin = sub2ind(size(m0_Uf_data2),rows2,cols2,i3s); % convert to linear indices
-            Uf_sel = m0_Uf_data2(idxlin);
-            Uf_sel = reshape(Uf_sel,nu,[]);
-
-            % calculate mean, median, percentiles
-            m0_Uf_mean2(:,kd)      = mean(Uf_sel,2);
-            m0_Uf_median2(:,kd)    = median(Uf_sel,2);
-            m0_Uf_pctiles2(:,kd,:) = prctile(Uf_sel,pctiles,2);
-        end
-        
-        % assign cells in data arrays
-        m0_Uf_mean{kIVu,iX}    = m0_Uf_mean2;
-        m0_Uf_median{kIVu,iX}  = m0_Uf_median2;
-        m0_Uf_pctiles{kIVu,iX} = m0_Uf_pctiles2;
-    end
-    m0_Uf_time = toc(m0_Uf_tictoc);
-    fprintf("m0 for Uf finished in %.2f seconds\n",m0_Uf_time);
-
-    % ---------------------------- for Yf ---------------------------------
-    m0_Yf_tictoc = tic;
-    parfor kIVy = 1:num_Yf_ivs
-        iv_name = Yf_ivs{kIVy};
-        
-        % initialize m0_Yf_...
-        m0_Yf_mean2 = zeros(ny,num_diags);                % mean
-        m0_Yf_median2 = m0_Yf_mean2;                      % median
-        m0_Yf_pctiles2 = zeros(ny,num_diags,num_pctiles); % percentiles
-
-        % get Yf values in all seeds
-        m0_Yf_data2 = zeros(ny*f,N,spX); % initialize
-        for ks = 1:spN
-            seed = seeds(iN,ks);
-            fndata = sprintf('seed_%d.mat',seed);
-            Z = load(fndata,'Z').Z;
-            
-            switch iv_name
-                case 'iv3a' % IV_Theta: only possible because ny = nlcf (see get_Z.m)
-                    Yf_iv = Z.iv3a_(1:ny*f,:);
-
-                case 'iv6a' % Rf_yr0 (future references)
-                    Yf_iv = Z.iv6a_;
-
-                otherwise
-                    Yf_iv = Z.([iv_name,'_'])(iyf,:);
-            end
-            m0_Yf_data2(:,:,ks) = Yf_iv;
-        end
-        
-        % get all values belonging to anti-diagonals over seeds
-        ij_adiags = get_subind_diags(f,N,nr=ny,anti=true); % i & j indices for 2D case
-        for kd = 1:num_diags
-            rows = ij_adiags{kd}(:,1);  % row indices for 2D case
-            cols = ij_adiags{kd}(:,2);  % col indices for 2D case
-
-            % get linear index for 3D case
-            rows2 = repmat(rows,spX,1); % extend (spX seeds)
-            cols2 = repmat(cols,spX,1);
-            i3s = kron( (1:spX).', ones(numel(cols),1) ); % 3rd dim indices
-            idxlin = sub2ind(size(m0_Yf_data2),rows2,cols2,i3s); % convert to linear indices
-            Yf_sel = m0_Yf_data2(idxlin);
-            Yf_sel = reshape(Yf_sel,ny,[]);
-
-        % calculate mean, median, percentiles
-            m0_Yf_mean2(:,kd)      = mean(Yf_sel,2);
-            m0_Yf_median2(:,kd)    = median(Yf_sel,2);
-            m0_Yf_pctiles2(:,kd,:) = prctile(Yf_sel,pctiles,2);
-        end
-
-        % assign cells in data arrays
-        m0_Yf_mean{kIVy,iX}    = m0_Yf_mean2;
-        m0_Yf_median{kIVy,iX}  = m0_Yf_median2;
-        m0_Yf_pctiles{kIVy,iX} = m0_Yf_pctiles2;
-    end
-    m0_Yf_time = toc(m0_Yf_tictoc);
-    fprintf("m0 for Yf finished in %.2f seconds\n",m0_Yf_time);
-
-    % ===================== calculations for m1,m2,m3 =====================
-    % iterate over noise realizations
-    tic
-    parfor ks = 1:spN
-        seed = seeds(iN,ks);
-        fndata = sprintf('seed_%d.mat',seed);
-        [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-          e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fndata);
-        
-        % =================================================================
-        % m1) how well IV approximates optimal one
-        %   -> calculates m1_Uf_data(kIVu, iX, ks) and m1_Yf_data(kIVy, iX, ks)
-
-        % ---- Uf IVs ----
-        for kIVu = 1:num_Uf_ivs
-            iv_name = Uf_ivs{kIVu};
-            
-            switch iv_name
-                case 'iv2a'
-                    % leave zero since this is the optimal IV for Uf
-                otherwise
-                    Uf_iv = Z.([iv_name,'_']);
-                    m1_Uf_data(kIVu, iX, ks) = norm(Uf_iv - Z.iv2a_, 'fro');
-            end
-        end
-
-        % ---- Yf IVs ----
-        for kIVy = 1:num_Yf_ivs
-            iv_name = Yf_ivs{kIVy};
-
-            switch iv_name
-                case 'iv2b'
-                    % leave zero since this contains the optimal IV for Yf
-                    Yf_iv = 0; % simply to suppress warning
-                    calc_norm = false;
-
-                case 'iv3a' % IV_Theta: only possible because ny = nlcf (see get_Z.m)
-                    Yf_iv = Z.iv3a_(1:ny*f,:);
-                    calc_norm = true;
-
-                case 'iv6a' % Rf_yr0 (future references)
-                    Yf_iv = Z.iv6a_;
-                    calc_norm = true;
-
-                otherwise
-                    Yf_iv = Z.([iv_name,'_'])(iyf,:);
-                    calc_norm = true;
-            end
-
-            if calc_norm
-                m1_Yf_data(kIVy, iX, ks) = norm(Yf_iv - Z.iv2b_(iyf,:), 'fro');
-            end
-        end
-
-        % =================================================================
-        % m2) identification error (frobenius norm)
-        
-        for kType = 1:num_IDerrorTypes         %  1   2   3
-            IDerrorType = IDerrorTypes{kType}; % Up, Yp, Uf
-
-            for kIVn = 1:num_Cases
-                IVn = Cases{kIVn}; % iv1, iv2a, CLSPC, etc.
-                m2_data(kType, kIVn, iX, ks) = FroIDerror.(IVn).(IDerrorType);
-            end
-        end
-
-        % =================================================================
-        % m3) DDPC performance
-        
-        for kType = 1:num_cost_types
-            cost_type = cost_types{kType};
-
-            % pick the right cost struct
-            switch cost_type
-                case 'cost_u'
-                    cost = cost_u;
-                case 'cost_y'
-                    cost = cost_y;
-                otherwise %'cost_tot'
-                    cost = cost_tot;
-            end
-
-            for kIVn = 1:num_Cases
-                IVn = Cases{kIVn};
-                m3_data(kType, kIVn, iX, ks) = cost.(IVn);
-            end
-        end
-        % =================================================================
-        
-    end % of parfor
-    toc
+    % --------------------- calculations for m1,m2,m3 ---------------------
+    % iterates over noise realizations
+    [m1_Uf_data(:, iX, :), m1_Yf_data(:, iX, :), m2_data(:, :, iX, :), m3_data(:, :, iX, :)] = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,f,seeds,spX);
 
     cd(subdir1);
 end
@@ -464,9 +269,4 @@ function settingsFile = find_settingsFile(dirPath)
         error('only expecting one settings file')
     end
     settingsFile = settingsFile{1};
-end
-
-function [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-          e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fnpath)
-    load(fnpath);
 end

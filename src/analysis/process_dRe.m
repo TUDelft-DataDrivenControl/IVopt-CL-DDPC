@@ -1,186 +1,123 @@
 %% iterate over Re values - initial data processing
+% get all <subdir2> directories in data/raw/dRe/<subdir1>
 subdir2s = dir(pwd);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
 subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 
-nRe = numel(subdir2s);
-nX = nRe;
+% iterate over all Re values
+nX = numel(subdir2s);
 
 %% initializing measures
+% ======================== initialize measure 0 (m0) ======================
+% -> statistics of Uf & Yf values
+% -> structure: m0.<Uf/Yf>.<IVname>.(iX1/2/3...).(mean/median/pctiles)
+%     example: m0.Uf.iv1.iX1.mean         (nu, ndiags)
+%              m0.Yf.iv2b.iX3.pctiles     (ny, ndiags, num_pctiles)
+% -> sliceable cell array containers:
+%    m0_Uf_mean     (num_Uf_ivs, nX)  cells of size (nu, ndiags)
+%    m0_Yf_mean     (num_Yf_ivs, nX)                (ny, ndiags)
+%    m0_Uf_median   (num_Uf_ivs, nX)                (nu, ndiags)
+%    m0_Yf_median   (num_Yf_ivs, nX)                (ny, ndiags)
+%    m0_Uf_pctiles  (num_Uf_ivs, nX)                (nu, ndiags, num_pctiles)
+%    m0_Yf_pctiles  (num_Yf_ivs, nX)                (ny, ndiags, num_pctiles)
+
+% --- IV definitions
 Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'};
 Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};
-num_Uf_ivs = numel(Uf_ivs);
-num_Yf_ivs = numel(Yf_ivs);
+num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
+num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
-m0_Uf_mean = cell(num_Uf_ivs,nX);
-m0_Yf_mean = cell(num_Yf_ivs,nX);
-m0_Uf_median = m0_Uf_mean;
+% initialize cell arrays
+m0_Uf_mean = cell(num_Uf_ivs,nX);    % mean         cell sizes: nu x ndiags
+m0_Yf_mean = cell(num_Yf_ivs,nX);    %                          ny x ndiags
+m0_Uf_median = m0_Uf_mean;           % median
 m0_Yf_median = m0_Yf_mean;
-m0_Uf_pctiles = cell(num_Uf_ivs,nX);
-m0_Yf_pctiles = cell(num_Yf_ivs,nX);
+m0_Uf_pctiles = cell(num_Uf_ivs,nX); % percentiles  cell sizes: nu x ndiags x num_pctiles
+m0_Yf_pctiles = cell(num_Yf_ivs,nX); %                          ny x ndiags x num_pctiles
+
+% ======================== initialize measure 1 (m1) ======================
+% -> how well IV approximates optimal IV
+% -> structure: m1.<Uf/Yf>.<IVname>.data     (nX, spX)
+%                                  .mean     (nX, 1)
+%                                  .median   (nX, 1)
+%                                  .pctiles  (nX, num_pctiles)
+%     example: m1.Uf.iv1.data(iX,ks)
+% -> sliceable containers:
+%    m1_Uf_data(num_Uf_ivs, nX, spX)
+%    m1_Yf_data(num_Yf_ivs, nX, spX)
 
 pctiles = 0:5:100;
 num_pctiles  = numel(pctiles);
-m1_Uf_data     = zeros(num_Uf_ivs, nX, spX);
-m1_Yf_data     = zeros(num_Yf_ivs, nX, spX);
+
+% --- Preallocate "sliced" containers ---
+m1_Uf_data = zeros(num_Uf_ivs, nX, spX);
+m1_Yf_data = zeros(num_Yf_ivs, nX, spX);
+
+% other
 iyf = nu*f + (1:ny*f);
 
+% ======================== initialize measure 2 (m2) ======================
+% -> identification error (frobenius norm)
+% -> structure: m2.<IDerrorType>.<caseName>.data    (nX, spX)
+%                                          .mean    (nX, 1)
+%                                          .median  (nX, 1)
+%                                          .pctiles (nX, num_pctiles)
+%      example: m2.Up.iv1.data(iX,ks)
+% -> sliceable containers:
+%    m2_data(num_IDerrorTypes, num_Cases, nX, spX)
+
+% --- types of identification error
+IDerrorTypes = {'Up','Yp','Uf'};
+num_IDerrorTypes = numel(IDerrorTypes);
+
+% --- IV/case names
 Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', ...
          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
 num_Cases = numel(Cases);
-IDerrorTypes = {'Up','Yp','Uf'};
-m2_data    = zeros(numel(IDerrorTypes), numel(Cases), nX, spX);
-num_IDerrorTypes = numel(IDerrorTypes);
+
+% --- Preallocate sliceable containers ---
+m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
+
+% ======================== initialize measure 3 (m3) ======================
+% -> DDPC performance
+% -> structure: m3.<costType>.<caseName>.data    (nX, spX)
+%                                       .mean    (nX, 1)
+%                                       .median  (nX, 1)
+%                                       .pctiles (nX, num_pctiles)
+%      example: m3.cost_u.iv1.data(iX,ks)
+% -> sliceable containers:
+%    m3_data(num_cost_types, num_Cases, nX, spX)
+
+% --- cost types and cases
 cost_types = {'cost_u','cost_y','cost_tot'};
 nCostTypes = numel(cost_types);
+
+% --- Preallocate sliceable containers ---
 m3_data    = zeros(nCostTypes, numel(Cases), nX, spX);
 
-%% loop over Re values
-for iRe = 1:nRe
-    Re = Re_all(iRe);
-    iX = iRe;
-    subdir2 = choose_subdir_by_iX(subdir2s, iX);
-    cd(subdir2);
-    num_diags = f+N-1;
-    clc;
-    fprintf('Processing Re index %d/%d (Re = %g) in subdir: %s\n', iRe, nRe, Re, subdir2);
-    parfor kIVu = 1:num_Uf_ivs % parfor
-        iv_name = Uf_ivs{kIVu};
-        m0_Uf_mean2 = zeros(nu,num_diags);
-        m0_Uf_median2 = m0_Uf_mean2;
-        m0_Uf_pctiles2 = zeros(nu,num_diags,num_pctiles);
-        m0_Uf_data2 = zeros(nu*f,N,spX);
-        for ks = 1:spRe
-            seed = seeds(ks,iRe);
-            fndata = sprintf('seed_%d.mat',seed);
-            Z = load(fndata,'Z').Z;
-            Uf_iv = Z.([iv_name,'_']);
-            m0_Uf_data2(:,:,ks) = Uf_iv;
-        end
-        ij_adiags = get_subind_diags(f,N,nr=nu,anti=true);
-        for kd = 1:num_diags
-            rows = ij_adiags{kd}(:,1);
-            cols = ij_adiags{kd}(:,2);
-            rows2 = repmat(rows,spX,1);
-            cols2 = repmat(cols,spX,1);
-            i3s = kron( (1:spX).', ones(numel(cols),1) );
-            idxlin = sub2ind(size(m0_Uf_data2),rows2,cols2,i3s);
-            Uf_sel = m0_Uf_data2(idxlin);
-            Uf_sel = reshape(Uf_sel,nu,[]);
-            m0_Uf_mean2(:,kd)      = mean(Uf_sel,2);
-            m0_Uf_median2(:,kd)    = median(Uf_sel,2);
-            m0_Uf_pctiles2(:,kd,:) = prctile(Uf_sel,pctiles,2);
-        end
-        m0_Uf_mean{kIVu,iX}    = m0_Uf_mean2;
-        m0_Uf_median{kIVu,iX}  = m0_Uf_median2;
-        m0_Uf_pctiles{kIVu,iX} = m0_Uf_pctiles2;
-        
-        fprintf('  [Re %d/%d] Uf IV %d/%d done\n', iRe, nRe, kIVu, num_Uf_ivs);
-    end
-    fprintf('  [Re %d/%d] All Uf IVs done\n', iRe, nRe);
-    parfor kIVy = 1:num_Yf_ivs % parfor
-        iv_name = Yf_ivs{kIVy};
-        m0_Yf_mean2 = zeros(ny,num_diags);
-        m0_Yf_median2 = m0_Yf_mean2;
-        m0_Yf_pctiles2 = zeros(ny,num_diags,num_pctiles);
-        m0_Yf_data2 = zeros(ny*f,N,spX);
-        for ks = 1:spRe
-            seed = seeds(ks,iRe);
-            fndata = sprintf('seed_%d.mat',seed);
-            Z = load(fndata,'Z').Z;
-            switch iv_name
-                case 'iv3a'
-                    Yf_iv = Z.iv3a_(1:ny*f,:);
-                case 'iv6a'
-                    Yf_iv = Z.iv6a_;
-                otherwise
-                    Yf_iv = Z.([iv_name,'_'])(iyf,:);
-            end
-            m0_Yf_data2(:,:,ks) = Yf_iv;
-        end
-        ij_adiags = get_subind_diags(f,N,nr=ny,anti=true);
-        for kd = 1:num_diags
-            rows = ij_adiags{kd}(:,1);
-            cols = ij_adiags{kd}(:,2);
-            rows2 = repmat(rows,spX,1);
-            cols2 = repmat(cols,spX,1);
-            i3s = kron( (1:spX).', ones(numel(cols),1) );
-            idxlin = sub2ind(size(m0_Yf_data2),rows2,cols2,i3s);
-            Yf_sel = m0_Yf_data2(idxlin);
-            Yf_sel = reshape(Yf_sel,ny,[]);
-            m0_Yf_mean2(:,kd)      = mean(Yf_sel,2);
-            m0_Yf_median2(:,kd)    = median(Yf_sel,2);
-            m0_Yf_pctiles2(:,kd,:) = prctile(Yf_sel,pctiles,2);
-        end
-        m0_Yf_mean{kIVy,iX}    = m0_Yf_mean2;
-        m0_Yf_median{kIVy,iX}  = m0_Yf_median2;
-        m0_Yf_pctiles{kIVy,iX} = m0_Yf_pctiles2;
+%% --------------------------- loop over Re values ------------------------
+for iX = 1:nX
+    Re = Re_all(iX);
 
-        fprintf('  [Re %d/%d] Yf IV %d/%d done\n', iRe, nRe, kIVy, num_Yf_ivs);
-    end
-    fprintf('  [Re %d/%d] All Yf IVs done\n', iRe, nRe);
-    parfor ks = 1:spRe % parfor
-        seed = seeds(ks,iRe);
-        fndata = sprintf('seed_%d.mat',seed);
-        [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-          e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fndata);
-        for kIVu = 1:num_Uf_ivs
-            iv_name = Uf_ivs{kIVu};
-            switch iv_name
-                case 'iv2a'
-                otherwise
-                    Uf_iv = Z.([iv_name,'_']);
-                    m1_Uf_data(kIVu, iX, ks) = norm(Uf_iv - Z.iv2a_, 'fro');
-            end
-        end
-        for kIVy = 1:num_Yf_ivs
-            iv_name = Yf_ivs{kIVy};
-            switch iv_name
-                case 'iv2b'
-                    Yf_iv = 0;
-                    calc_norm = false;
-                case 'iv3a'
-                    Yf_iv = Z.iv3a_(1:ny*f,:);
-                    calc_norm = true;
-                case 'iv6a'
-                    Yf_iv = Z.iv6a_;
-                    calc_norm = true;
-                otherwise
-                    Yf_iv = Z.([iv_name,'_'])(iyf,:);
-                    calc_norm = true;
-            end
-            if calc_norm
-                m1_Yf_data(kIVy, iX, ks) = norm(Yf_iv - Z.iv2b_(iyf,:), 'fro');
-            end
-        end
-        for kType = 1:num_IDerrorTypes
-            IDerrorType = IDerrorTypes{kType};
-            for kIVn = 1:num_Cases
-                IVn = Cases{kIVn};
-                m2_data(kType, kIVn, iX, ks) = FroIDerror.(IVn).(IDerrorType);
-            end
-        end
-        for kType = 1:nCostTypes
-            cost_type = cost_types{kType};
-            switch cost_type
-                case 'cost_u'
-                    cost = cost_u;
-                case 'cost_y'
-                    cost = cost_y;
-                otherwise
-                    cost = cost_tot;
-            end
-            for kIVn = 1:num_Cases
-                IVn = Cases{kIVn};
-                m3_data(kType, kIVn, iX, ks) = cost.(IVn);
-            end
-        end
-        if mod(ks, max(1, floor(spRe/10))) == 0 || ks == spRe
-            fprintf('  [Re %d/%d] Seed %d/%d done\n', iRe, nRe, ks, spRe);
-        end
-    end
-    fprintf('  [Re %d/%d] All seeds done\n', iRe, nRe);
+    % choose subdir2 corresponding with Re value
+    subdir2 = choose_subdir_by_iX(subdir2s, iX);
+    cd(subdir2);                                % navigate into <subdir2>
+    
+    % load file with settings <subdir2>
+    % settingsFile = find_settingsFile();
+    % load(settingsFile);
+    
+    % ======================== processing m0, m1, m2, m3 ==================
+    fprintf('Processing Re index [%d/%d] (Re = %g) in subdir: %s\n', iX, nX, Re, subdir2);
+    
+    % ------------------------ calculations for m0 ------------------------
+    [m0_Uf_mean(:,iX), m0_Yf_mean(:,iX), m0_Uf_median(:,iX), m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
+
+    % --------------------- calculations for m1,m2,m3 ---------------------
+    % iterates over noise realizations
+    [m1_Uf_data(:, iX, :), m1_Yf_data(:, iX, :), m2_data(:, :, iX, :), m3_data(:, :, iX, :)] = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,f,seeds,spX);
+
     cd(subdir1);
 end
 
@@ -267,9 +204,4 @@ function chosenDir = choose_subdir_by_iX(subdirs, iX)
     if isempty(chosenDir)
         warning('No subdirectory found starting with number %d.', iX);
     end
-end
-
-function [Cases,Cz,FroIDerror,Lf,Tcl,Z,cost_tot,cost_u,cost_u1,cost_u2,cost_y,...
-          e0,e1,opts,u0,u_cl,u_iv,xcl0,y0,y_cl,y_iv] = load_seedmat(fnpath)
-    load(fnpath);
 end
