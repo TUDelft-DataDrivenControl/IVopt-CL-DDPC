@@ -1,16 +1,18 @@
-function make_fig_m1(m1,N_all,opts)
+function [fig2,ax2,axLeg2] =make_fig_m1(m1,N_all,opts)
 arguments
     m1 struct
     N_all double {mustBeVector}
     opts.Re_all double = [];
     opts.fontSize (1,1) double = 15;
     opts.CrameriColors char = 'roma';  % possible colors: see the 'crameri' command
-    opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [2600 500 1000 600]; % figure position
+    opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]; % figure position
     opts.fillAlpha (1,1) double {mustBeGreaterThanOrEqual(opts.fillAlpha,0),...
                                  mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.XScale char {mustBeMember(opts.XScale,["log","linear"])} = 'log';
     opts.YScale char {mustBeMember(opts.YScale,["log","linear"])} = 'linear';
     opts.LineWidth (1,1) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LineWidth,0)} = 2;
+    opts.LegLocations (1,:) = "northeast"; % parsing done by mustBeValidLegLocation
+    opts.LegCols (1,2) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LegCols,0),mustBeInteger} = [1, 1];
 end
 
 fontSize  = opts.fontSize;      % font size of x & y labels (scaled later for y due to orientation)
@@ -21,6 +23,8 @@ XScale    = opts.XScale;
 YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
 Re_all    = opts.Re_all;
+LegsLoc   = mustBeValidLegLocation(opts.LegLocations);
+LegsCols  = opts.LegCols;
 
 % Determine x-axis: N_all (default) or Re_all (if provided)
 if ~isempty(Re_all)
@@ -59,7 +63,7 @@ fig2 = figure();
 tl2 = tiledlayout(2,1,"TileSpacing",'compact','Padding','compact');
 fig2.Units = 'pixels';
 fig2.Position = Position;
-ax2_1 = nexttile();
+ax2(1) = nexttile();
 
 % --------------------- plotting for Uf_ivs -------------------------------
 % plotting Uf frobenius norm errors
@@ -109,11 +113,10 @@ for kIV = 1:num_Uf_ivs
 end
 set_ylabel_2_1();
 grid on;
-axLeg_2_1 = customLegend(u_entries,ax2_1,Location='east',cols=3);
-axLeg_2_1.Position([1,2]) = axLeg_2_1.Position([1,2]) + [35 10];
+axLeg2(1) = customLegend(u_entries,ax2(1),Location=LegsLoc(1),cols=LegsCols(1));
 
 % --------------------- plotting for Yf_ivs -------------------------------
-ax2_2 = nexttile(tl2,2);
+ax2(2) = nexttile(tl2,2);
 
 Yf_ivs     = fieldnames(m1.Yf);
 Yf_lb_fs = replace(Yf_ivs,'iv','l');
@@ -155,6 +158,60 @@ end
 set_ylabel_2_2();
 set_xlabel_2();
 grid on;
-axLeg_2_2 = customLegend(y_entries,ax2_2,cols=3,Location='east');
-axLeg_2_2.Position([1,2]) = axLeg_2_2.Position([1,2]) + [35 10];
+axLeg2(2) = customLegend(y_entries,ax2(2),Location=LegsLoc(2),cols=LegsCols(2));
+end
+
+%% Helper functions
+function val = mustBeValidLegLocation(val)
+% mustBeValidLegLocation  Validate legend location(s) with replication rule
+%
+%   Rules:
+%   - Accepts string arrays, char, or cell arrays containing only char/string.
+%   - Must have 1 or 2 elements.
+%   - If only 1 element is provided, it is replicated to 2 elements.
+%   - If input is a cell array, it is converted to a string array.
+%   - Each element must be a valid legend location.
+
+    % Allowed values
+    validLocations = ["northeast","northwest","southeast","southwest", ...
+                      "east","west","north","south"];
+
+    % Check number of elements
+    n = numel(val);
+    if n < 1 || n > 2
+        error("Leg.Location must have 1 or 2 elements, but has %d.", n);
+    end
+
+    % Normalize input type
+    if ischar(val)
+        val = string(val);
+
+    elseif iscell(val)
+        % Check that every element is char or string
+        if ~all(cellfun(@(x) ischar(x) || isstring(x), val))
+            error("Leg.Location cell array must only contain strings or character vectors.");
+        end
+
+        % Convert all chars to strings
+        val = cellfun(@string, val);
+
+        % Convert cell -> string array
+        val = string(val);
+
+    elseif ~isstring(val)
+        error("Leg.Location must be a string array, char, or cell array of char/string.");
+    end
+
+    % Validate each element
+    for i = 1:n
+        if ~any(validLocations == val(i))
+            error("Invalid legend location: '%s'. Allowed values are: %s", ...
+                val(i), strjoin(validLocations,", "));
+        end
+    end
+
+    % Replicate if single element
+    if n == 1
+        val = [val, val];
+    end
 end

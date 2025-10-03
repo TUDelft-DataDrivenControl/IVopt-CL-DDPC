@@ -1,4 +1,4 @@
-function make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
+function [fig3,ax3,axLeg3] = make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
 %MAKE_FIG_M2  Plot figure for Lf error types across cases with custom options.
 %
 %   make_fig_m2(m2, X_all, useFillCases, noPlotCases, opts)
@@ -21,7 +21,7 @@ function make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
 %                   YScale        - Y axis scale: 'log' or 'linear' (default: 'linear')
 %                   LineWidth     - Line width (default: 2)
 %                   LegLoc        - Legend location (default: 'northeast')
-%                   LegXY         - Legend position vector (default: [420 370])
+%                   LegCols       - Number of legend columns (default: 1)
 %
 %   This function requires the crameri and customLegend utilities.
 arguments
@@ -32,14 +32,14 @@ arguments
     opts.PlotMode (1,:) char {mustBeMember(opts.PlotMode,{'N','Re'})} = 'N'
     opts.fontSize (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 15
     opts.CrameriColors (1,:) char = 'roma'  % passed to crameri()
-    opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [2000 700 1000 600]
+    opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]
     opts.fillAlpha (1,1) double {mustBeGreaterThanOrEqual(opts.fillAlpha,0),...
                                   mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.XScale (1,:) char {mustBeMember(opts.XScale,["log","linear"])} = 'log'
     opts.YScale (1,:) char {mustBeMember(opts.YScale,["log","linear"])} = 'linear'
     opts.LineWidth (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 2
     opts.LegLoc (1,1) string = "northeast"   % passed to customLegend
-    opts.LegXY (1,2) double {mustBeReal,mustBeFinite} = [420 370] % position legend
+    opts.LegCols (1,1) double {mustBeReal,mustBeFinite,mustBePositive,mustBeInteger} = 1 % passed to customLegend
 end
 
 % Unpack opts into variables
@@ -51,7 +51,7 @@ XScale    = opts.XScale;
 YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
 LegLoc    = opts.LegLoc;
-LegXY     = opts.LegXY;
+LegsCols  = opts.LegCols;
 if strcmp(opts.PlotMode,'N')
     xAxisLabel = '$N$';
 else
@@ -138,6 +138,5 @@ for kEt = 1:numel(LfErrorTypes)
     end
 end
 linkaxes([ax3(:)],'x');
-axLeg_3 = customLegend(entries3,ax3(1),cols=2,Location=LegLoc,RelScaling=false);
-axLeg_3.Position(1:2) = LegXY;
+axLeg3 = customLegend(entries3,ax3(3),cols=LegsCols,Location=LegLoc,RelScaling=false);
 end

@@ -1,5 +1,4 @@
-
-function make_fig_m3(m3, X_all, useFillCases, noPlotCases, opts)
+function [fig4,ax4,axLeg4] = make_fig_m3(m3, X_all, useFillCases, noPlotCases, opts)
 %MAKE_FIG_M3  Plot figure for cost types across cases with custom options (variant m3).
 %
 %   make_fig_m3(m3, X_all, useFillCases, noPlotCases, opts)
@@ -22,7 +21,7 @@ function make_fig_m3(m3, X_all, useFillCases, noPlotCases, opts)
 %                   YScale        - Y axis scale: 'log' or 'linear' (default: 'log')
 %                   LineWidth     - Line width (default: 2)
 %                   LegLoc        - Legend location (default: 'northeast')
-%                   LegXY         - Legend position vector (default: [420 370])
+%                   LegCols       - Number of legend columns (default: 1)
 %   This function requires the crameri and customLegend utilities.
 
 arguments
@@ -40,7 +39,8 @@ arguments
     opts.YScale (1,:) char {mustBeMember(opts.YScale,["log","linear"])} = 'log'
     opts.LineWidth (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 2
     opts.LegLoc (1,1) string = "northeast"   % passed to customLegend
-    opts.LegXY (1,2) double {mustBeReal,mustBeFinite} = [420 370] % reposition vector
+    opts.LegCols (1,1) double {mustBeFinite,mustBeReal,mustBePositive,mustBeInteger} = 1;
+    % opts.LegXY (1,2) double {mustBeReal,mustBeFinite} = [420 370] % reposition vector
 end
 
 
@@ -53,7 +53,7 @@ XScale    = opts.XScale;
 YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
 LegLoc    = opts.LegLoc;
-LegXY     = opts.LegXY;
+LegCols   = opts.LegCols;
 if strcmp(opts.PlotMode,'N')
     xAxisLabel = '$N$';
 else
@@ -129,6 +129,5 @@ for kCt = 1:numel(cost_types)
     end
 end
 linkaxes([ax4(:)],'x');
-axLeg_4 = customLegend(entries4,ax4(1),cols=2,Location=LegLoc,RelScaling=false);
-axLeg_4.Position(1:2) = LegXY;
+axLeg4 = customLegend(entries4,ax4(1),cols=LegCols,Location=LegLoc,RelScaling=false);
 end

@@ -74,11 +74,12 @@ fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 % -> difference of Yf_iv w.r.t. Yf_iv2b
 switch data_type
     case 'N'
-        make_fig_m1(m1,N_all);
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,N_all,                          LegCols=[3 3],LegLocations="west");
     case 'Re'
-        make_fig_m1(m1,N,Re_all=Re_all,YScale='linear');
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,N,Re_all=Re_all,YScale='linear',LegCols=[3 3],LegLocations=["west","northwest"]);
+        axLeg2(1).Position(1:2) = axLeg2(1).Position(1:2) + [-10 -10];
+        axLeg2(2).Position(1:2) = axLeg2(2).Position(1:2) + [-10 -20];
 end
-fig2 = gcf;
 fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 
 %% Plotting - figure 3: ID error (m2)
@@ -108,16 +109,20 @@ fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 switch data_type
     case 'N'
         useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-        noPlotCases = {};
+        noPlotCases  = {};
+
+        % plotting figure
+        [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, useFillCases, noPlotCases,PlotMode=data_type,LegCols=2);
+
     case 'Re'
         useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-        noPlotCases = {};
-end
+        noPlotCases  = {};
 
-% --------------------------- plotting of figure --------------------------
-make_fig_m2(m2, X_all, useFillCases, noPlotCases,PlotMode=data_type);
-fig3 = gcf;
-fig3.OuterPosition(1:2) = monPos(1:2) + [50 150];
+        % plotting figure
+        [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, useFillCases, noPlotCases,PlotMode=data_type,LegCols=1);
+        axLeg3.Position(1) = axLeg3.Position(1) - 80;
+end
+fig3.OuterPosition(1:2) = monPos(1:2) + [50 150]; % repositioning figure
 
 %% Plotting - figure 4: DDPC performance (m3)
 % possible cases:
@@ -146,17 +151,18 @@ fig3.OuterPosition(1:2) = monPos(1:2) + [50 150];
 switch data_type
     case 'N'
         useFillCases = {'iv1','CLSPC','actLf'};
-        noPlotCases = {};
+        noPlotCases  = {};
         YScale = 'linear';
+        LegCols = 2;
     case 'Re'
         useFillCases = {'iv1','CLSPC','actLf'};
-        noPlotCases = {};
+        noPlotCases  = {};
         YScale = 'log';
+        LegCols = 2;
 end
 
 % --------------------------- plotting of figure --------------------------
-make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,YScale=YScale);
-fig4 = gcf;
+[fig4,ax4,axLeg4] = make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,YScale=YScale,LegCols=LegCols);
 fig4.OuterPosition(1:2) = monPos(1:2) + [50 200];
 
 %% remove data path again
