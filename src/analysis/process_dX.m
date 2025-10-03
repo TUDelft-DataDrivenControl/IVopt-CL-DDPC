@@ -1,11 +1,28 @@
-%% iterate over N values - initial data processing
-% get all <subdir2> directories in data/raw/dN/<subdir1>
-subdir2s = dir(pwd);
+function [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts)
+arguments
+    data_type (1,:) char {mustBeMember(data_type,{'N','Re'})}
+    seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
+    X_all (1,:) double {mustBePositive}
+    opts (1,1) struct
+end
+spX = size(seeds,1);
+switch data_type
+    case 'N'
+        [f,nu,ny]   = deal(opts.f,opts.nu,opts.ny);
+    case 'Re'
+        [f,nu,ny,N] = deal(opts.f,opts.nu,opts.ny,opts.N);
+end
+
+%% iterate over Re \ N values - initial data processing
+subdir1 = pwd; % should be data/raw/d<N\Re>/<subdir1>
+
+% get all <subdir2> directories in data/raw/d<N\Re>/<subdir1>
+subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
 subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 
-% iterate over all N values
+% iterate over all Re \ N values
 nX = numel(subdir2s);
 
 % find Cases used
@@ -54,14 +71,10 @@ m0_Yf_pctiles = cell(num_Yf_ivs,nX); %                          ny x ndiags x nu
 %    m1_Yf_data(num_Yf_ivs, nX, spX)
 
 pctiles = 0:5:100;
-num_pctiles  = numel(pctiles);
 
 % --- Preallocate "sliced" containers ---
 m1_Uf_data = zeros(num_Uf_ivs, nX, spX);
 m1_Yf_data = zeros(num_Yf_ivs, nX, spX);
-
-% other
-iyf = nu*f + (1:ny*f);
 
 % ======================== initialize measure 2 (m2) ======================
 % -> identification error (frobenius norm)
@@ -92,25 +105,46 @@ m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
 
 % --- cost types and cases
 cost_types = {'cost_u','cost_y','cost_tot'};
-num_cost_types = numel(cost_types);
 
 % --- Preallocate sliceable containers ---
 m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
 
-%% --------------------------- loop over N values -------------------------
-for iX = 1:nX
-    N = N_all(iX);
+%% --------------------------- loop over Re \ N values -----------------------
+% Check and start parallel pool if needed
+if ~isempty(gcp('nocreate'))
+    curr_pool = gcp('nocreate');
+    if curr_pool.NumWorkers < feature('numcores')
+        delete(curr_pool);
+        parpool('local',feature('numcores'));
+    end
+else
+    parpool('local', feature('numcores'));
+end
 
-    % choose subdir2 corresponding with N value
-    subdir2 = choose_subdir_by_number(subdir2s, N);
-    cd(subdir2);                                % navigate into <subdir2>
+% start iterating over Re \ N values
+for iX = 1:nX
+
+    switch data_type
+        case 'N'
+            N = X_all(iX); X = N;
+            % choose subdir2 corresponding with N value
+            subdir2 = choose_subdir_by_number(subdir2s, N);
+            cd(subdir2); % navigate into <subdir2>
+
+            % load file with settings in <subdir2>
+            settingsFile = find_settingsFile();
+            load(settingsFile);
+
+        case 'Re'
+            X = X_all(iX);
+            % choose subdir2 corresponding with Re value
+            subdir2 = choose_subdir_by_iX(subdir2s, iX);
+            cd(subdir2); % navigate into <subdir2>
+    end
     
-    % load file with settings <subdir2>
-    settingsFile = find_settingsFile();
-    load(settingsFile);
     
     % ======================== processing m0, m1, m2, m3 ==================
-    fprintf('Processing N index [%d/%d] (N = %g) in subdir: %s\n', iX, nX, N, subdir2);
+    fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % ------------------------ calculations for m0 ------------------------
     [m0_Uf_mean(:,iX), m0_Yf_mean(:,iX), m0_Uf_median(:,iX), m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
@@ -127,6 +161,7 @@ fprintf("Processing m0 data\n")
 
 m0 = struct;
 % Uf part
+tic
 for k = 1:numel(Uf_ivs)
     for iX = 1:nX
         iXstr = sprintf('iX%d',iX);
@@ -135,9 +170,11 @@ for k = 1:numel(Uf_ivs)
         m0.Uf.(Uf_ivs{k}).(iXstr).pctiles  = m0_Uf_pctiles{k,iX};
     end
 end
-% clear m0_Uf_mean m0_Uf_median m0_Uf_pctiles
+clear m0_Uf_mean m0_Uf_median m0_Uf_pctiles
+toc
 
 % Yf part
+tic
 for k = 1:numel(Yf_ivs)
     for iX = 1:nX
         iXstr = sprintf('iX%d',iX);
@@ -146,7 +183,8 @@ for k = 1:numel(Yf_ivs)
         m0.Yf.(Yf_ivs{k}).(iXstr).pctiles  = m0_Yf_pctiles{k,iX};
     end
 end
-% clear m0_Yf_mean m0_Yf_median m0_Yf_pctiles
+clear m0_Yf_mean m0_Yf_median m0_Yf_pctiles
+toc
 
 %% processing data - m1 (quality of the approximation of the optimal IV)
 fprintf("Processing m1 data\n")
@@ -215,6 +253,8 @@ fndata = 'processed_data.mat';
 fprintf('Saving data to %s\n',fndata);
 save(fndata,'m0','m1','m2','m3');
 
+end
+
 %% Helper functions
 function chosenDir = choose_subdir_by_number(subdirs, targetNum)
 % CHOOSE_SUBDIR_BY_NUMBER selects the subdirectory whose trailing integer
@@ -270,4 +310,24 @@ function settingsFile = find_settingsFile(dirPath)
         error('only expecting one settings file')
     end
     settingsFile = settingsFile{1};
+end
+
+function chosenDir = choose_subdir_by_iX(subdirs, iX)
+% CHOOSE_SUBDIR_BY_IX selects the subdirectory whose leading zero-padded number matches iX.
+% Example: for iX=3, matches '003_someName' if present.
+    chosenDir = '';
+    for i = 1:numel(subdirs)
+        dirName = subdirs{i};
+        tokens = regexp(dirName, '^(\d+)', 'tokens');
+        if ~isempty(tokens)
+            dirNum = str2double(tokens{1}{1});
+            if dirNum == iX
+                chosenDir = dirName;
+                return;
+            end
+        end
+    end
+    if isempty(chosenDir)
+        warning('No subdirectory found starting with number %d.', iX);
+    end
 end

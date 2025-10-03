@@ -1,38 +1,55 @@
 clear; 
 close all;
+data_type = 'Re'; % 'N' or 'Re';
 
-%% navigate to data\raw\dN\<subdir1>
+%% navigate to data\raw\d<Re \ N>\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
 src_dir = fullfile(pdir,'src');
 raw_dir = fullfile(pdir,'data','raw');
-dN_dir = fullfile(pdir,'data','raw','dN');
+dX_dir = fullfile(pdir,'data','raw',['d',data_type]);
+
+switch data_type
+    case 'N'
+        find_named_subdirs = @find_named_subdirs_dN;
+    case 'Re'
+        find_named_subdirs = @find_named_subdirs_dRe;
+end
 
 % add relevant directories to path
 addpath(genpath(src_dir));
 
 % find <subdir1> candidates:
-% -> subdirectories in data\raw\dN that match the naming convention from name_subdir1 in main_dN
-subdir1s = find_named_subdirs(dN_dir);
+% -> subdirectories in data\raw\d<Re \ N> that match the naming convention from name_subdir1 in main_d<Re \ N>
+subdir1s = find_named_subdirs(dX_dir);
 
 % choose <subdir1> to use
 subdir1 = choose_named_subdir(subdir1s);
-subdir1 = fullfile(dN_dir,subdir1); % set path to subdir1
+subdir1 = fullfile(dX_dir,subdir1); % set path to subdir1
 addpath(genpath(subdir1));
 
-%% load data for choice of dN trials (as specified by <subdir1>)
+%% load data for choice of dRe \ dN trials (as specified by <subdir1>)
 cd(subdir1); % move to subdir1
 
 % load dN settings from data\raw\dN\<subdir1>\dN_settings.mat
-load('dN_settings.mat');
-spX = spN;
-[p,f,nu,ny] = deal(opts.p,opts.f,opts.nu,opts.ny);
+load(sprintf('d%s_settings.mat',data_type));
+
+switch data_type
+    case 'N'
+        spX = spN;
+        [p,f,nu,ny] = deal(opts.p,opts.f,opts.nu,opts.ny);
+        X_all = N_all;
+    case 'Re'
+        spX = spRe;
+        [p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
+        X_all = Re_all;
+end
 
 if isfile('processed_data.mat')
     load("processed_data.mat");
 else
     fprintf('Processed data file not found\n')
     fprintf('Processing data in directory\n');
-    process_dN;
+    [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts);
 end
 
 %% Get monitor positions
@@ -41,16 +58,26 @@ monPos = monitors(2,:);
 
 %% Plotting - figure 1: example of Uf_iv (m0)
 
-pX = 5; % index of X to plot this for
-opts.N = N_all(pX);
+switch data_type
+    case 'N'
+        pX = 5; % index of N in N_all to plot this for
+        opts.N = N_all(pX);
+    case 'Re'
+        pX = 8; % index of Re in Re_all to plot this for
+end
 make_fig_m0(m0, pX, opts);
 fig1 = gcf;
 fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 
-%% Plotting - figure 2: quality of optimal IV approx. vs. N (m1)
+%% Plotting - figure 2: quality of optimal IV approx. vs. Re \ N (m1)
 % -> difference of Uf_iv w.r.t. Uf_iv2a
 % -> difference of Yf_iv w.r.t. Yf_iv2b
-make_fig_m1(m1,N_all);
+switch data_type
+    case 'N'
+        make_fig_m1(m1,N_all);
+    case 'Re'
+        make_fig_m1(m1,N,Re_all=Re_all,YScale='linear');
+end
 fig2 = gcf;
 fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 
@@ -76,15 +103,19 @@ fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 %   actLf   | SPC using the actual matrix Lf
 
 % ---------------------- user-defined plotting parameters -----------------
-
-% set cases for which to show bounds
-useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-
-% set cases to exclude from final plot
-noPlotCases = {}; 
+% useFillCases: cases for which to show bounds
+% noPlotCases:  cases to exclude from final plot
+switch data_type
+    case 'N'
+        useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
+        noPlotCases = {};
+    case 'Re'
+        useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
+        noPlotCases = {};
+end
 
 % --------------------------- plotting of figure --------------------------
-make_fig_m2(m2, N_all, useFillCases, noPlotCases);
+make_fig_m2(m2, X_all, useFillCases, noPlotCases,PlotMode=data_type);
 fig3 = gcf;
 fig3.OuterPosition(1:2) = monPos(1:2) + [50 150];
 
@@ -110,15 +141,21 @@ fig3.OuterPosition(1:2) = monPos(1:2) + [50 150];
 %   actLf   | SPC using the actual matrix Lf
 
 % ---------------------- user-defined plotting parameters -----------------
-
-% set cases for which to show bounds
-useFillCases = {'iv1','CLSPC','actLf'};
-
-% set cases to exclude from final plot
-noPlotCases = {}; 
+% useFillCases: cases for which to show bounds
+% noPlotCases:  cases to exclude from final plot
+switch data_type
+    case 'N'
+        useFillCases = {'iv1','CLSPC','actLf'};
+        noPlotCases = {};
+        YScale = 'linear';
+    case 'Re'
+        useFillCases = {'iv1','CLSPC','actLf'};
+        noPlotCases = {};
+        YScale = 'log';
+end
 
 % --------------------------- plotting of figure --------------------------
-make_fig_m3(m3, N_all, useFillCases, noPlotCases);
+make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,YScale=YScale);
 fig4 = gcf;
 fig4.OuterPosition(1:2) = monPos(1:2) + [50 200];
 
@@ -127,12 +164,12 @@ cd(src_dir);
 rmpath(genpath(subdir1));
 
 %% Helper functions
-function subdirs = find_named_subdirs(parentDir)
+function subdirs = find_named_subdirs_dN(parentDir)
 % FIND_NAMED_SUBDIRS returns subdirectories in parentDir that match
 % the naming convention from name_subdir1 in main_dN
 %
 % Example:
-%   subdirs = find_named_subdirs(pwd);
+%   subdirs = find_named_subdirs_dN(pwd);
 
     % List all directories in parentDir
     d = dir(parentDir);
@@ -149,6 +186,16 @@ function subdirs = find_named_subdirs(parentDir)
                'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
     
     % Keep only those that match
+    isMatch = cellfun(@(x) ~isempty(regexp(x, pattern, 'once')), names);
+    subdirs = names(isMatch);
+end
+
+function subdirs = find_named_subdirs_dRe(parentDir)
+    d = dir(parentDir);
+    d = d([d.isdir]);
+    names = {d.name};
+    names = names(~ismember(names,{'.','..'}));
+    pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_p_\d+_f_\d+_N_[-0-9ep]+_Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$';
     isMatch = cellfun(@(x) ~isempty(regexp(x, pattern, 'once')), names);
     subdirs = names(isMatch);
 end
