@@ -1,6 +1,6 @@
 clear; 
 close all;
-data_type = 'Re'; % 'N' or 'Re';
+data_type = 'N'; % 'N' or 'Re';
 
 %% navigate to data\raw\d<Re \ N>\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
@@ -54,19 +54,32 @@ end
 
 %% Get monitor positions
 monitors = get(0, 'MonitorPositions');
-monPos = monitors(2,:);
+monPos = monitors(1,:);
 
 %% Plotting - figure 1: example of Uf_iv (m0)
+% possible cases: see ivs in CaseDefinitions.m
 
+% ---------------------- user-defined plotting parameters -----------------
+% useFillCases: cases for which to show bounds
+% noPlotCases:  cases to exclude from final plot
 switch data_type
     case 'N'
         pX = 5; % index of N in N_all to plot this for
-        opts.N = N_all(pX);
+        useFillCases = {'iv1','iv2a','iv2b'};
+        noPlotCases  = {};
+
+        % plot figure
+        [fig1,ax1,axLeg1] = make_fig_m0(m0, pX, useFillCases, noPlotCases, LegCols=[2,2]);
+
     case 'Re'
         pX = 8; % index of Re in Re_all to plot this for
+        useFillCases = {'iv1','iv2a','iv2b'};
+        noPlotCases  = {};
+
+        % plot figure
+        [fig1,ax1,axLeg1] = make_fig_m0(m0, pX, useFillCases, noPlotCases, LegCols=[2,2]);
+
 end
-make_fig_m0(m0, pX, opts);
-fig1 = gcf;
 fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 
 %% Plotting - figure 2: quality of optimal IV approx. vs. Re \ N (m1)
@@ -83,25 +96,7 @@ end
 fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 
 %% Plotting - figure 3: ID error (m2)
-% possible cases:
-%    Name   |       Description
-% ----------|----------------------------------------------------------
-%   iv1     | SPC using open-loop IV
-%   iv2a    | SPC using optimal IV
-%   iv2b    | SPC using optimal IV + Yf_iv
-%   iv2c    | SPC using optimal IV + Yf_iv + 2SLS
-%   iv3a    | SPC using LCF-IV
-%   iv3c    | SPC using LCF-IV + 2SLS
-%   iv4a    | SPC using approx. opt. IV w/o controller info.
-%   iv4b    | SPC using approx. opt. IV w/o controller info. + Yf_iv
-%   iv4c    | SPC using approx. opt. IV w/o controller info. + Yf_iv + 2SLS
-%   iv5a    | SPC using approx. opt. IV w/  controller info.
-%   iv5b    | SPC using approx. opt. IV w/  controller info. + Yf_iv
-%   iv5c    | SPC using approx. opt. IV w/  controller info. + Yf_iv + 2SLS
-%   iv6a    | SPC using basic IV: future reference
-%   iv6c    | SPC using basic IV: future reference + 2SLS
-%   CLSPC   | CL-SPC
-%   actLf   | SPC using the actual matrix Lf
+% possible cases: see CaseDefinitions.m
 
 % ---------------------- user-defined plotting parameters -----------------
 % useFillCases: cases for which to show bounds
@@ -125,25 +120,7 @@ end
 fig3.OuterPosition(1:2) = monPos(1:2) + [50 150]; % repositioning figure
 
 %% Plotting - figure 4: DDPC performance (m3)
-% possible cases:
-%    Name   |       Description
-% ----------|----------------------------------------------------------
-%   iv1     | SPC using open-loop IV
-%   iv2a    | SPC using optimal IV
-%   iv2b    | SPC using optimal IV + Yf_iv
-%   iv2c    | SPC using optimal IV + Yf_iv + 2SLS
-%   iv3a    | SPC using LCF-IV
-%   iv3c    | SPC using LCF-IV + 2SLS
-%   iv4a    | SPC using approx. opt. IV w/o controller info.
-%   iv4b    | SPC using approx. opt. IV w/o controller info. + Yf_iv
-%   iv4c    | SPC using approx. opt. IV w/o controller info. + Yf_iv + 2SLS
-%   iv5a    | SPC using approx. opt. IV w/  controller info.
-%   iv5b    | SPC using approx. opt. IV w/  controller info. + Yf_iv
-%   iv5c    | SPC using approx. opt. IV w/  controller info. + Yf_iv + 2SLS
-%   iv6a    | SPC using basic IV: future reference
-%   iv6c    | SPC using basic IV: future reference + 2SLS
-%   CLSPC   | CL-SPC
-%   actLf   | SPC using the actual matrix Lf
+% possible cases: see CaseDefinitions.m
 
 % ---------------------- user-defined plotting parameters -----------------
 % useFillCases: cases for which to show bounds
