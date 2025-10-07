@@ -1,50 +1,9 @@
-function [Z,Cases,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,opts)
+function [Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,Cases,Descr,opts)
 %% creates all of the IVs using the IV_4_DDPC class
 % The main objective of this function is to create an instance of the
 % IV_4_DDPC class in which to save the created IVs
 
 [p,f] = deal(opts.p,opts.f);
-
-%% ============= create data structure and explain cases ==================
-%    Name   |       Description
-% ----------|----------------------------------------------------------
-%   iv1     | SPC using open-loop IV
-%   iv2a    | SPC using optimal IV
-%   iv2b    | SPC using optimal IV + Yf_iv
-%   iv2c    | SPC using optimal IV + Yf_iv + 2SLS
-%   iv3a    | SPC using LCF-IV
-%   iv3c    | SPC using LCF-IV + 2SLS
-%   iv4a    | SPC using approx. opt. IV w/o controller info.
-%   iv4b    | SPC using approx. opt. IV w/o controller info. + Yf_iv
-%   iv4c    | SPC using approx. opt. IV w/o controller info. + Yf_iv + 2SLS
-%   iv5a    | SPC using approx. opt. IV w/  controller info.
-%   iv5b    | SPC using approx. opt. IV w/  controller info. + Yf_iv
-%   iv5c    | SPC using approx. opt. IV w/  controller info. + Yf_iv + 2SLS
-%   iv6a    | SPC using basic IV: future reference
-%   iv6c    | SPC using basic IV: future reference + 2SLS
-%   CLSPC   | CL-SPC
-%   actLf   | SPC using the actual matrix Lf
-
-% make structure array for data
-Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
-         'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
-Descr = {...
-'open-loop IV',...                                        iv1    + SPC
-'optimal IV',...                                          iv2a   + SPC
-'optimal IV + Yf_iv',...                                  iv2b   + SPC
-'optimal IV + Yf_iv + 2SLS',...                           iv2c   + SPC
-'LCF-IV',...                                              iv3a   + SPC
-'LCF-IV + 2SLS',...                                       iv3c   + SPC
-'approx. opt. IV w/o controller info.',...                iv4a   + SPC
-'approx. opt. IV w/o controller info. + Yf_iv',...        iv4b   + SPC
-'approx. opt. IV w/o controller info. + Yf_iv + 2SLS',... iv4c   + SPC
-'approx. opt. IV w/  controller info.',...                iv5a   + SPC
-'approx. opt. IV w/  controller info. + Yf_iv',...        iv5b   + SPC
-'approx. opt. IV w/  controller info. + Yf_iv + 2SLS',... iv5c   + SPC
-'basic IV: future reference',...                          iv6a   + SPC   
-'basic IV: future reference + 2SLS',...                   iv6c   + SPC
-'CL-SPC',...                                              CLSPC
-'SPC using the actual matrix Lf'};%                       actLf  + SPC
 nCz = numel(Cases);
 
 %% ========================= calculate IVs ================================
@@ -82,7 +41,7 @@ nlcf = size(Vc.C,1); % needed to get IV_Theta from Z later
 % 1) i.e. 'normal' least-squares regression)
 Z = IV_4_DDPC(u0,y0,p,f); % initializes IV object & makes open-loop IV ('iv1')
 
-for kIV = 2:nCz-2 % loop over remaining IV names
+for kIV = 1:nCz % loop over Cases (which contains IV names)
     IV_name = Cases{kIV};    % IV name
     IV_descr = Descr{kIV};   % IV description
 
@@ -135,6 +94,10 @@ for kIV = 2:nCz-2 % loop over remaining IV names
         case 'iv6c'         % 6c) => 6a) + SLS
             Z0 = Rf_yr0;
             method_flag = 1;
+
+% ---------------------- no IV to be made ---------------------------------
+        otherwise
+            continue;
     
     end
     

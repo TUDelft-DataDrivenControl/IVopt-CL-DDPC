@@ -21,10 +21,11 @@ end
 %   iv6c    | SPC using basic IV: future reference + 2SLS
 %   CLSPC   | CL-SPC
 %   actLf   | SPC using the actual matrix Lf
+%   TrPred  | Transient Predictor
 
 % make structure array for data
 Cases = {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
-         'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
+         'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
 Descr = {...
 'open-loop IV',...                                        iv1    + SPC
 'optimal IV',...                                          iv2a   + SPC
@@ -41,7 +42,8 @@ Descr = {...
 'basic IV: future reference',...                          iv6a   + SPC   
 'basic IV: future reference + 2SLS',...                   iv6c   + SPC
 'CL-SPC',...                                              CLSPC
-'SPC using the actual matrix Lf'};%                       actLf  + SPC
+'SPC using the actual matrix Lf',...                      actLf  + SPC
+'Transient Predictor'};%                                  TrPred
 
 % make a selection of simulation cases
 if ~isempty(noSimCases)

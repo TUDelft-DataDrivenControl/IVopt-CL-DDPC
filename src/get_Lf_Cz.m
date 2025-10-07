@@ -19,27 +19,32 @@ yrf = yr1(:,1:f);        yrf = yrf(:);  % future output references
 % create controllers
 for iCz = 1:nCz
     Czn = Cases{iCz}; % name of controller
-    switch Czn
-% -------------------------- (1-6) SPCs based on an IV --------------------
-        case Cases(1:nCz-2)
-            Lf.(Czn) = Yf_r01*Z.(Czn).'*pinv(Z.iv1*Z.(Czn).');
-            if iCz > 1
-                Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs);
-            else
-                % also create initial state of the controller
-                [Cz.(Czn),x1_0_SPC] = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs,up=up0,yp=yp0,urf=urf,yrf=yrf);
-            end
 
-% -------------------------- (7) CL-SPC -----------------------------------
-        case 'CLSPC'
-            Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
-            Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs);
+    % ============================ get Lf (estimate) ==========================
+    % -------------------------- (1-6) SPCs based on an IV --------------------
+    if startsWith(Czn,'iv')
+        Lf.(Czn) = Yf_r01*Z.(Czn).'*pinv(Z.iv1*Z.(Czn).');
 
-% -------------------------- (8) SPC w/ actual Lf -------------------------
-        case 'actLf'
-            [Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(plant,p,f);
-            Lf.(Czn) = [Up2Yf_inno Yp2Yf_inno Uf2Yf_inno];
-            Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs);
+    % -------------------------- (7) CL-SPC -----------------------------------
+    elseif strcmp(Czn, 'CLSPC')
+        Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
+
+    % -------------------------- (8) SPC w/ actual Lf -------------------------
+    elseif strcmp(Czn, 'actLf')
+        [Up2Yf_inno, Yp2Yf_inno, Uf2Yf_inno] = get_actual_matrices(plant,p,f);
+        Lf.(Czn) = [Up2Yf_inno Yp2Yf_inno Uf2Yf_inno];
+
+    % -------------------------- (9) Transient Predictor ----------------------
+    elseif strcmp(Czn, 'TrPred')
+        Lf.(Czn) = get_Lf_TransPred(u0,y0,p,f,nu,ny);
+    end
+
+    % =========================== get controller ==============================
+    if iCz > 1
+        Cz.(Czn) = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs);
+    else
+        % also create initial state of the controller
+        [Cz.(Czn),x1_0_SPC] = Lf_2_SPC(Lf.(Czn),usol_funs,opts,sigs,up=up0,yp=yp0,urf=urf,yrf=yrf);
     end
 end
 end
@@ -62,6 +67,32 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
         tLest_u((kr-1)*ny+1:kr*ny,:) = circshift(tLest_u((kr-2)*ny+1:(kr-1)*ny,:),nu,2);
         tLest_y((kr-1)*ny+1:kr*ny,:) = circshift(tLest_y((kr-2)*ny+1:(kr-1)*ny,:),ny,2);
     end
+    tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
+    Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
+end
+
+function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny)
+    [~,Zp,Zf] = make_Hankel([u1;y1],p,f);
+
+    [~,R] = qr([Zp;Zf].','econ'); R = R.';
+    tLest = zeros(ny*f,(p+f)*(nu+ny));
+    for kf = 1:f
+        % get R11 & R21
+        Rzp_idx = 1:(p+kf-1)*(nu+ny)+nu;
+        Ryk_idx = Rzp_idx(end)+(1:ny);
+        R11 = R(Rzp_idx,Rzp_idx);
+        R21 = R(Ryk_idx,Rzp_idx);
+
+        % compute relevant part of tLest matrix
+        rows = (kf-1)*ny+1:kf*ny;
+        cols = 1:p*(nu+ny)+kf*nu+(kf-1)*ny;
+        tLest(rows,cols) =  R21*pinv(R11);
+    end
+    ucols = mod(1:size(tLest,2),nu+ny); ucols(ucols == 0) = nu+ny;
+    msk_u = ucols < nu+1;
+    msk_y = ~msk_u;
+    tLest_u = tLest(:,msk_u);
+    tLest_y = tLest(:,msk_y);
     tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
     Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
 end

@@ -36,9 +36,13 @@ toc
 %% Instrumental Variable Matrices
 opts.rho = ss2lag(Cz0); % determine lag of the initial controller
 
-% ============================ create IVs =================================
-[Z,Cases,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,opts); % Z is IV_4_DDPC object containing IVs
+% ============================ define cases ===============================
+noSimCases = {}; % cases not to simulate
+[Cases,Descr] = CaseDefinitions(noSimCases);
 nCz = numel(Cases);
+
+% ============================ create IVs =================================
+[Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,Cases,Descr,opts); % Z is IV_4_DDPC object containing IVs
 
 % ============= calc. mean & std. dev. of IV trajectories =================
 [u_iv,y_iv] = get_uy_iv(Z,nlcf,yr0,opts);
