@@ -60,26 +60,29 @@ P0  = dcgain(plant(:,1:nu));    % DC gain
 ur1 = P0\yr1;                   % u-ref
 
 % ================== saving data and settings =============================
-% saving this data in data\raw\dRe\<subdir1>
+% saving this data in data\raw\sys#\dRe\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
-cd('data'); cd('raw'); raw_dir = pwd; % -> data\raw
+sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+if ~isfolder(sys_dir)
+    mkdir(sys_dir);
+end
 cd(src_dir);
 
-% create data\raw\dRe if it doesn't exist yet
-if ~isfolder(fullfile(raw_dir,'dRe'))
-    mkdir(fullfile(raw_dir,'dRe'))
+% create data\raw\sys#\dRe if it doesn't exist yet
+if ~isfolder(fullfile(sys_dir,'dRe'))
+    mkdir(fullfile(sys_dir,'dRe'))
 end
 
 % create subdir1
 subdir1 = name_subdir1(Re_min,Re_max,nRe,opts); % subdir1 name
-subdir1 = fullfile(raw_dir,'dRe',subdir1);      % subdir1 path
+subdir1 = fullfile(sys_dir,'dRe',subdir1);      % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\dRe\<subdir1>\mfiles
+% copy dependent .m files to data\raw\sys#\dRe\<subdir1>\mfiles
 copy_dependencies(src_dir,subdir1,'main_dRe.m');
 
-% save overall settings to data\raw\dRe\<subdir1>\dRe_settings.mat
+% save overall settings to data\raw\sys#\dRe\<subdir1>\dRe_settings.mat
 save(fullfile(subdir1,'dRe_settings.mat'),'Re_min','Re_max','nRe','Re_all','spRe','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs','Nbar','yr0','yr1','ur1');
 
 %% ========================== iterate over Re & seeds =====================
@@ -100,7 +103,7 @@ s.e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
 s.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 
 % create folder to store data in
-% -> to data\raw\dRe\<subdir1>\<subdir2>\seed_<seed>.mat
+% -> to data\raw\sys#\dRe\<subdir1>\<subdir2>\seed_<seed>.mat
 str_iRe = iRe2str(iRe,nRe);
 subdir2 = sprintf('%s_Re_%.2e',str_iRe,Re);
 subdir2 = replace(subdir2,'.','p'); % replace . with p
@@ -131,7 +134,7 @@ end
 %% Helper functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Re_min,Re_max,nRe,opts)
-[N, p, f, Ncl, dRk, Rk, Qk] = deal(opts.N, opts.p, opts.f, opts.Ncl, opts.dRk, opts.Rk, opts.Qk);
+[N, p] = deal(opts.N, opts.p);
 
 % Helper function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -141,10 +144,8 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 % Apply formatting
 Re_min_s = trimmed_exp(Re_min);
 Re_max_s = trimmed_exp(Re_max);
-N_s  = trimmed_exp(N); Ncl_s = trimmed_exp(Ncl);
-Qk_s  = trimmed_exp(Qk); Rk_s  = trimmed_exp(Rk); dRk_s = trimmed_exp(dRk);
-subdir1 = sprintf('Re_%s_%s_%d_sys_%d_p_%d_f_%d_N_%s_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',...
-                   Re_min_s,Re_max_s,nRe,opts.sys,p,f,N_s,Ncl_s, Qk_s, Rk_s, dRk_s);
+N_s  = trimmed_exp(N);
+subdir1 = sprintf('Re_%s_%s_%d_p_%d_N_%s',Re_min_s,Re_max_s,nRe,p,N_s);
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end

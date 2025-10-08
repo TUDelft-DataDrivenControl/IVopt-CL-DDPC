@@ -51,26 +51,29 @@ seeds = reshape(1:nN*spN,spN,nN);
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
 
 % ================== saving data and settings =============================
-% saving this data in data\raw\dN\<subdir1>
+% saving this data in data\raw\sys#\sys#\dN\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
-cd('data'); cd('raw'); raw_dir = pwd; % -> data\raw
+sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+if ~isfolder(sys_dir)
+    mkdir(sys_dir);
+end
 cd(src_dir);
 
-% create data\raw\dN if it doesn't exist yet
-if ~isfolder(fullfile(raw_dir,'dN'))
-    mkdir(fullfile(raw_dir,'dN'))
+% create data\raw\sys#\dN if it doesn't exist yet
+if ~isfolder(fullfile(sys_dir,'dN'))
+    mkdir(fullfile(sys_dir,'dN'))
 end
 
 % create subdir1
 subdir1 = name_subdir1(Nmin,Nmax,nN,opts); % subdir1 name
-subdir1 = fullfile(raw_dir,'dN',subdir1);  % subdir1 path
+subdir1 = fullfile(sys_dir,'dN',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\dN\<subdir1>\mfiles
+% copy dependent .m files to data\raw\sys#\dN\<subdir1>\mfiles
 copy_dependencies(src_dir,subdir1,'main_dN.m');
 
-% save overall settings to data\raw\dN\<subdir1>\dN_settings.mat
+% save overall settings to data\raw\sys#\dN\<subdir1>\dN_settings.mat
 save(fullfile(subdir1,'dN_settings.mat'),'Nmin','Nmax','nN','N_all','spN','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
 %% ========================== iterate over N and seeds ====================
@@ -94,7 +97,7 @@ P0  = dcgain(plant(:,1:nu));       % DC gain
 sN.ur1 = P0\sN.yr1;                % u-ref
 
 % ----------------------- save settings for run iN ------------------------
-% -> to data\raw\dN\<subdir1>\<subdir2>\<iN>_settings.mat
+% -> to data\raw\sys#\dN\<subdir1>\<subdir2>\<iN>_settings.mat
 str_iN = iN2str(iN,nN); % zero-padded <iN> based on # of decimals for nN
 subdir2 = sprintf('%s_N_%d',str_iN,N); % subdir2 name
 subdir2 = fullfile(subdir1,subdir2);  % subdir2 path
@@ -134,7 +137,7 @@ end
 %% Helper functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Nmin,Nmax,nN,opts)
-[Re, p, f, Ncl, dRk, Rk, Qk] = deal(opts.Re, opts.p, opts.f, opts.Ncl, opts.dRk, opts.Rk, opts.Qk);
+[Re, p] = deal(opts.Re, opts.p, opts.f, opts.Ncl, opts.dRk, opts.Rk, opts.Qk);
 
 % Helper function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -144,10 +147,8 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 % Apply formatting
 Nmin_s = trimmed_exp(Nmin);
 Nmax_s = trimmed_exp(Nmax);
-Re_s  = trimmed_exp(Re); Ncl_s = trimmed_exp(Ncl);
-Qk_s  = trimmed_exp(Qk); Rk_s  = trimmed_exp(Rk); dRk_s = trimmed_exp(dRk);
-subdir1 = sprintf('N_%s_%s_%d_sys_%d_Re_%s_p_%d_f_%d_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',...
-                   Nmin_s,Nmax_s,nN,opts.sys,Re_s,p,f, Ncl_s, Qk_s, Rk_s, dRk_s);
+Re_s  = trimmed_exp(Re);
+subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d',Nmin_s,Nmax_s,nN,Re_s,p);
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end

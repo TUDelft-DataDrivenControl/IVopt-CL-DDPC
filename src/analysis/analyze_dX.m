@@ -1,12 +1,18 @@
 clear; 
 close all;
-data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 
-%% navigate to data\raw\d<Re \ N \ p>\<subdir1>
+%% navigate to data\raw\sys#\dX\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
 src_dir = fullfile(pdir,'src');
 raw_dir = fullfile(pdir,'data','raw');
-dX_dir = fullfile(pdir,'data','raw',['d',data_type]);
+
+% choose system
+sys_dirs = choose_system(raw_dir);
+sys_dir  = choose_named_subdir(sys_dirs,'Choose system for which to analyze data.');
+sys_dir  = fullfile(raw_dir,sys_dir);
+
+dX_dir = fullfile(sys_dir,['d',data_type]);
 
 % add relevant directories to path
 addpath(genpath(src_dir));
@@ -20,10 +26,10 @@ subdir1 = choose_named_subdir(subdir1s);
 subdir1 = fullfile(dX_dir,subdir1); % set path to subdir1
 addpath(genpath(subdir1));
 
-%% load data for choice of dRe \ dN trials (as specified by <subdir1>)
+%% load data for choice of dX trials (as specified by <subdir1>)
 cd(subdir1); % move to subdir1
 
-% load dN settings from data\raw\dN\<subdir1>\dN_settings.mat
+% load dX settings from data\raw\dX\<subdir1>\dX_settings.mat
 load(sprintf('d%s_settings.mat',data_type));
 
 switch data_type
@@ -189,16 +195,11 @@ function subdirs = find_named_subdirs_dX(data_type,parentDir)
     % Regex pattern that matches the naming convention
     switch data_type
         case 'N'        
-            %   Example: N_1p0e0_1p0e1_50_sys_1_Re_1p0e3_p_2_f_3_Ncl_1p0e2_Qk_1p0e1_Rk_5p0e0_dRk_1p0e0
-            pattern = ['^N_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_' ...   % Nmin, Nmax, nN, sys
-                    'Re_[-0-9ep]+_p_\d+_f_\d+_' ...                % Re, p, f
-                    'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
+            pattern = '^N_[-0-9ep]+_[-0-9ep]+_\d+_Re_[-0-9ep]+_p_\d+$';
         case 'Re'
-            pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_p_\d+_f_\d+_N_[-0-9ep]+_Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$';
+            pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_p_\d+_N_[-0-9ep]+$';
         case 'p'
-            pattern = ['^p_\d+_\d+_\d+_sys_\d+_' ...               % pmin, pmax, nP, sys
-                    'Re_[-0-9ep]+_N_[-0-9ep]+_f_\d+_' ...           % Re, N, f
-                    'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
+            pattern = '^p_\d+_\d+_\d+_Re_[-0-9ep]+_N_[-0-9ep]+$';
         otherwise
             error("Data type not recognized. Choose either 'N', 'Re', or 'p'.")
     end
@@ -209,12 +210,32 @@ function subdirs = find_named_subdirs_dX(data_type,parentDir)
     subdirs = names(isMatch);
 end
 
-function chosenDir = choose_named_subdir(subdirs)
+function subdirs = choose_system(parentDir)
+    % List all directories in parentDir
+    d = dir(parentDir);
+    d = d([d.isdir]);             % keep only directories
+    names = {d.name};
+    
+    % Remove '.' and '..'
+    names = names(~ismember(names,{'.','..'}));
+    
+    % Regex pattern that matches the naming convention
+    pattern = '^sys\d+';
+    
+    % Keep only those that match
+    isMatch = cellfun(@(x) ~isempty(regexp(x, pattern, 'once')), names);
+    subdirs = names(isMatch);
+end
+
+function chosenDir = choose_named_subdir(subdirs,opt_str)
 % CHOOSE_NAMED_SUBDIR chooses a subdirectory from subdirs
     
 if numel(subdirs) > 1
     while true
         % Display options
+        if nargin > 1
+            fprintf([opt_str,'\n']);
+        end
         fprintf('Available subdirectories:\n');
         for i = 1:numel(subdirs)
             fprintf('  [%d] %s\n', i, subdirs{i});
@@ -235,8 +256,10 @@ if numel(subdirs) > 1
     clc;
     % Get chosen directory (full path)
     chosenDir = subdirs{choiceNum};
-else
+elseif ~isempty(subdirs)
     chosenDir = subdirs{1};
+elseif isempty(subdirs)
+    error('No subdirectories to choose from');
 end
 
 end

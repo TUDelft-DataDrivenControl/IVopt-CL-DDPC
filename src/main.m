@@ -66,8 +66,10 @@ if opts.save
     % <?> is a subdirectory defined by either [opts.raw_dir] or a naming convention
     src_dir = pwd;
     cd('..'); proj_dir = pwd;
-    cd(append('data',filesep,'raw'));
-    data_dir = pwd; % -> data\raw
+    sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+    if ~isfolder(sys_dir)
+        mkdir(sys_dir);
+    end
     cd(src_dir);
 
     % complete path of data directory: data\raw\<?>
@@ -78,7 +80,7 @@ if opts.save
         % use naming convention for new subdirectory
         subdir = name_subdir_data(opts);
     end
-    data_dir = fullfile(data_dir,subdir);
+    data_dir = fullfile(sys_dir,subdir);
 
     %----------------------- make destination folder ----------------------
     % if the folder does not exist, make it and store file dependencies in it
@@ -220,7 +222,7 @@ end
 
 %% Helper functions
 function subdir = name_subdir_data(opts)
-    [Re, p, f, N, Ncl, dRk, Rk, Qk] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.dRk, opts.Rk, opts.Qk);
+    [Re, p, N] = deal(opts.Re, opts.p, opts.N);
 
     % Helper function to trim to minimal digits in scientific notation
     trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -228,9 +230,8 @@ function subdir = name_subdir_data(opts)
     trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 
     % Apply formatting
-    Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);  Ncl_str = trimmed_exp(Ncl);
-    Qk_str  = trimmed_exp(Qk); Rk_str  = trimmed_exp(Rk); dRk_str = trimmed_exp(dRk);
-    subdir = sprintf('Re_%s_p_%d_f_%d_N_%s_Ncl_%s_Qk_%s_Rk_%s_dRk_%s',Re_str,p,f,N_str,Ncl_str,Qk_str,Rk_str,dRk_str);
+    Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);
+    subdir = sprintf('Re_%s_p_%d_N_%s',Re_str,p,N_str);
     subdir = replace(subdir,'.','p');
     subdir = replace(subdir,'+','');
 end
