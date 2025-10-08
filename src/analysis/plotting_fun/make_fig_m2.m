@@ -29,7 +29,7 @@ arguments
     X_all (:,1) double
     useFillCases cell
     noPlotCases cell
-    opts.PlotMode (1,:) char {mustBeMember(opts.PlotMode,{'N','Re'})} = 'N'
+    opts.PlotMode (1,:) char {mustBeMember(opts.PlotMode,{'N','Re','p'})} = 'N'
     opts.fontSize (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 15
     opts.CrameriColors (1,:) char = 'roma'  % passed to crameri()
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]
@@ -52,12 +52,14 @@ YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
 LegLoc    = opts.LegLoc;
 LegsCols  = opts.LegCols;
-if strcmp(opts.PlotMode,'N')
-    xAxisLabel = '$N$';
-else
-    xAxisLabel = '$\mathrm{Var}(e_k)$';
+switch opts.PlotMode
+    case 'N'
+        xAxisLabel = '$N$';
+    case 'Re'
+        xAxisLabel = '$\mathrm{Var}(e_k)$';
+    case 'p'
+        xAxisLabel = '$p$';
 end
-
 
 % --------------------- set colours and make figure -----------------------
 try
@@ -94,7 +96,8 @@ for kEt = 1:numel(LfErrorTypes)
             case {'iv5a','iv5b','iv5c'}, col = cCram(4,:);
             case {'iv6a','iv6c'},        col = cCram(5,:);
             case 'CLSPC', col = cCram(6,:); LineStyle = '-'; label = '$j=7$: CL-SPC';
-            case 'actLf', col = [0 1 0 ];   LineStyle = '-'; label = '$j=8$: actual $L_f$'; % green
+            case 'actLf', col = [0 1 0];    LineStyle = '-'; label = '$j=8$: actual $L_f$'; % green
+            case 'TrPred',col = [0 0 1];    LineStyle = '-'; label = '$j=9$: Trans. Pred.';
         end
         if startsWith(CaseName,'iv')
             label = sprintf('$j=%s$',CaseName(3:end));

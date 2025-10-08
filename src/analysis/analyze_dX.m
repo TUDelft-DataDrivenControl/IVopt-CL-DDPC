@@ -1,26 +1,19 @@
 clear; 
 close all;
-data_type = 'N'; % 'N' or 'Re';
+data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
 
-%% navigate to data\raw\d<Re \ N>\<subdir1>
+%% navigate to data\raw\d<Re \ N \ p>\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
 src_dir = fullfile(pdir,'src');
 raw_dir = fullfile(pdir,'data','raw');
 dX_dir = fullfile(pdir,'data','raw',['d',data_type]);
 
-switch data_type
-    case 'N'
-        find_named_subdirs = @find_named_subdirs_dN;
-    case 'Re'
-        find_named_subdirs = @find_named_subdirs_dRe;
-end
-
 % add relevant directories to path
 addpath(genpath(src_dir));
 
 % find <subdir1> candidates:
-% -> subdirectories in data\raw\d<Re \ N> that match the naming convention from name_subdir1 in main_d<Re \ N>
-subdir1s = find_named_subdirs(dX_dir);
+% -> subdirectories in data\raw\dX that match the naming convention from name_subdir1 in main_dX
+subdir1s = find_named_subdirs_dX(data_type,dX_dir);
 
 % choose <subdir1> to use
 subdir1 = choose_named_subdir(subdir1s);
@@ -42,6 +35,10 @@ switch data_type
         spX = spRe;
         [p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
         X_all = Re_all;
+    case 'p'
+        spX = spP;
+        [f,nu,ny,N] = deal(opts.f,opts.nu,opts.ny,opts.N);
+        X_all = p_all;
 end
 
 if isfile('processed_data.mat')
@@ -79,17 +76,29 @@ switch data_type
         % plot figure
         [fig1,ax1,axLeg1] = make_fig_m0(m0, pX, useFillCases, noPlotCases, LegCols=[2,2]);
 
+    case 'p'
+        pX = 8; % index of p in p_all to plot this for
+        useFillCases = {'iv1','iv2a','iv2b'};
+        noPlotCases  = {};
+
+        % plot figure
+        [fig1,ax1,axLeg1] = make_fig_m0(m0, pX, useFillCases, noPlotCases, LegCols=[2,2]);
+
 end
 fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 
-%% Plotting - figure 2: quality of optimal IV approx. vs. Re \ N (m1)
+%% Plotting - figure 2: quality of optimal IV approx. vs. X (m1)
 % -> difference of Uf_iv w.r.t. Uf_iv2a
 % -> difference of Yf_iv w.r.t. Yf_iv2b
 switch data_type
     case 'N'
-        [fig2,ax2,axLeg2] = make_fig_m1(m1,N_all,                          LegCols=[3 3],LegLocations="west");
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,'N', N_all,                                     LegCols=[3 3],LegLocations="west");
     case 'Re'
-        [fig2,ax2,axLeg2] = make_fig_m1(m1,N,Re_all=Re_all,YScale='linear',LegCols=[3 3],LegLocations=["west","northwest"]);
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,'Re',Re_all,N=N,                YScale='linear',LegCols=[3 3],LegLocations=["west","northwest"]);
+        axLeg2(1).Position(1:2) = axLeg2(1).Position(1:2) + [-10 -10];
+        axLeg2(2).Position(1:2) = axLeg2(2).Position(1:2) + [-10 -20];
+    case 'p'
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,'p', p_all, N=N,XScale='linear',YScale='linear',LegCols=[3 3],LegLocations=["west","northwest"]);
         axLeg2(1).Position(1:2) = axLeg2(1).Position(1:2) + [-10 -10];
         axLeg2(2).Position(1:2) = axLeg2(2).Position(1:2) + [-10 -20];
 end
@@ -116,6 +125,13 @@ switch data_type
         % plotting figure
         [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, useFillCases, noPlotCases,PlotMode=data_type,LegCols=1);
         axLeg3.Position(1) = axLeg3.Position(1) - 80;
+
+    case 'p'
+        useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
+        noPlotCases  = {};
+
+        % plotting figure
+        [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, useFillCases, noPlotCases,XScale='linear',PlotMode=data_type,LegCols=2);
 end
 fig3.OuterPosition(1:2) = monPos(1:2) + [50 150]; % repositioning figure
 
@@ -129,17 +145,25 @@ switch data_type
     case 'N'
         useFillCases = {'iv1','CLSPC','actLf'};
         noPlotCases  = {};
+        XScale = 'log';
         YScale = 'linear';
         LegCols = 2;
     case 'Re'
         useFillCases = {'iv1','CLSPC','actLf'};
         noPlotCases  = {};
+        XScale = 'log';
         YScale = 'log';
+        LegCols = 2;
+    case 'p'
+        useFillCases = {'iv1','CLSPC','actLf'};
+        noPlotCases  = {'iv1'};
+        XScale = 'linear';
+        YScale = 'linear';
         LegCols = 2;
 end
 
 % --------------------------- plotting of figure --------------------------
-[fig4,ax4,axLeg4] = make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,YScale=YScale,LegCols=LegCols);
+[fig4,ax4,axLeg4] = make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,XScale=XScale,YScale=YScale,LegCols=LegCols);
 fig4.OuterPosition(1:2) = monPos(1:2) + [50 200];
 
 %% remove data path again
@@ -147,12 +171,12 @@ cd(src_dir);
 rmpath(genpath(subdir1));
 
 %% Helper functions
-function subdirs = find_named_subdirs_dN(parentDir)
+function subdirs = find_named_subdirs_dX(data_type,parentDir)
 % FIND_NAMED_SUBDIRS returns subdirectories in parentDir that match
 % the naming convention from name_subdir1 in main_dN
 %
 % Example:
-%   subdirs = find_named_subdirs_dN(pwd);
+%   subdirs = find_named_subdirs_dX('N',pwd);
 
     % List all directories in parentDir
     d = dir(parentDir);
@@ -163,22 +187,24 @@ function subdirs = find_named_subdirs_dN(parentDir)
     names = names(~ismember(names,{'.','..'}));
     
     % Regex pattern that matches the naming convention
-    %   Example: N_1p0e0_1p0e1_50_sys_1_Re_1p0e3_p_2_f_3_Ncl_1p0e2_Qk_1p0e1_Rk_5p0e0_dRk_1p0e0
-    pattern = ['^N_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_' ...   % Nmin, Nmax, nN, sys
-               'Re_[-0-9ep]+_p_\d+_f_\d+_' ...            % Re, p, f
-               'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
+    switch data_type
+        case 'N'        
+            %   Example: N_1p0e0_1p0e1_50_sys_1_Re_1p0e3_p_2_f_3_Ncl_1p0e2_Qk_1p0e1_Rk_5p0e0_dRk_1p0e0
+            pattern = ['^N_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_' ...   % Nmin, Nmax, nN, sys
+                    'Re_[-0-9ep]+_p_\d+_f_\d+_' ...                % Re, p, f
+                    'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
+        case 'Re'
+            pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_p_\d+_f_\d+_N_[-0-9ep]+_Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$';
+        case 'p'
+            pattern = ['^p_\d+_\d+_\d+_sys_\d+_' ...               % pmin, pmax, nP, sys
+                    'Re_[-0-9ep]+_N_[-0-9ep]+_f_\d+_' ...           % Re, N, f
+                    'Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$']; % Ncl, Qk, Rk, dRk
+        otherwise
+            error("Data type not recognized. Choose either 'N', 'Re', or 'p'.")
+    end
+
     
     % Keep only those that match
-    isMatch = cellfun(@(x) ~isempty(regexp(x, pattern, 'once')), names);
-    subdirs = names(isMatch);
-end
-
-function subdirs = find_named_subdirs_dRe(parentDir)
-    d = dir(parentDir);
-    d = d([d.isdir]);
-    names = {d.name};
-    names = names(~ismember(names,{'.','..'}));
-    pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_sys_\d+_p_\d+_f_\d+_N_[-0-9ep]+_Ncl_[-0-9ep]+_Qk_[-0-9ep]+_Rk_[-0-9ep]+_dRk_[-0-9ep]+$';
     isMatch = cellfun(@(x) ~isempty(regexp(x, pattern, 'once')), names);
     subdirs = names(isMatch);
 end
@@ -195,10 +221,9 @@ if numel(subdirs) > 1
         end
 
         % Prompt user
-        choice = input('Select a subdirectory by number: ', 's');
+        choiceNum = input('Select a subdirectory by number: ');
 
         % Validate choice
-        choiceNum = str2double(choice);
         if ~isnan(choiceNum) && choiceNum >= 1 && choiceNum <= numel(subdirs)
             % Valid choice -> exit loop
             break;

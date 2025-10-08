@@ -1,8 +1,9 @@
-function [fig2,ax2,axLeg2] =make_fig_m1(m1,N_all,opts)
+function [fig2,ax2,axLeg2] =make_fig_m1(m1,data_type,X_all,opts)
 arguments
     m1 struct
-    N_all double {mustBeVector}
-    opts.Re_all double = [];
+    data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
+    X_all double {mustBeVector}
+    opts.N (1,1) double {mustBeFinite,mustBeReal,mustBeInteger,mustBePositive};
     opts.fontSize (1,1) double = 15;
     opts.CrameriColors char = 'roma';  % possible colors: see the 'crameri' command
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]; % figure position
@@ -10,9 +11,9 @@ arguments
                                  mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.XScale char {mustBeMember(opts.XScale,["log","linear"])} = 'log';
     opts.YScale char {mustBeMember(opts.YScale,["log","linear"])} = 'linear';
-    opts.LineWidth (1,1) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LineWidth,0)} = 2;
+    opts.LineWidth (1,1) double {mustBeFinite,mustBeReal,mustBePositive} = 2;
     opts.LegLocations (1,:) = "northeast"; % parsing done by mustBeValidLegLocation
-    opts.LegCols (1,2) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LegCols,0),mustBeInteger} = [1, 1];
+    opts.LegCols (1,2) double {mustBeFinite,mustBeReal,mustBePositive,mustBeInteger} = [1, 1];
 end
 
 fontSize  = opts.fontSize;      % font size of x & y labels (scaled later for y due to orientation)
@@ -22,24 +23,25 @@ fillAlpha = opts.fillAlpha;
 XScale    = opts.XScale;
 YScale    = opts.YScale;
 LineWidth = opts.LineWidth;
-Re_all    = opts.Re_all;
 LegsLoc   = mustBeValidLegLocation(opts.LegLocations);
 LegsCols  = opts.LegCols;
 
-% Determine x-axis: N_all (default) or Re_all (if provided)
-if ~isempty(Re_all)
-    if ~isvector(Re_all)
-        error('Re_all must be a vector if not left empty.');
-    end
-    if numel(unique(N_all)) ~= 1
-        error('If Re_all is provided, N_all must have a single unique value.');
-    end
-    N_all = repmat(N_all,1,numel(Re_all));
-    xvals = Re_all;
-    xlab = '$\mathrm{Var}(e_k)$';
-else
-    xvals = N_all;
-    xlab = '$N$';
+% Determine x-axis
+switch data_type
+    case 'N'
+        N_all = X_all;
+        xlab = '$N$';
+    case {'Re','p'}
+        if ~isfield(opts,'N')
+            error('Specify N used')
+        end
+        N_all = repmat(opts.N,1,numel(X_all));
+
+        if strcmp(data_type,'Re')
+            xlab = '$\mathrm{Var}(e_k)$';
+        else
+            xlab = '$p$';
+        end        
 end
 
 % --------------------- set colours and make figure -----------------------
@@ -104,7 +106,7 @@ for kIV = 1:num_Uf_ivs
 
     plotLineWithFill(u_iv.(av_name),u_iv.(lb_name),u_iv.(ub_name), label, ...
         Color=col, FaceAlpha = fillAlpha, LineStyle=LineStyle, LineWidth=LineWidth,...
-         x=xvals, XScale=XScale,YScale=YScale);
+         x=X_all, XScale=XScale,YScale=YScale);
     hold on;
 
     u_entries(kIV) = struct('Color',col, 'Alpha',fillAlpha, ...
@@ -141,14 +143,14 @@ for kIV = 1:num_Yf_ivs
         case 'iv2b', label = '$j=2b$: opt. IV';      col = cCram(1,:);  LineStyle = '-.';
         case 'iv4b', label = '$j=4b$: w/o Cz info';  col = cCram(4,:);  LineStyle = ':';
         case 'iv5b', label = '$j=5b$: w/ Cz info';   col = cCram(6,:);  LineStyle = '-.';
-        case 'iv3a', label = '$j=3a$: LCF-IV Theta'; col = cCram(8,:);  LineStyle = '--';
+        case 'iv3a', label = '$j=3a$: $\Xi_\mathrm{f}$ (LCF-IV)' ; col = cCram(8,:);  LineStyle = '--';
         case 'iv6a', label = '$j=3a,6a$: ref.';      col = [0 0 0];     LineStyle = '-';
         otherwise,   label = field;              col = [0 0 0];     LineStyle = '-';
     end
 
     plotLineWithFill(y_iv.(av_name),y_iv.(lb_name),y_iv.(ub_name), label, ...
         Color=col, FaceAlpha = 0.25, LineStyle=LineStyle, LineWidth=2,...
-         x=xvals, XScale=XScale,YScale=YScale);
+         x=X_all, XScale=XScale,YScale=YScale);
     hold on;
 
     y_entries(kIV) = struct('Color',col, 'Alpha',0.25, ...

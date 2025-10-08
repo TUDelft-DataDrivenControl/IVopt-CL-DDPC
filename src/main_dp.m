@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts();
+opts = init_opts(N=139);
 function opts = init_opts(opts)
 arguments
 opts.Re   (1,1) double  = 1e-1;  % innovation noise variance

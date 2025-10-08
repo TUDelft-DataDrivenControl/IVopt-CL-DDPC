@@ -152,12 +152,12 @@ for kIV = 1:num_Yf_ivs
     cIdx2 = find(Cidxs == cIdx,1,'first');
 
     switch iv_name
-        case 'iv2b', label = '2b) opt. IV';         col = cCram(cIdx2,:);
-        case 'iv4b', label = '4b) w/o Cz info';     col = cCram(cIdx2,:);
-        case 'iv5b', label = '5b) w/ Cz info';      col = cCram(cIdx2,:);
-        case 'iv3a', label = '3a) LCF-IV Theta';    col = cCram(cIdx2,:);
-        case 'iv6a', label = '6a) ref';             col = [0 0 0]; % black
-        otherwise, label = iv_name;                 col = [0 0 0];
+        case 'iv2b', label = '2b) opt. IV';             col = cCram(cIdx2,:);
+        case 'iv4b', label = '4b) w/o Cz info';         col = cCram(cIdx2,:);
+        case 'iv5b', label = '5b) w/ Cz info';          col = cCram(cIdx2,:);
+        case 'iv3a', label = '3a) LCF-IV ($\Theta$)';   col = cCram(cIdx2,:);
+        case 'iv6a', label = '6a) ref';                 col = [0 0 0]; % black
+        otherwise, label = iv_name;                     col = [0 0 0];
     end
     thisStyle = lineStyles{mod(kIV-1,numel(lineStyles))+1}; % cycle
     if any(ismember(iv_name,useFillCases))

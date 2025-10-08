@@ -1,6 +1,6 @@
 function [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts)
 arguments
-    data_type (1,:) char {mustBeMember(data_type,{'N','Re'})}
+    data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
     seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
     X_all (1,:) double {mustBePositive}
     opts (1,1) struct
@@ -9,26 +9,26 @@ spX = size(seeds,1);
 switch data_type
     case 'N'
         [f,nu,ny]   = deal(opts.f,opts.nu,opts.ny);
-    case 'Re'
+    case {'Re','p'}
         [f,nu,ny,N] = deal(opts.f,opts.nu,opts.ny,opts.N);
 end
 
 %% iterate over Re \ N values - initial data processing
-subdir1 = pwd; % should be data/raw/d<N\Re>/<subdir1>
+subdir1 = pwd; % should be data/raw/dX/<subdir1>
 
-% get all <subdir2> directories in data/raw/d<N\Re>/<subdir1>
+% get all <subdir2> directories in data/raw/dX/<subdir1>
 subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
 subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 
-% iterate over all Re \ N values
+% iterate over all Re \ N \ p values
 nX = numel(subdir2s);
 
 % find Cases used
 seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
 Cases = load(seed_mat_files(1).name,'Cases').Cases;
-% expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', 'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf'};
+% expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', 'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
 num_Cases = numel(Cases);
 
 %% initializing measures
@@ -125,10 +125,14 @@ end
 for iX = 1:nX
 
     switch data_type
-        case 'N'
-            N = X_all(iX); X = N;
+        case {'N','p'}
+            if strcmp(data_type,'N')
+                N = X_all(iX); X = N;
+            else % -> 'p'
+                p = X_all(iX); X = p;
+            end
             % choose subdir2 corresponding with N value
-            subdir2 = choose_subdir_by_number(subdir2s, N);
+            subdir2 = choose_subdir_by_number(subdir2s, X);
             cd(subdir2); % navigate into <subdir2>
 
             % load file with settings in <subdir2>
