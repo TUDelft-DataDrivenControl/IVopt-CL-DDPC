@@ -77,6 +77,16 @@ copy_dependencies(src_dir,subdir1,'main_dp.m');
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
 %% ========================== iterate over p and seeds ====================
+if ismember('SlurmProfile1',parallel.clusterProfiles)
+    myCluster = parcluster('SlurmProfile1');
+    SubmitArgsTxt = SlurmSubmitArgs('dp',30,nodes=2,tpn=48,part='compute1');
+    myCluster.SubmitArguments = SubmitArgsTxt;
+else
+    myCluster = parcluster('local');
+end
+nworker = myCluster.NumWorkers; % (max.) workers per node
+parpool(myCluster,nworker);
+
 opts2 = opts;
 parfor ii = 1:nP*spP
 sP = struct;
