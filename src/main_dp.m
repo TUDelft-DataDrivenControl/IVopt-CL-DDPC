@@ -3,20 +3,7 @@
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = init_opts(N=139);
-function opts = init_opts(opts)
-arguments
-opts.Re   (1,1) double  = 1e-1;  % innovation noise variance
-opts.plot       logical = false;
-opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
-opts.f    (1,1) double  = 20;
-opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-opts.dRk  (1,1) double  = 1;        % weights
-opts.Rk   (1,1) double  = 1;
-opts.Qk   (1,1) double  = 1e2;
-opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 1;         % flag for model selection
-end
-end
+
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 % Requirements:
@@ -77,23 +64,49 @@ copy_dependencies(src_dir,subdir1,'main_dp.m');
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
 %% ========================== iterate over p and seeds ====================
-if ismember('SlurmProfile1',parallel.clusterProfiles)
+if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     myCluster = parcluster('SlurmProfile1');
-    SubmitArgsTxt = SlurmSubmitArgs('dp',30,nodes=2,tpn=48,part='compute1');
+    SubmitArgsTxt = SlurmSubmitArgs('dp',15,nodes=1,tpn=1);
     myCluster.SubmitArguments = SubmitArgsTxt;
-else
-    myCluster = parcluster('local');
-end
-nworker = myCluster.NumWorkers; % (max.) workers per node
-parpool(myCluster,nworker);
+    job = createJob(myCluster);
+    maxConcurrentJobs = 50;
+    for iii = 1:nP*spP
+        createTask(job, @prun, 0, {iii, opts, spP, nP, seeds, ...
+                                   p_all, f, N, Ncl, ny, nu, ...
+                                   Re, plant, subdir1, sigs, Cz0, Tcl0, proj_dir});
 
-opts2 = opts;
-parfor ii = 1:nP*spP
+        submittedJobs = [submittedJobs, job];
+
+        % --- Throttle: wait if too many jobs are running ---
+        while numel(submittedJobs) >= maxConcurrentJobs
+            % Refresh job state
+            jobStates = get(submittedJobs, 'State');
+            isFinished = strcmp(jobStates, 'finished') | strcmp(jobStates, 'failed');
+            submittedJobs = submittedJobs(~isFinished); % Keep only active jobs
+
+            if numel(submittedJobs) >= maxConcurrentJobs
+                pause(30);  % Wait 30 seconds before checking again
+            end
+        end
+    end
+else
+    if isempty(gcp('nocreate'))
+        myCluster = parcluster('local');
+        nworker = myCluster.NumWorkers; % (max.) workers per node
+        parpool(myCluster,nworker);
+    end
+    parfor iii = 1:nP*spP
+        prun(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+    end
+end
+
+%% Main function executed within parfor loop
+function prun(ii,opts2,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
 sP = struct;
 sP.opts = opts2;
 
 % ------------------------------ define p run -----------------------------
-[ks,iP] = ind2sub([spP,nP],ii);
+[~,iP] = ind2sub([spP,nP],ii);
 p = p_all(iP);
 sP.opts.p = p;
 
@@ -141,7 +154,6 @@ save(fn,"-fromstruct",sE);
 % 'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv','Cases',...
 % 'cost_u1','cost_u2','cost_u','cost_y','cost_tot','FroIDerror'
 fprintf('File saved successfully!\n');
-
 end
 
 %% Helper functions
@@ -167,4 +179,19 @@ function str_iN = iN2str(iN,nN)
 nDigits = ceil(log10(nN + 1));
 format = ['%0', num2str(nDigits), 'd'];
 str_iN = sprintf(format,iN);
+end
+
+function opts = init_opts(opts)
+arguments
+opts.Re   (1,1) double  = 1e-1;  % innovation noise variance
+opts.plot       logical = false;
+opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
+opts.f    (1,1) double  = 20;
+opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
+opts.dRk  (1,1) double  = 1;        % weights
+opts.Rk   (1,1) double  = 1;
+opts.Qk   (1,1) double  = 1e2;
+opts.save       logical = true;     % save data
+opts.sys  (1,1) double = 1;         % flag for model selection
+end
 end
