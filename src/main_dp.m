@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=139);
+opts = init_opts(N=e4);
 
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
@@ -65,11 +65,41 @@ save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds
 
 %% ========================== iterate over p and seeds ====================
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
-    submit_dp_jobs(subdir1, nP, spP, proj_dir, opts);
-    %{
+    % submit_dp_jobs(subdir1, nP, spP, proj_dir, opts);
+
+    % myCluster = parcluster('SlurmProfile1');
+    % SubmitArgsTxt = SlurmSubmitArgs('dp',15,ntasks=nP*spP,cpt=1,GB=3.8);
+    % myCluster.SubmitArguments = SubmitArgsTxt;
+    % parfor iii = 1:nP*spP
+    %     run_p(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+    % end
+
     myCluster = parcluster('SlurmProfile1');
-    SubmitArgsTxt = SlurmSubmitArgs('dp',15,nodes=1,tpn=1);
-    myCluster.SubmitArguments = SubmitArgsTxt;
+    ntasksTotal = nP * spP;
+    MaxTasksPerJob = spP;
+    nJobs = ceil(ntasksTotal/MaxTasksPerJob);
+    ntasksPerJob = repmat(MaxTasksPerJob,1,nJobs);
+    ntasksPerJob(end) = ntasksTotal - MaxTasksPerJob*(nJobs-1);
+    jobs = [];
+    idx1 = 1;
+    for iJob = 1:nJobs
+        ntasks = ntasksPerJob(iJob);
+        idxs = idx1:(idx1+ntasks-1);
+        SubmitArgsTxt = SlurmSubmitArgs('dp',15,ntasks=ntasks,cpt=1,GB=3.8);
+        myCluster.SubmitArguments = SubmitArgsTxt;
+        jobs(iJob) = batch(myCluster,@parfor_run_p,0,{idxs,...
+            opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir});
+        
+        idxs1 = idxs(end) + 1;
+    end
+
+    % SubmitArgsTxt = SlurmSubmitArgs('dp',15,ntasks=nP*spP,cpt=1,GB=3.8);
+    % myCluster.SubmitArguments = SubmitArgsTxt;
+    % parfor iii = 1:nP*spP
+    %     run_p(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+    % end
+
+    %{
     job = createJob(myCluster);
     maxConcurrentJobs = 50;
     submittedJobs = [];
@@ -137,6 +167,7 @@ opts.sys  (1,1) double = 1;         % flag for model selection
 end
 end
 
+%% Submit Slurm job arrays for DP simulations
 function submit_dp_jobs(subdir1, nP, spP, proj_dir, opts)
 %SUBMIT_DP_JOBS  Create and submit SLURM job arrays for DP simulations.
 %
