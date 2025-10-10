@@ -1,7 +1,0 @@
-function parfor_run_p(idxs,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
-    num_idxs = numel(idxs);
-    parfor ii = 1:num_idxs
-        idx = idxs(ii);
-        run_p(idx,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
-    end
-end

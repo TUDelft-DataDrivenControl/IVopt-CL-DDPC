@@ -9,7 +9,8 @@ arguments
     opts.ntasks = []
     opts.cpt (1,1)   double {mustBeFinite,mustBeReal,mustBeInteger,mustBePositive} = 1;                % CPUs per task
     opts.GB  (1,1)   double {mustBeFinite,mustBeReal,mustBePositive} = 3.9;                            % GB per CPU
-
+    opts.out char = '';
+    opts.err char = '';
 end
 %% futher parsing
 if (isempty(opts.tpn) && isempty(opts.ntasks)) || ~isempty(opts.tpn) && ~isempty(opts.ntasks)
@@ -49,6 +50,10 @@ for k= 1:length(fns)
             SubmitTxt = sprintf('%s --cpus-per-task=%d', SubmitTxt, opts.cpt);
         case 'GB'
             SubmitTxt = sprintf('%s --mem-per-cpu=%dMB', SubmitTxt, floor(opts.GB*1e3));
+        case 'out'
+            SubmitTxt = sprintf('%s --output=%s', SubmitTxt, opts.out);
+        case 'err'
+            SubmitTxt = sprintf('%s --error=%s', SubmitTxt, opts.err);
     end
 end
 end
