@@ -30,11 +30,11 @@ fprintf('Setting simulation settings...\n');
 % set p values to iterate over
 pmin = max(ss2lag(plant),ss2lag(Cz0)); % take max -> if rho > p approx_IV methods deliver shorter IVs
 pmax = 50;
-nP   = 2;  % number of p values to iterate over
+nP   = 10; % number of p values to iterate over
 p_all = ceil(linspace(pmin,pmax,nP));
 
 % set seeds to use for iterations
-spP = 1;
+spP = 100;
 seeds = reshape(1:nP*spP,spP,nP);
 
 % ================== saving data and settings =============================
@@ -65,13 +65,16 @@ save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds
 
 %% ========================== iterate over p and seeds ====================
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+    submit_dp_jobs(subdir1, nP, spP, proj_dir, opts);
+    %{
     myCluster = parcluster('SlurmProfile1');
     SubmitArgsTxt = SlurmSubmitArgs('dp',15,nodes=1,tpn=1);
     myCluster.SubmitArguments = SubmitArgsTxt;
     job = createJob(myCluster);
     maxConcurrentJobs = 50;
+    submittedJobs = [];
     for iii = 1:nP*spP
-        createTask(job, @prun, 0, {iii, opts, spP, nP, seeds, ...
+        createTask(job, @run_p, 0, {iii, opts, spP, nP, seeds, ...
                                    p_all, f, N, Ncl, ny, nu, ...
                                    Re, plant, subdir1, sigs, Cz0, Tcl0, proj_dir});
 
@@ -89,6 +92,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
             end
         end
     end
+    %}
 else
     if isempty(gcp('nocreate'))
         myCluster = parcluster('local');
@@ -96,64 +100,8 @@ else
         parpool(myCluster,nworker);
     end
     parfor iii = 1:nP*spP
-        prun(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+        run_p(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
     end
-end
-
-%% Main function executed within parfor loop
-function prun(ii,opts2,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
-sP = struct;
-sP.opts = opts2;
-
-% ------------------------------ define p run -----------------------------
-[~,iP] = ind2sub([spP,nP],ii);
-p = p_all(iP);
-sP.opts.p = p;
-
-% ----------------- initial CL-sim length & reference ---------------------
-[Nbar, sP.Nbar] = deal(p + f + N -1); % sim. length of initial controller
-sP.yr0  = make_reference(sP.Nbar,ny); % reference of initial controller
-
-% ---------- references for subsequent closed-loop simulations ------------
-sP.yr1 = make_reference(Ncl+f,ny); % y-ref
-P0  = dcgain(plant(:,1:nu));       % DC gain
-sP.ur1 = P0\sP.yr1;                % u-ref
-
-% ----------------------- save settings for run iP ------------------------
-% -> to data\raw\sys#\dp\<subdir1>\<subdir2>\<iP>_settings.mat
-str_iP = iN2str(iP,nP); % zero-padded <iP> based on # of decimals for nP
-subdir2 = sprintf('%s_p_%d',str_iP,p); % subdir2 name
-subdir2 = fullfile(subdir1,subdir2);  % subdir2 path
-if ~isfolder(subdir2)
-    mkdir(subdir2); % create subdir2
-end
-nset_sd2 = append(str_iP,'_settings.mat');
-if ~isfile(fullfile(subdir2,nset_sd2))
-    save(fullfile(subdir2,nset_sd2),"-fromstruct",sP) % 'opts','Nbar','yr0','yr1','ur1'
-end
-
-% ------------------------- define seed run & noise -----------------------
-sE = struct('opts',sP.opts);
-seed = seeds(ii); sE.opts.seed = seed;
-rng(seed);
-sE.e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
-sE.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
-
-%% run simulations
-[sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl, sE.Cases, sE.u_iv, sE.y_iv, ...
- sE.cost_u1, sE.cost_u2, sE.cost_u, sE.cost_y, sE.cost_tot, sE.FroIDerror] ...
-    = run_sims(sE.opts,sigs,plant,Cz0,Tcl0,sP.yr0,sE.e0,sP.yr1,sP.ur1,sE.e1);
-
-%% save data
-fn = sprintf('seed_%d.mat',seed);
-fn = fullfile(subdir2,fn);
-fn_short = strrep(fn,proj_dir,'');
-fprintf('Saving data to file: \n\t%s \n',fn_short);
-save(fn,"-fromstruct",sE);
-%'opts','e0','e1','u0','y0','xcl0',...
-% 'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv','Cases',...
-% 'cost_u1','cost_u2','cost_u','cost_y','cost_tot','FroIDerror'
-fprintf('File saved successfully!\n');
 end
 
 %% Helper functions
@@ -174,13 +122,6 @@ subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end
 
-% get zero-padded iN
-function str_iN = iN2str(iN,nN)
-nDigits = ceil(log10(nN + 1));
-format = ['%0', num2str(nDigits), 'd'];
-str_iN = sprintf(format,iN);
-end
-
 function opts = init_opts(opts)
 arguments
 opts.Re   (1,1) double  = 1e-1;  % innovation noise variance
@@ -194,4 +135,164 @@ opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
 opts.sys  (1,1) double = 1;         % flag for model selection
 end
+end
+
+function submit_dp_jobs(subdir1, nP, spP, proj_dir, opts)
+%SUBMIT_DP_JOBS  Create and submit SLURM job arrays for DP simulations.
+%
+% Usage:
+%   submit_dp_jobs(subdir1, nP, spP, proj_dir, opts)
+%
+% Inputs:
+%   subdir1   - Path to subdirectory for this DP run (string)
+%   nP        - Number of p-values (integer)
+%   spP       - Seeds per p (integer)
+%   proj_dir  - Project root directory (string)
+%   opts      - Struct containing fields: f, N, Ncl, Re, sys (for naming)
+
+fprintf('\n=== Submitting %d job arrays to SLURM ===\n', nP);
+
+dp_dir = fullfile(proj_dir,'data','raw',sprintf('sys%d',opts.sys),'dp');  % typically data/raw/sys#/dp
+
+% Ensure dp/ipX directories exist
+for iP = 1:nP
+    % define and create directories
+    ip_dir = fullfile(dp_dir, sprintf('ip%d', iP));
+    out_dir = fullfile(ip_dir,'out');
+    err_dir = fullfile(ip_dir,'err');
+    if ~isfolder(ip_dir)
+        mkdir(ip_dir);
+    end
+    if ~isfolder(out_dir)
+        mkdir(out_dir);
+    end
+    if ~isfolder(err_dir)
+        mkdir(err_dir);
+    end
+
+    %% --- Create SLURM job array submission script for this iP ---
+    script_name = fullfile(ip_dir, sprintf('submit_job_ip%d.sh', iP));
+    script_header = sprintf(...
+        ['#!/bin/bash\n' ...
+        '#SBATCH --job-name=ip%d_s%d\n' ...               iP, opts.sys
+        '#SBATCH --partition=compute\n' ...
+        '#SBATCH --time=00:15:00\n' ...
+        '#SBATCH --ntasks=1\n' ...
+        '#SBATCH --cpus-per-task=1\n' ...
+        '#SBATCH --mem-per-cpu=3900M\n' ...
+        '#SBATCH --account=research-me-dcsc\n' ...
+        '#SBATCH --array=1-%d\n' ...                        spP
+        '#SBATCH --output=%s/out/job.%%A_%%a.out\n' ...     ip_dir
+        '#SBATCH --error=%s/err/job.%%A_%%a.err\n\n'],...   ip_dir
+        iP, opts.sys, spP, ip_dir, ip_dir);
+    batch_commands = sprintf(...
+        ['module load matlab\n\n' ...
+        'task_id=$SLURM_ARRAY_TASK_ID\n' ...
+        'seed_idx=$(( (%d - 1)*%d + task_id ))\n\n'],...    iP, spP
+        iP, spP);
+    matlab_commands = sprintf(...
+        ['matlab -nosplash -nodesktop -r "'...
+        'try; ' ...
+            'addpath(genpath(pwd)); '...     should add src & its subdirs to path
+            'subdir1=''%s''; '...            define subdir1                                                                                             subdir1
+            'addpath(genpath(subdir1)); '... add subdir1 to path
+            'fprintf(''loading settings in subdir1\\n''); load(fullfile(subdir1,''dp_settings.mat'')); ' ...        loading settings
+            'opts, spP, nP, seeds, p_all, ny, nu, plant, sigs, Cz0, Tcl0, ' ...                                     display used loaded variables
+            'fprintf(''defining variables\\n''); ii=$seed_idx, f=%d, N=%d, Ncl=%d, Re=%g, proj_dir=''%s'', ' ...    defining other used variables       opts.f, opts.N, opts.Ncl, opts.Re, proj_dir
+            'addpath(genpath(fullfile(proj_dir,''bin''))); '... needed for Casadi
+            'run_p(ii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir); ' ...         execute run with p
+        'catch ME; '...
+            'disp(getReport(ME)); exit(1); '...
+        'end; '...
+        'exit;"\n'], ...
+        subdir1, opts.f, opts.N, opts.Ncl, opts.Re, proj_dir);
+    script_footer = sprintf('echo "Job ip%d_$task_id completed."', iP);
+    script_content = [script_header, batch_commands, matlab_commands, script_footer];
+
+    % Write script file
+    if isfile(script_name)
+        delete(script_name);
+    end
+    fid = fopen(script_name, 'w');
+    fprintf(fid, '%s', script_content);
+    fclose(fid);
+    fileattrib(script_name, '+x');
+
+    %% --- Add cleanup script for after all array jobs finish ---
+    cleanup_script = fullfile(ip_dir, sprintf('cleanup_ip%d.sh', iP));
+    cleanup_content = sprintf([...
+    '#!/bin/bash\n',...
+    '#SBATCH --job-name=CLip%d_s%d\n',...   iP, opts.sys
+    '#SBATCH --partition=compute\n',...
+    '#SBATCH --time=00:05:00\n',...
+    '#SBATCH --ntasks=1\n',...
+    '#SBATCH --cpus-per-task=1\n',...
+    '#SBATCH --mem-per-cpu=500M\n',...
+    '#SBATCH --output=%s/cleanup.out\n',...         ip_dir
+    '#SBATCH --error=%s/cleanup.err\n\n',...        ip_dir
+    'ip_dir="%s"\n',...                             ip_dir
+    'out_dir="$ip_dir/out"\n',...
+    'err_dir="$ip_dir/err"\n',...
+    'ip_name=$(basename "${ip_dir}")   # e.g. "ip1"\n',...
+    '\n',...
+    'echo "Checking job outputs in $out_dir ..."\n',...
+    '\n',...
+    'for out_file in "$out_dir"/job.*.out; do\n',...
+    '  [ -f "$out_file" ] || continue\n',...
+    '  filename=$(basename "$out_file")\n',...
+    '  job_desc=${filename#job.}\n',...
+    '  job_desc=${job_desc%%.out}\n',...
+    '  taskid=${job_desc#*_}\n',...
+    '\n',...
+    '  # Check the last few lines for both success messages\n',...
+    '  if tail -n 5 "$out_file" | grep -q "File saved successfully" && \\\n',...
+    '     tail -n 5 "$out_file" | grep -q "Job ${ip_name}_${taskid} completed"; then\n',...
+    '    rm -f "$out_file"\n',...
+    '    rm -f "$err_dir/job.${job_desc}.err"\n',...
+    '    echo "Cleaned logs for job ${job_desc}"\n',...
+    '  else\n',...
+    '    echo "Keeping logs for job ${job_desc} (not confirmed)."\n',...
+    '  fi\n',...
+    'done\n',...
+    '\n',...
+    'remaining_out=$(find "$out_dir" -maxdepth 1 -type f | wc -l)\n',...
+    'remaining_err=$(find "$err_dir" -maxdepth 1 -type f | wc -l)\n',...
+    '\n',...
+    'if [ "$remaining_out" -eq 0 ] && [ "$remaining_err" -eq 0 ]; then\n',...
+    '  echo "All job logs cleaned. Removing $ip_dir"\n',...
+    '  rm -rf "$ip_dir"\n',...
+    'else\n',...
+    '  echo "Logs remain in $ip_dir; not deleting."\n',...
+    'fi'], ...
+    iP, opts.sys, ip_dir, ip_dir, ip_dir);
+
+    if isfile(cleanup_script)
+        delete(cleanup_script);
+    end
+    fid2 = fopen(cleanup_script, 'w');
+    fprintf(fid2, '%s', cleanup_content);
+    fclose(fid2);
+    fileattrib(cleanup_script, '+x');
+    
+    %% Submit jobs
+    [status, msg] = system(sprintf('sbatch "%s"', script_name));
+    if status == 0
+        % fprintf('Submitted job array %d/%d: %s\n', iP, nP, strtrim(msg));
+        tokens = regexp(msg, '\d+', 'match');
+        jobid = str2double(tokens{1});
+
+        % Submit cleanup dependent on successful completion
+        dep_cmd = sprintf('sbatch --dependency=afterok:%d "%s"', jobid, cleanup_script); % <- note dependency
+        [~, msg2] = system(dep_cmd);
+        tokens2 = regexp(msg2, '\d+', 'match');
+        jobid2 = str2double(tokens2{1});
+
+        fprintf('Submitted job array %d/%d (JobID %d) with cleaner upon completion (JobID %d)\n', iP, nP, jobid, jobid2);
+
+    else
+        warning('Failed to submit job array %d: %s', iP, msg);
+    end
+end
+
+fprintf('All %d job arrays submitted.\n', nP);
 end
