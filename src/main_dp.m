@@ -3,7 +3,6 @@
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = init_opts(N=1e4);
-
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 % Requirements:
@@ -65,66 +64,12 @@ save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds
 
 %% ========================== iterate over p and seeds ====================
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+    % packaging input variables for use in run_X_ParCluster
+    vs = struct;
+    [ vs.spP, vs.nP, vs.seeds, vs.p_all, vs.f, vs.N, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir] = ...
+    deal(spP,    nP,    seeds,    p_all,    f,    N,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir);
 
-    myCluster = parcluster('SlurmProfile1');
-    ntasksTotal = nP * spP;
-    MaxTasksPerJob = 50;
-    nJobs = ceil(ntasksTotal/MaxTasksPerJob);
-    idx1 = 1;
-    [dTtot, dTmax, ntasks_old] = deal(0);
-    nMins = 15;
-
-    % iterate over jobs
-    for iJob = 1:nJobs
-        tStart = tic;
-
-        % determine number of tasks for job
-        if iJob < nJobs
-            ntasks = MaxTasksPerJob;
-        else
-            ntasks = ntasksTotal - (nJobs-1)*MaxTasksPerJob; % however many tasks remain
-        end
-        idxs = idx1:(idx1+ntasks-1); % ntasks -> task indices
-
-        % estimating time left
-        Tleft = nMins - (dTtot + dTmax*1.5)/60; % time left [min] after parfor
-        Tleft_str = string(duration(0,Tleft,0,'Format','mm:ss'));
-        nMins_str = string(duration(0,nMins,0,'Format','mm:ss'));
-        dTtot_str = string(duration(0,0,dTtot,'Format','mm:ss'));
-        dTmax_str = string(duration(0,0,dTmax,'Format','mm:ss'));
-        
-        clc;
-        fprintf("Starting job %d\n",iJob);
-        fprintf('Number of tasks %d (current), %d (old)\n',ntasks,ntasks_old);
-        fprintf('Time left: %s = %s - %s - 1.5*%s\n',Tleft_str,nMins_str,dTtot_str,dTmax_str);
-
-        % reinitialize pool if little time is left or number of tasks changed (possible at last iteration)
-        if ntasks ~= ntasks_old || Tleft <= 0
-            fprintf('re-initializing pool\n');
-            if ~isempty(gcp('nocreate'))
-                delete(gcp('nocreate'));
-            end
-            myCluster.SubmitArguments = SlurmSubmitArgs('dp',nMins,ntasks=ntasks,cpt=1,GB=3.8);
-            dTtot  = 0;
-            tStart = tic;
-            parpool(myCluster,ntasks);
-        end
-
-        % iterate over tasks
-        parfor iii = 1:ntasks
-            idx = idxs(iii)
-            run_p(idx,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
-        end
-
-        % update timer:
-        dT = toc(tStart);       % time taken for this job
-        dTtot = dTtot + dT;     % est. of total time used slurm job
-        dTmax = max(dTmax,dT);  % est. of max. time used for a parfor iteration
-        
-        % update others
-        idx1 = idxs(end) + 1;
-        ntasks_old = ntasks;
-    end
+    run_X_ParCluster(opts,vs,'p');
 
 else
     fprintf('using the local profile');
