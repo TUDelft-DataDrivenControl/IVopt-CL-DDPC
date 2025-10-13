@@ -111,15 +111,26 @@ m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
 
 %% --------------------------- loop over Re \ N values -----------------------
 % Check and start parallel pool if needed
-if ~isempty(gcp('nocreate'))
-    curr_pool = gcp('nocreate');
-    if curr_pool.NumWorkers < feature('numcores')
-        delete(curr_pool);
-        parpool('local',feature('numcores'));
+if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+    if ~isempty(gcp('nocreate'))
+        delete(gcp('nocreate'));
     end
+    myCluster = parcluster('SlurmProfile1');
+    nworkers = 50;
+    myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],30,ntasks=nworkers,cpt=1,GB=3.8);
+    parpool(myCluster,nworkers);
 else
-    parpool('local', feature('numcores'));
+    if ~isempty(gcp('nocreate'))
+        curr_pool = gcp('nocreate');
+        if curr_pool.NumWorkers < feature('numcores')
+            delete(curr_pool);
+            parpool('local',feature('numcores'));
+        end
+    else
+        parpool('local', feature('numcores'));
+    end
 end
+
 
 % start iterating over Re \ N values
 for iX = 1:nX

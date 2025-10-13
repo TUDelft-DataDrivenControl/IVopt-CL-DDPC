@@ -2,6 +2,12 @@ clear;
 close all;
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 
+if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
+    onCluster = true;
+else
+    onCluster = false;
+end
+
 %% navigate to data\raw\sys#\dX\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
 src_dir = fullfile(pdir,'src');
@@ -53,6 +59,11 @@ else
     fprintf('Processed data file not found\n')
     fprintf('Processing data in directory\n');
     [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts);
+end
+
+if onCluster
+    % do not attempt plotting if running on cluster
+    return;
 end
 
 %% Get monitor positions

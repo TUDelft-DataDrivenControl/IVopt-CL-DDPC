@@ -14,16 +14,21 @@ m3_data_iX    = zeros(num_cost_types,num_Cases,spX);      % cell sizes: num_cost
 
 iyf = nu*f + (1:ny*f); % row indices of Yf in Z
 
-% Ensure we have a parallel pool
-if isempty(gcp('nocreate'))
-    parpool;
+if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
+    onCluster = true;
+else
+    onCluster = false;
 end
 
-% Initialize progress tracking
-w = waitbar(0,sprintf('Progress: (%d/%d) -> %.1f%%',0,spX,0));
-D = parallel.pool.DataQueue;
-afterEach(D,@parforWaitbar);
-parforWaitbar(w, spX); % Initialize waitbar function
+if ~onCluster
+    % Initialize progress tracking
+    w = waitbar(0,sprintf('Progress: (%d/%d) -> %.1f%%',0,spX,0));
+    D = parallel.pool.DataQueue;
+    afterEach(D,@parforWaitbar);
+    parforWaitbar(w, spX); % Initialize waitbar function
+else
+    D = []; % needed to prevent error in parfor
+end
 
 m123_tictoc = tic;
 txt_iters = sprintf('\tm1, m2, m3: Iterating over seeds (see waitbar).');
@@ -80,7 +85,6 @@ parfor ks = 1:spX
 
     % =================================================================
     % m2) identification error (frobenius norm)
-    
     for kType = 1:num_IDerrorTypes         %  1   2   3
         IDerrorType = IDerrorTypes{kType}; % Up, Yp, Uf
 
@@ -92,7 +96,6 @@ parfor ks = 1:spX
 
     % =================================================================
     % m3) DDPC performance
-    
     for kType = 1:num_cost_types
         cost_type = cost_types{kType};
 
@@ -112,11 +115,10 @@ parfor ks = 1:spX
         end
     end
     % =================================================================
-    
-    send(D, []);
+    if ~onCluster; send(D, []); end % update waitbar
 end % of parfor
 m123_time = toc(m123_tictoc);
-close(w);
+if ~onCluster; close(w); end
 fprintf([repmat('\b',1,numel(txt_iters)),'\tm1, m2, m3: Iterating over seeds\t\tFinished in %.2f seconds\n'], m123_time);
 
 end

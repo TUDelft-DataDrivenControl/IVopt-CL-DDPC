@@ -69,7 +69,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     [ vs.spN, vs.nN, vs.seeds, vs.N_all, vs.p, vs.f, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir] = ...
     deal(spN,    nN,    seeds,    N_all,    p,    f,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir);
 
-    run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=20,nMins=30);
+    run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=50,nMins=30);
 
 else
     fprintf('using the local profile');
