@@ -117,7 +117,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     end
     myCluster = parcluster('SlurmProfile1');
     nworkers = 50;
-    myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],30,ntasks=nworkers,cpt=1,GB=3.8);
+    myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],15,ntasks=nworkers,cpt=1,GB=3.8);
     parpool(myCluster,nworkers);
 else
     if ~isempty(gcp('nocreate'))
@@ -170,6 +170,7 @@ for iX = 1:nX
 
     cd(subdir1);
 end
+delete(gcp('nocreate')); % close parallel pool
 
 %% processing data - m0 (IV statistics)
 fprintf("Processing m0 data\n")

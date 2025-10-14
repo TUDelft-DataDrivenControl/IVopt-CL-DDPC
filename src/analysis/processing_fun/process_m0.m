@@ -30,7 +30,7 @@ iyf = nu*f + (1:ny*f);
 num_diags = f+N-1; % number of anti-diagonals in Uf/Yf (2D case)
 
 %% ---------------- iterating over Uf & Yf -----------------------------
-fprintf('\tm0: Uf & Yf IVs (%d) done:\t\t', num_Uf_ivs);
+fprintf('\tm0: Uf & Yf IVs done:\t\t');
 m0_YUf_tictoc = tic;
 for kIVuy = 1:max(num_Uf_ivs,num_Yf_ivs)
     if kIVuy <= num_Uf_ivs

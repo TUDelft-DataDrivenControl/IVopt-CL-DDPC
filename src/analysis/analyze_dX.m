@@ -1,6 +1,6 @@
 clear; 
 close all;
-data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
 
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
     onCluster = true;
@@ -206,11 +206,11 @@ function subdirs = find_named_subdirs_dX(data_type,parentDir)
     % Regex pattern that matches the naming convention
     switch data_type
         case 'N'        
-            pattern = '^N_[-0-9ep]+_[-0-9ep]+_\d+_Re_[-0-9ep]+_p_\d+$';
+            pattern = '^N_[-0-9ep]+_[-0-9ep]+_\d+_Re_[-0-9ep]+_p_\d+';
         case 'Re'
-            pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_p_\d+_N_[-0-9ep]+$';
+            pattern = '^Re_[-0-9ep]+_[-0-9ep]+_\d+_p_\d+_N_[-0-9ep]+';
         case 'p'
-            pattern = '^p_\d+_\d+_\d+_Re_[-0-9ep]+_N_[-0-9ep]+$';
+            pattern = '^p_\d+_\d+_\d+_Re_[-0-9ep]+_N_[-0-9ep]+';
         otherwise
             error("Data type not recognized. Choose either 'N', 'Re', or 'p'.")
     end

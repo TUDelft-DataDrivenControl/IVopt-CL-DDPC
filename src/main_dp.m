@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=1e4);
+opts = init_opts(N=1e3,f=20);
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 % Requirements:
@@ -29,7 +29,7 @@ fprintf('Setting simulation settings...\n');
 % set p values to iterate over
 pmin = max(ss2lag(plant),ss2lag(Cz0)); % take max -> if rho > p approx_IV methods deliver shorter IVs
 pmax = 50;
-nP   = 2; % number of p values to iterate over
+nP   = 10; % number of p values to iterate over
 p_all = ceil(linspace(pmin,pmax,nP));
 
 % set seeds to use for iterations
@@ -69,7 +69,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     [ vs.spP, vs.nP, vs.seeds, vs.p_all, vs.f, vs.N, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir] = ...
     deal(spP,    nP,    seeds,    p_all,    f,    N,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir);
 
-    run_X_ParCluster(opts,vs,'p');
+    run_X_ParCluster(opts,vs,'p',MaxTasksPerJob=30);
 
 else
     fprintf('using the local profile');
@@ -86,7 +86,7 @@ end
 %% Helper functions
 % set name of subdir 1
 function subdir1 = name_subdir1(pmin,pmax,nP,opts)
-[Re, N] = deal(opts.Re, opts.N);
+[Re, N, f] = deal(opts.Re, opts.N, opts.f);
 
 % Helper function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -96,7 +96,7 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 % Apply formatting
 N_s   = trimmed_exp(N);
 Re_s  = trimmed_exp(Re);
-subdir1 = sprintf('p_%d_%d_%d_Re_%s_N_%s',pmin,pmax,nP,Re_s,N_s);
+subdir1 = sprintf('p_%d_%d_%d_Re_%s_N_%s_f_%d_%s',pmin,pmax,nP,Re_s,N_s,f,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end
