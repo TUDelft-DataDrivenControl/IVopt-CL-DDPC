@@ -49,6 +49,8 @@ for kIVuy = 1:max(num_Uf_ivs,num_Yf_ivs)
     end
     
     % iterate over seeds: get Uf & Yf IV values for all
+    % -> parfor is inner loop here to limit data usage (consider size of
+    %    Uf_iv for muliple types of IVs)
     parfor ks = 1:spX
         seed = seeds(ks,iX);
         fndata = sprintf('seed_%d.mat',seed);

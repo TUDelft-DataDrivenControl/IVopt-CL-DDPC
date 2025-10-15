@@ -53,13 +53,13 @@ switch data_type
         X_all = p_all;
 end
 
-if isfile('processed_data.mat')
-    load("processed_data.mat");
-else
-    fprintf('Processed data file not found\n')
-    fprintf('Processing data in directory\n');
-    [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts);
-end
+% if isfile('processed_data.mat')
+%     load("processed_data.mat");
+% else
+%     fprintf('Processed data file not found\n')
+%     fprintf('Processing data in directory\n');
+    [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts,plant);
+% end
 
 if onCluster
     % do not attempt plotting if running on cluster

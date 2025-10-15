@@ -1,4 +1,6 @@
-function [m1_Uf_data_iX, m1_Yf_data_iX, m2_data_iX, m3_data_iX] = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,f,seeds,spX)
+function [m1_Uf_data_iX, m1_Yf_data_iX, m2_data_iX, m3_data_iX,...
+    Yf_RelErr_sd_iX,Yf_RelErr_mean_iX] ...
+    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,Ncl)
 
 % initializing max counters needed for nested for loop inside parfor
 num_Uf_ivs       = numel(Uf_ivs); 
@@ -11,6 +13,12 @@ m1_Uf_data_iX = zeros(num_Uf_ivs,spX);                    % cell sizes: num_Uf_i
 m1_Yf_data_iX = zeros(num_Yf_ivs,spX);                    % cell sizes: num_Yf_ivs x spX
 m2_data_iX    = zeros(num_IDerrorTypes,num_Cases,spX);    % cell sizes: num_IDerrorTypes x num_Cases x spX
 m3_data_iX    = zeros(num_cost_types,num_Cases,spX);      % cell sizes: num_cost_types   x num_Cases x spX
+
+% measure 4: future outputs: actual, predictions & error contributions (by Ep & Ef)
+[Yf_RelErr_sd_iX1,Yf_RelErr_mean_iX1] = deal(zeros(ny*f,num_Cases,spX));
+[Yf_RelErr_sd_iX2,Yf_RelErr_mean_iX2] = deal(zeros(ny*f,num_Cases,spX));
+[Yf_RelErr_sd_iX3,Yf_RelErr_mean_iX3] = deal(zeros(ny*f,num_Cases,spX));
+[Yf_RelErr_sd_iX4,Yf_RelErr_mean_iX4] = deal(zeros(ny*f,num_Cases,spX));
 
 iyf = nu*f + (1:ny*f); % row indices of Yf in Z
 
@@ -33,10 +41,10 @@ end
 m123_tictoc = tic;
 txt_iters = sprintf('\tm1, m2, m3: Iterating over seeds (see waitbar).');
 fprintf('%s',txt_iters);
-parfor ks = 1:spX
+for ks = 1:spX
     seed = seeds(ks,iX);
     fndata = sprintf('seed_%d.mat',seed);
-    [FroIDerror,Z,cost_tot,cost_u,cost_y] = load_seedmat(fndata);
+    [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata);
     
     % =================================================================
     % m1) how well IV approximates optimal one
@@ -114,9 +122,51 @@ parfor ks = 1:spX
             m3_data_iX(kType, kIVn, ks) = cost.(IVn);
         end
     end
+
+    % =================================================================
+    % m4) prediction error
+    % -> structure: yf.<caseName>.pred_est   (nX,ny*f,Ncl-f+1,spX)      Lf_est   *[Up;Yp;Uf]
+    %                            .pred_ideal (nX,ny*f,Ncl-f+1,spX)      Lf_actual*[Up;Yp;Uf]
+    %                            .act        (nX,ny,  Ncl,    spX)      actual future outputs
+    %                            .effect_Ep  (nX,ny*f,Ncl-f+1,spX)      effect of past noise
+    %                            .effect_Ef  (nX,ny*f,Ncl-f+1,spX)      effect of future noise: Hf*Ef
+    % Yf_RelErr_sd : (nX, ny*f, num_Cases, spX, 4)
+
+    e_all = [e0(:,end-p+1:end) e1];
+    [~, Ep, Ef] = make_Hankel(e_all, p, f);
+    Yf_by_Ep = effEpMat*Ep; % past noise contribution to Yf
+    Yf_by_Ef = Hf*Ef;       % future noise contribution to Yf
+    for kC = 1:num_Cases
+        caseName = Cases{kC};
+
+        % create Hankel matrices
+        u_all = [u0(:,end-p+1:end) u_cl.(caseName)];
+        [~, Up, Uf] = make_Hankel(u_all, p, f);
+        y_all = [y0(:,end-p+1:end) y_cl.(caseName)];
+        [~, Yp, Yf] = make_Hankel(y_all, p, f);
+
+        % calculate output predictions
+        Yf_hat = Lf.(caseName)*[Up;Yp;Uf];     % prediction w/ Lf estimate
+        if ~strcmp(caseName,'actLf')
+            Yf_hatS = Lf.('actLf')*[Up;Yp;Uf]; % prediction w/ actual Lf
+        else
+            Yf_hatS = Yf_hat;
+        end
+        [Yf_RelErr_sd_iX1(:,kC,ks),Yf_RelErr_mean_iX1(:,kC,ks)] = std( (Yf_hat  - Yf)./Yf, 0, 2); % std. dev & mean over Ncl-f+1 data points
+        [Yf_RelErr_sd_iX2(:,kC,ks),Yf_RelErr_mean_iX2(:,kC,ks)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
+        [Yf_RelErr_sd_iX3(:,kC,ks),Yf_RelErr_mean_iX3(:,kC,ks)] = std( Yf_by_Ep./Yf, 0, 2);
+        [Yf_RelErr_sd_iX4(:,kC,ks),Yf_RelErr_mean_iX4(:,kC,ks)] = std( Yf_by_Ef./Yf, 0, 2);
+        % NB: for last dim, indxs 2, 3 & 4 should sum to zero for the mean
+    end
+
     % =================================================================
     if ~onCluster; send(D, []); end % update waitbar
 end % of parfor
+Yf_RelErr_mean_iX = squeeze(mean(cat(4,Yf_RelErr_mean_iX1,Yf_RelErr_mean_iX2,Yf_RelErr_mean_iX3,Yf_RelErr_mean_iX4),3)); % ny*f, num_Cases,1,4
+clear Yf_RelErr_mean_iX1 Yf_RelErr_mean_iX2 Yf_RelErr_mean_iX3 Yf_RelErr_mean_iX4
+Yf_RelErr_sd_iX  = squeeze(mean(cat(4,Yf_RelErr_sd_iX1, Yf_RelErr_sd_iX2, Yf_RelErr_sd_iX3, Yf_RelErr_sd_iX4) ,3));
+clear Yf_RelErr_std_iX1 Yf_RelErr_std_iX2 Yf_RelErr_std_iX3 Yf_RelErr_std_iX4
+
 m123_time = toc(m123_tictoc);
 if ~onCluster; close(w); end
 fprintf([repmat('\b',1,numel(txt_iters)),'\tm1, m2, m3: Iterating over seeds\t\tFinished in %.2f seconds\n'], m123_time);
@@ -124,14 +174,21 @@ fprintf([repmat('\b',1,numel(txt_iters)),'\tm1, m2, m3: Iterating over seeds\t\t
 end
 
 %% Helper functions
-function [FroIDerror,Z,cost_tot,cost_u,cost_y] = load_seedmat(fnpath)
+function [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath)
     % Only load necessary variables to improve memory usage and performance
-    s = load(fnpath,'FroIDerror','Z','cost_tot','cost_u','cost_y');
+    s = load(fnpath,'FroIDerror','Z','cost_tot','cost_u','cost_y','u0','y0','e0','e1','u_cl','y_cl','Lf');
     FroIDerror = s.FroIDerror;
     Z = s.Z;
     cost_tot = s.cost_tot;
     cost_u = s.cost_u;
     cost_y = s.cost_y;
+    u0 = s.u0;
+    y0 = s.y0;
+    e0 = s.e0;
+    e1 = s.e1;
+    u_cl = s.u_cl;
+    y_cl = s.y_cl;
+    Lf = s.Lf;
 end
 
 function parforWaitbar(waitbarHandle,iterations)
