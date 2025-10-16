@@ -1,117 +1,114 @@
 function [m0_Uf_mean_iX, m0_Yf_mean_iX, m0_Uf_median_iX, m0_Yf_median_iX, m0_Uf_pctiles_iX, m0_Yf_pctiles_iX] = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles)
 % ======================== initialize measure 0 (m0) ======================
-% -> statistics of Uf & Yf values
-% -> structure: m0.<Uf/Yf>.<IVname>.(iX1/2/3...).(mean/median/pctiles)
-%     example: m0.Uf.iv1.iX1.mean         (nu, ndiags)
-%              m0.Yf.iv2b.iX3.pctiles     (ny, ndiags, num_pctiles)
-% -> sliceable cell array containers:
-%    m0_Uf_mean     (num_Uf_ivs, nX)  cells of size (nu, ndiags)
-%    m0_Yf_mean     (num_Yf_ivs, nX)                (ny, ndiags)
-%    m0_Uf_median   (num_Uf_ivs, nX)                (nu, ndiags)
-%    m0_Yf_median   (num_Yf_ivs, nX)                (ny, ndiags)
-%    m0_Uf_pctiles  (num_Uf_ivs, nX)                (nu, ndiags, num_pctiles)
-%    m0_Yf_pctiles  (num_Yf_ivs, nX)                (ny, ndiags, num_pctiles)
+% Restructured version with parfor over seeds (ks) and inner loop over IVs
 
-% --- IV definitions
-% Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'};
-% Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};
-num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
-num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
+num_Uf_ivs = numel(Uf_ivs);
+num_Yf_ivs = numel(Yf_ivs);
+num_IVs = num_Uf_ivs + num_Yf_ivs;
 
-% initialize cell arrays
-m0_Uf_mean_iX = cell(num_Uf_ivs,1);    % mean         cell sizes: nu x ndiags
-m0_Yf_mean_iX = cell(num_Yf_ivs,1);    %                          ny x ndiags
-m0_Uf_median_iX = m0_Uf_mean_iX;       % median
-m0_Yf_median_iX = m0_Yf_mean_iX;
-m0_Uf_pctiles_iX = cell(num_Uf_ivs,1); % percentiles  cell sizes: nu x ndiags x num_pctiles
-m0_Yf_pctiles_iX = cell(num_Yf_ivs,1); %                          ny x ndiags x num_pctiles
+% initialize cell arrays for final results
+m0_UYf_mean_iX = cell(num_IVs,1);
+m0_UYf_median_iX = m0_UYf_mean_iX;
+m0_UYf_pctiles_iX = cell(num_IVs,1);
 
 iyf = nu*f + (1:ny*f);
-num_diags = f+N-1; % number of anti-diagonals in Uf/Yf (2D case)
+num_diags = f+N-1;
 
-%% ---------------- iterating over Uf & Yf -----------------------------
-fprintf('\tm0: Uf & Yf IVs done:\t\t');
+% Pre-compute diagonal indices (same for all seeds)
+Uf_ij_adiags = get_subind_diags(f,N,nr=nu,anti=true);
+Yf_ij_adiags = get_subind_diags(f,N,nr=ny,anti=true);
+
+%% ---------------- Parallel iteration over seeds -------------------------
+fprintf('\tm0: Processing seeds in parallel...\t\t');
 m0_YUf_tictoc = tic;
-for kIVuy = 1:max(num_Uf_ivs,num_Yf_ivs)
-    if kIVuy <= num_Uf_ivs
-        calc_u = true;
+
+% Initialize cell arrays to collect data from each seed
+% Structure: {ks}{kIVuy} = data for seed ks, IV kIVuy
+UYf_data_per_seed = cell(spX, num_IVs);
+
+parfor ks = 1:spX
+    seed = seeds(ks,iX);
+    fndata = sprintf('seed_%d.mat',seed);
+    Z = load(fndata,'Z').Z;
+    
+    % Temporary storage for this seed
+    Uf_temp = cell(1,num_Uf_ivs);
+    Yf_temp = cell(1,num_Yf_ivs);
+    
+    % Inner loop over Uf IVs
+    for kIVuy = 1:num_Uf_ivs
         Uf_iv_name = Uf_ivs{kIVuy};
-        m0_Uf_data2 = zeros(nu*f,N,spX); % initialize
-    else
-        calc_u = false;
+        Uf_iv = Z.([Uf_iv_name,'_']);
+        Uf_temp{kIVuy} = Uf_iv;  % Store (nu*f x N) matrix
     end
-    if kIVuy <= num_Yf_ivs
-        calc_y = true;
+    
+    % Inner loop over Yf IVs
+    for kIVuy = 1:num_Yf_ivs
         Yf_iv_name = Yf_ivs{kIVuy};
-        m0_Yf_data2 = zeros(ny*f,N,spX); % initialize
-    else
-        calc_y = false;
-    end
-    
-    % iterate over seeds: get Uf & Yf IV values for all
-    % -> parfor is inner loop here to limit data usage (consider size of
-    %    Uf_iv for muliple types of IVs)
-    parfor ks = 1:spX
-        seed = seeds(ks,iX);
-        fndata = sprintf('seed_%d.mat',seed);
-        Z = load(fndata,'Z').Z;
         
-        if calc_u
-            Uf_iv = Z.([Uf_iv_name,'_']);
-            m0_Uf_data2(:,:,ks) = Uf_iv;
+        switch Yf_iv_name
+            case 'iv3a' % IV_Theta
+                Yf_iv = Z.iv3a_(1:ny*f,:);
+            case 'iv6a' % Rf_yr0
+                Yf_iv = Z.iv6a_;
+            otherwise
+                Yf_iv = Z.([Yf_iv_name,'_'])(iyf,:);
         end
-        if calc_y
-            switch Yf_iv_name
-                case 'iv3a' % IV_Theta: only possible because ny = nlcf (see get_Z.m)
-                    Yf_iv = Z.iv3a_(1:ny*f,:);
-
-                case 'iv6a' % Rf_yr0 (future references)
-                    Yf_iv = Z.iv6a_;
-
-                otherwise
-                    Yf_iv = Z.([Yf_iv_name,'_'])(iyf,:);
-            end
-            m0_Yf_data2(:,:,ks) = Yf_iv;
-        end
+        Yf_temp{kIVuy} = Yf_iv;  % Store (ny*f x N) matrix
     end
     
-    %% ---------------------------- for Uf ---------------------------------
-    if calc_u
-        % get all values belonging to anti-diagonals over seeds
-        Uf_ij_adiags = get_subind_diags(f,N,nr=nu,anti=true); % i & j indices for 2D case
-
-        % calculate statistics by iterating over diagonals
-        [m0_Uf_mean2, m0_Uf_median2, m0_Uf_pctiles2] = calc_stats(m0_Uf_data2,nu,spX,pctiles,num_diags,Uf_ij_adiags);
-
-        % assign cells in data arrays
-        m0_Uf_mean_iX{kIVuy,1}    = m0_Uf_mean2;
-        m0_Uf_median_iX{kIVuy,1}  = m0_Uf_median2;
-        m0_Uf_pctiles_iX{kIVuy,1} = m0_Uf_pctiles2;
-    end
-
-    %% ---------------------------- for Yf ---------------------------------
-    if calc_y
-        % get all values belonging to anti-diagonals over seeds
-        Yf_ij_adiags = get_subind_diags(f,N,nr=ny,anti=true); % i & j indices for 2D case
-
-        % calculate statistics by iterating over diagonals
-        [m0_Yf_mean2, m0_Yf_median2, m0_Yf_pctiles2] = calc_stats(m0_Yf_data2,ny,spX,pctiles,num_diags,Yf_ij_adiags);
-
-        % assign cells in data arrays
-        m0_Yf_mean_iX{kIVuy,1}    = m0_Yf_mean2;
-        m0_Yf_median_iX{kIVuy,1}  = m0_Yf_median2;
-        m0_Yf_pctiles_iX{kIVuy,1} = m0_Yf_pctiles2;
-    end
+    % Assign to collection arrays
+    UYf_data_per_seed(ks, :) = [Uf_temp Yf_temp];
 end
+
+%% ---------------- Aggregate and calculate statistics --------------------
+fprintf('Done.\n\tm0: Calculating statistics...\t\t');
+
+parfor kIVuy = 1:num_IVs
+    if kIVuy <= num_Uf_ivs
+        % ==== Process Uf ====
+        m0_data3 = zeros(nu*f, N, spX);
+        Uf_data_per_seed_kIV = UYf_data_per_seed(:,kIVuy)
+        for ks = 1:spX
+            m0_data3(:,:,ks) = Uf_data_per_seed_kIV{ks, 1};
+        end
+        
+        [m0_mean2, m0_median2, m0_pctiles2] = ...
+            calc_stats(m0_data3, nu, spX, pctiles, num_diags, Uf_ij_adiags);
+        
+    else
+        % ==== Process Yf ====
+        % kY = kIVuy - num_Uf_ivs; % adjust index for Yf section
+
+        m0_data3 = zeros(ny*f, N, spX);
+        Yf_data_per_seed_kY = UYf_data_per_seed(:,kIVuy);
+        for ks = 1:spX
+            m0_data3(:,:,ks) = Yf_data_per_seed_kY{ks, 1};
+        end
+        
+        [m0_mean2, m0_median2, m0_pctiles2] = ...
+            calc_stats(m0_data3, ny, spX, pctiles, num_diags, Yf_ij_adiags);
+        
+    end
+    m0_UYf_mean_iX{kIVuy,1}    = m0_mean2;
+    m0_UYf_median_iX{kIVuy,1}  = m0_median2;
+    m0_UYf_pctiles_iX{kIVuy,1} = m0_pctiles2;
+end
+m0_Uf_mean_iX    = m0_UYf_mean_iX(1:num_Uf_ivs,1);
+m0_Yf_mean_iX    = m0_UYf_mean_iX(num_Uf_ivs+1:end,1);    clear m0_UYf_mean_iX
+m0_Uf_median_iX  = m0_UYf_median_iX(1:num_Uf_ivs,1);
+m0_Yf_median_iX  = m0_UYf_median_iX(num_Uf_ivs+1:end,1);  clear m0_UYf_median_iX
+m0_Uf_pctiles_iX = m0_UYf_pctiles_iX(1:num_Uf_ivs,1);
+m0_Yf_pctiles_iX = m0_UYf_pctiles_iX(num_Uf_ivs+1:end,1); clear m0_UYf_pctiles_iX
+
 m0_YUf_time = toc(m0_YUf_tictoc);
-fprintf('\t\tFinished in %.2f seconds\n', m0_YUf_time);
+fprintf('Finished in %.2f seconds\n', m0_YUf_time);
 
 end
 
 %% Helper function to calculate statistics for m0
 function [m0_Uf_mean2, m0_Uf_median2, m0_Uf_pctiles2] = calc_stats(m0_Uf_data2,nu,spX,pctiles,num_diags,ij_adiags)
 % calculates mean, median, percentiles for Uf or Yf data
-% written below for Uf data, but used likewise for Yf data
 
 num_pctiles = numel(pctiles);
 % initialize m0_Uf_...

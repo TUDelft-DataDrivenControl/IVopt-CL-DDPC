@@ -53,13 +53,13 @@ switch data_type
         X_all = p_all;
 end
 
-% if isfile('processed_data.mat')
-%     load("processed_data.mat");
-% else
-%     fprintf('Processed data file not found\n')
-%     fprintf('Processing data in directory\n');
-    [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts,plant);
-% end
+if isfile('processed_data.mat')
+    load("processed_data.mat");
+else
+    fprintf('Processed data file not found\n')
+    fprintf('Processing data in directory\n');
+    [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
+end
 
 if onCluster
     % do not attempt plotting if running on cluster
@@ -68,7 +68,7 @@ end
 
 %% Get monitor positions
 monitors = get(0, 'MonitorPositions');
-monPos = monitors(1,:);
+monPos = monitors(3,:);
 
 %% Plotting - figure 1: example of Uf_iv (m0)
 % possible cases: see ivs in CaseDefinitions.m
@@ -172,7 +172,7 @@ switch data_type
         YScale = 'log';
         LegCols = 2;
     case 'p'
-        useFillCases = {'iv1','CLSPC','actLf'};
+        useFillCases = {'iv1','CLSPC','actLf','iv2a'};
         noPlotCases  = {'iv1'};
         XScale = 'linear';
         YScale = 'linear';

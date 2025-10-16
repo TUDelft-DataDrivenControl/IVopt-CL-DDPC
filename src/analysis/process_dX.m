@@ -1,4 +1,4 @@
-function [m0,m1,m2,m3] = process_dX(data_type,seeds,X_all,opts,plant)
+function [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant)
 arguments
     data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
     seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
@@ -7,7 +7,7 @@ arguments
     plant ss
 end
 spX = size(seeds,1);
-[f,nu,ny,Ncl] = deal(opts.f,opts.nu,opts.ny,opts.Ncl);
+[f,nu,ny] = deal(opts.f,opts.nu,opts.ny);
 switch data_type
     case 'N'
         p   = opts.p;
@@ -104,7 +104,8 @@ IDerrorTypes = {'Up','Yp','Uf'};
 num_IDerrorTypes = numel(IDerrorTypes);
 
 % --- Preallocate sliceable containers ---
-m2_data = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
+m2_data  = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
+mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,size(Lf,1),size(Lf,2)
 
 % ======================== initialize measure 3 (m3) ======================
 % -> DDPC performance
@@ -124,14 +125,9 @@ m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
 
 % ======================== measure 4 (prediction error) ===================
 % -> prediction error
-% -> structure: yf.<caseName>.pred_est   (nX,ny*f,Ncl-f+1,spX)  Lf_est   *[Up;Yp;Uf]   (nX,ny*f,Ncl-f+1,spX,num_Cases) 
-%                            .pred_ideal (nX,ny*f,Ncl-f+1,spX)  Lf_actual*[Up;Yp;Uf]   (nX,ny*f,Ncl-f+1,spX,num_Cases) 
-%                            .act        (nX,ny,  Ncl,    spX)  actual future outputs  (nX,ny  ,Ncl    ,spX,num_Cases) 
-%                 .effect_Ep             (nX,ny*f,Ncl-f+1,spX)  effect of past noise   (nX,ny*f,Ncl-f+1,spX) 
-%                 .effect_Ef             (nX,ny*f,Ncl-f+1,spX)  effect of future noise (nX,ny*f,Ncl-f+1,spX) 
 [Yf_RelErr_sd,Yf_RelErr_mean] = deal(zeros(nX,ny*f,num_Cases,4));
 
-%% --------------------------- loop over Re \ N values -----------------------
+%% -------------------- loop over Re \ N \ p values -----------------------
 % Check and start parallel pool if needed
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     if ~isempty(gcp('nocreate'))
@@ -142,19 +138,19 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],15,ntasks=nworkers,cpt=1,GB=3.8);
     parpool(myCluster,nworkers);
 else
-    % if ~isempty(gcp('nocreate'))
-    %     curr_pool = gcp('nocreate');
-    %     if curr_pool.NumWorkers < feature('numcores')
-    %         delete(curr_pool);
-    %         parpool('local',feature('numcores'));
-    %     end
-    % else
-    %     parpool('local', feature('numcores'));
-    % end
+    if ~isempty(gcp('nocreate'))
+        curr_pool = gcp('nocreate');
+        if curr_pool.NumWorkers < feature('numcores')
+            delete(curr_pool);
+            parpool('local',feature('numcores'));
+        end
+    else
+        parpool('local', feature('numcores'));
+    end
 end
 
 
-% start iterating over Re \ N values
+% start iterating over Re \ N \ p values
 for iX = 1:nX
 
     switch data_type
@@ -190,37 +186,24 @@ for iX = 1:nX
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % ------------------------ calculations for m0 ------------------------
-    % [m0_Uf_mean(:,iX), m0_Yf_mean(:,iX), m0_Uf_median(:,iX), m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
+    [m0_Uf_mean(:,iX),   m0_Yf_mean(:,iX),    m0_Uf_median(:,iX), ...
+     m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] ...
+     = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
 
     % --------------------- calculations for m1,m2,m3 ---------------------
-    % -> structure: yf.<caseName>.pred_est   (nX,ny*f,Ncl-f+1,spX)  Lf_est   *[Up;Yp;Uf]   (nX,ny*f,Ncl-f+1,spX,num_Cases) 
-    %                            .pred_ideal (nX,ny*f,Ncl-f+1,spX)  Lf_actual*[Up;Yp;Uf]   (nX,ny*f,Ncl-f+1,spX,num_Cases) 
-    %                            .act        (nX,ny,  Ncl,    spX)  actual future outputs  (nX,ny  ,Ncl    ,spX,num_Cases) 
-    %                 .effect_Ep             (nX,ny*f,Ncl-f+1,spX)  effect of past noise   (nX,ny*f,Ncl-f+1,spX) 
-    %                 .effect_Ef             (nX,ny*f,Ncl-f+1,spX)  effect of future noise (nX,ny*f,Ncl-f+1,spX) 
-
     % iterates over noise realizations
-    [m1_Uf_data(:, iX, :), m1_Yf_data(:, iX, :), m2_data(:, :, iX, :), m3_data(:, :, iX, :),...
-    Yf_RelErr_sd(iX,:,:,:),Yf_RelErr_mean(iX,:,:,:)] = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,Ncl);
+    [m1_Uf_data(:, iX, :), m1_Yf_data(:, iX, :),  m2_data(:, :, iX, :), mLf_data{iX},...
+     m3_data(:, :, iX, :), Yf_RelErr_sd(iX,:,:,:),Yf_RelErr_mean(iX,:,:,:)] ...
+     = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat);
 
     cd(subdir1);
 end
-delete(gcp('nocreate')); % close parallel pool
-
-%% processing data - yf (predictions)
-yf = struct;
-for k = 1:numel(Cases)
-    for iX = 1:nX
-        iXstr = sprintf('iX%d',iX);
-        [~,Yf_act,~] = make_Hankel(yf_actual(iX,:,:,:,k),f,0);
-        yf.pred_est_error.(Cases{k}).(iXstr) = yf_pred_est(iX,:,:,:,k)-Yf_act;
-    end
+if ismember('SlurmProfile1',parallel.clusterProfiles)
+    delete(gcp('nocreate')); % close parallel pool
 end
-
 
 %% processing data - m0 (IV statistics)
 fprintf("Processing m0 data\n")
-
 m0 = struct;
 % Uf part
 tic
@@ -292,6 +275,27 @@ end
 clear m2_data
 toc
 
+mLf = struct(); % <- mLf_data = nan(nX,num_Cases,spX,ny*f,size(Lf,1),size(Lf,2));
+tic
+for kC = 1:num_Cases
+    caseName = Cases{kC};
+    for iX = 1:nX
+        iXstr = sprintf('iX%d',iX);
+        mLf_data_iX_kC = squeeze(mLf_data{iX}(kC, :, :,:));
+        if strcmp(caseName,'actLf')
+            mLf.(caseName).(iXstr) = squeeze(mLf_data_iX_kC(1,:,:)); % same for all seeds
+        else
+            mLf.(caseName).(iXstr).data    = mLf_data_iX_kC;
+            mLf.(caseName).(iXstr).mean    = squeeze( mean(    mLf_data_iX_kC, 1) );
+            mLf.(caseName).(iXstr).median  = squeeze( median(  mLf_data_iX_kC, 1) );
+            mLf.(caseName).(iXstr).pctiles = squeeze( prctile( mLf_data_iX_kC, pctiles, 1) );
+            mLf.(caseName).(iXstr).std     = squeeze( std( mLf_data_iX_kC, 0 ,1) );
+        end
+    end
+end
+clear mLf_data
+toc
+
 %% processing data - m3 (DDPC performance)
 fprintf("Processing m3 data\n")
 
@@ -310,10 +314,37 @@ end
 clear m3_data
 toc
 
+%% processing data - m4 (yf prediction errors)
+% since data can vary greatly in magnitude: use relevative difference
+m4 = struct;
+tic;
+for kC = 1:numel(Cases)
+    caseName = Cases{kC};
+    for iX = 1:nX
+        iXstr = sprintf('iX%d',iX);
+        % (Yf_hat  - Yf)./Yf -> yfhat
+        m4.yfhat.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,1)); % mean over spX seeds
+        m4.yfhat.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,1));   % mean std. dev. per seed over spX seeds
+
+        % (Yf_hatS  - Yf)./Yf -> yfhatS
+        m4.yfhatS.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,2)); % mean over spX seeds
+        m4.yfhatS.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,2));   % mean std. dev. per seed over spX seeds
+
+        % Yf_by_Ep./Yf -> MatEp        ratio of contribution of Ep to Yf
+        m4.MatEp.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,3)); % mean over spX seeds
+        m4.MatEp.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,3));   % mean std. dev. per seed over spX seeds
+
+        % Yf_by_Ef./Yf -> HfEf          = Hf*Ef./Yf
+        m4.HfEf.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,4)); % mean over spX seeds
+        m4.HfEf.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,4));   % mean std. dev. per seed over spX seeds
+    end
+end
+toc
+
 %% save processed data
 fndata = 'processed_data.mat';
 fprintf('Saving data to %s\n',fndata);
-% save(fndata,'m0','m1','m2','m3');
+save(fndata,'m0','m1','m2','m3','m4');
 
 end
 

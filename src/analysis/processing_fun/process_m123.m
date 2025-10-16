@@ -1,6 +1,6 @@
-function [m1_Uf_data_iX, m1_Yf_data_iX, m2_data_iX, m3_data_iX,...
+function [m1_Uf_data_iX, m1_Yf_data_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
     Yf_RelErr_sd_iX,Yf_RelErr_mean_iX] ...
-    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,Ncl)
+    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat)
 
 % initializing max counters needed for nested for loop inside parfor
 num_Uf_ivs       = numel(Uf_ivs); 
@@ -9,16 +9,18 @@ num_Cases        = numel(Cases);
 num_IDerrorTypes = numel(IDerrorTypes);
 num_cost_types   = numel(cost_types);
 
-m1_Uf_data_iX = zeros(num_Uf_ivs,spX);                    % cell sizes: num_Uf_ivs x spX
-m1_Yf_data_iX = zeros(num_Yf_ivs,spX);                    % cell sizes: num_Yf_ivs x spX
-m2_data_iX    = zeros(num_IDerrorTypes,num_Cases,spX);    % cell sizes: num_IDerrorTypes x num_Cases x spX
-m3_data_iX    = zeros(num_cost_types,num_Cases,spX);      % cell sizes: num_cost_types   x num_Cases x spX
+m1_Uf_data_iX = zeros(num_Uf_ivs,spX);
+m1_Yf_data_iX = zeros(num_Yf_ivs,spX);
+m2_data_iX    = zeros(num_IDerrorTypes,num_Cases,spX);
+m3_data_iX    = zeros(num_cost_types,num_Cases,spX);
+cols_Lf = (ny+nu)*p+ny*f;
+mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
-% measure 4: future outputs: actual, predictions & error contributions (by Ep & Ef)
-[Yf_RelErr_sd_iX1,Yf_RelErr_mean_iX1] = deal(zeros(ny*f,num_Cases,spX));
-[Yf_RelErr_sd_iX2,Yf_RelErr_mean_iX2] = deal(zeros(ny*f,num_Cases,spX));
-[Yf_RelErr_sd_iX3,Yf_RelErr_mean_iX3] = deal(zeros(ny*f,num_Cases,spX));
-[Yf_RelErr_sd_iX4,Yf_RelErr_mean_iX4] = deal(zeros(ny*f,num_Cases,spX));
+% measure 4: future output errors: actual, predictions & error contributions (by Ep & Ef)
+[Yf_RelErr_sd_iX1,Yf_RelErr_mean_iX1] = deal(zeros(ny*f,num_Cases,spX)); % (Yf_hat  - Yf)./Yf
+[Yf_RelErr_sd_iX2,Yf_RelErr_mean_iX2] = deal(zeros(ny*f,num_Cases,spX)); % (Yf_hatS - Yf)./Yf
+[Yf_RelErr_sd_iX3,Yf_RelErr_mean_iX3] = deal(zeros(ny*f,num_Cases,spX)); % Yf_by_Ep./Yf
+[Yf_RelErr_sd_iX4,Yf_RelErr_mean_iX4] = deal(zeros(ny*f,num_Cases,spX)); % Yf_by_Ef./Yf
 
 iyf = nu*f + (1:ny*f); % row indices of Yf in Z
 
@@ -41,7 +43,7 @@ end
 m123_tictoc = tic;
 txt_iters = sprintf('\tm1, m2, m3: Iterating over seeds (see waitbar).');
 fprintf('%s',txt_iters);
-for ks = 1:spX
+parfor ks = 1:spX
     seed = seeds(ks,iX);
     fndata = sprintf('seed_%d.mat',seed);
     [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata);
@@ -102,6 +104,17 @@ for ks = 1:spX
         end
     end
 
+    % mLf) average identified Lf
+    mLf_data_iX_ks = zeros(num_Cases,ny*f,cols_Lf);
+    for kC = 1:num_Cases
+        CaseName = Cases{kC};
+        if ~(strcmp(CaseName,'actLf') && ks > 1)
+            mLf_data_iX_ks(kC,:,:) = Lf.(CaseName);
+        end
+    end
+    mLf_data_iX(:,ks,:,:) = mLf_data_iX_ks;
+
+
     % =================================================================
     % m3) DDPC performance
     for kType = 1:num_cost_types
@@ -125,11 +138,6 @@ for ks = 1:spX
 
     % =================================================================
     % m4) prediction error
-    % -> structure: yf.<caseName>.pred_est   (nX,ny*f,Ncl-f+1,spX)      Lf_est   *[Up;Yp;Uf]
-    %                            .pred_ideal (nX,ny*f,Ncl-f+1,spX)      Lf_actual*[Up;Yp;Uf]
-    %                            .act        (nX,ny,  Ncl,    spX)      actual future outputs
-    %                            .effect_Ep  (nX,ny*f,Ncl-f+1,spX)      effect of past noise
-    %                            .effect_Ef  (nX,ny*f,Ncl-f+1,spX)      effect of future noise: Hf*Ef
     % Yf_RelErr_sd : (nX, ny*f, num_Cases, spX, 4)
 
     e_all = [e0(:,end-p+1:end) e1];
@@ -162,6 +170,8 @@ for ks = 1:spX
     % =================================================================
     if ~onCluster; send(D, []); end % update waitbar
 end % of parfor
+
+% reformat data for m4
 Yf_RelErr_mean_iX = squeeze(mean(cat(4,Yf_RelErr_mean_iX1,Yf_RelErr_mean_iX2,Yf_RelErr_mean_iX3,Yf_RelErr_mean_iX4),3)); % ny*f, num_Cases,1,4
 clear Yf_RelErr_mean_iX1 Yf_RelErr_mean_iX2 Yf_RelErr_mean_iX3 Yf_RelErr_mean_iX4
 Yf_RelErr_sd_iX  = squeeze(mean(cat(4,Yf_RelErr_sd_iX1, Yf_RelErr_sd_iX2, Yf_RelErr_sd_iX3, Yf_RelErr_sd_iX4) ,3));
