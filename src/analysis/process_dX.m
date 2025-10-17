@@ -118,11 +118,11 @@ mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,si
 cost_types = {'cost_u','cost_y','cost_tot'};
 
 % --- Preallocate sliceable containers ---
-m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);   % main data
+m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);
 
 % ======================== measure 4 (prediction error) ===================
 % -> prediction error
-[Yf_RelErr_sd,Yf_RelErr_mean] = deal(zeros(nX,ny*f,num_Cases,4));
+m4_data = zeros(nX,ny*f,num_Cases,4,2);
 
 %% -------------------- loop over Re \ N \ p values -----------------------
 % Check and start parallel pool if needed
@@ -176,13 +176,11 @@ for iX = 1:nX
             cd(subdir2); % navigate into <subdir2>
     end
     
-    
     % ======================== processing m0, m1, m2, m3 ==================
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % iterates over noise realizations
-    [m0_UYf(:,iX,:),m1_UYf(:, iX, :), m2_data(:, :, iX, :), mLf_data{iX},...
-     m3_data(:, :, iX, :), Yf_RelErr_sd(iX,:,:,:),Yf_RelErr_mean(iX,:,:,:)] ...
+    [m0_UYf(:,iX,:),m1_UYf(:, iX, :), m2_data(:, :, iX, :), mLf_data{iX},m3_data(:, :, iX, :), m4_data(iX,:,:,:,:)] ...
      = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars);
 
     cd(subdir1);
@@ -223,8 +221,8 @@ for k = 1:numel(OutVars)
         
         % ----- m4 (yf prediction errors) -----------------------------------
         case 'm4'
-            m4 = m4_data2struct(Yf_RelErr_mean,Yf_RelErr_sd,Cases,nX);
-            clear Yf_RelErr_mean Yf_RelErr_sd
+            m4 = m4_data2struct(m4_data,Cases,nX);
+            clear m4_data
     end
 end
 

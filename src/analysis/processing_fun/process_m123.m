@@ -1,5 +1,5 @@
 function [m0_UYf_iX,m1_UYf_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
-    Yf_RelErr_sd_iX,Yf_RelErr_mean_iX] ...
+    m4_data_iX] ...
     = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars)
 %% ======================== initialize data containers ======================
 
@@ -19,10 +19,9 @@ m3_data_iX    = zeros(num_cost_types,  num_Cases,spX);
 cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
-% measure 4: future output errors: actual, predictions & error contributions (by Ep & Ef)
-% Combine the 4 error components into one 4-D array: (ny*f) x num_Cases x spX x 4
-Yf_RelErr_sd_iX   = zeros(ny*f, num_Cases, spX, 4);
-Yf_RelErr_mean_iX = zeros(ny*f, num_Cases, spX, 4);
+% measure 4: future output relative errors: actual, predictions & contributions (by Ep & Ef)
+% Combine the 4 error components into one 5-D array: (ny*f) x num_Cases x spX x 4 x 2
+m4_data_iX = zeros(ny*f, num_Cases, spX, 4, 2); % (:,:,:,:,i): i=1 -> std. dev, i=2 -> mean
 
 % determine if running on cluster
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
@@ -81,8 +80,7 @@ parfor ks = 1:spX
     % =================================================================
     % m4) prediction error
         case 'm4'
-            [Yf_RelErr_sd_iX(:,:,ks,:), Yf_RelErr_mean_iX(:,:,ks,:)] = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f);
-
+            m4_data_iX(:,:,ks,:,:) = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f);
     end
     end
 
@@ -93,14 +91,13 @@ end % of parfor
 %% processing of seeds
 if ismember('m0',OutVars)
     % calculate statistics for m0 data from all seeds
-    m0_UYf_iX = calc_stats_seeds_m0(m0_UYf_data, num_Uf_ivs, nu, ny, f, N, spX, pctiles, Uf_ij_adiags, Yf_ij_adiags);
+    m0_UYf_iX = calc_stats_seeds_m0(m0_UYf_data, num_Uf_ivs, nu, ny, f, N, spX, pctiles);
 end
 
 % reformat data for m4
 if ismember('m4',OutVars)
-    % mean over seeds (3rd dim). Result: ny*f x num_Cases x 1 x 4 -> squeeze to ny*f x num_Cases x 4
-    Yf_RelErr_mean_iX = squeeze(mean(Yf_RelErr_mean_iX, 3));
-    Yf_RelErr_sd_iX   = squeeze(mean(Yf_RelErr_sd_iX,   3));
+    % mean over seeds (3rd dim) -> squeeze to ny*f x num_Cases x 4 x 2
+    m4_data_iX = squeeze(mean(m4_data_iX, 3));
 end
 
 m123_time = toc(m123_tictoc);

@@ -1,4 +1,4 @@
-function m0_UYf_iX = calc_stats_seeds_m0(UYf_data_per_seed, num_Uf_ivs, nu, ny, f, N, spX, pctiles, Uf_ij_adiags, Yf_ij_adiags)
+function m0_UYf_iX = calc_stats_seeds_m0(UYf_data_per_seed, num_Uf_ivs, nu, ny, f, N, spX, pctiles)
 %CALC_STATS_SEEDS_M0 Aggregate per-seed U/Yf data and compute stats per IV
 %   Inputs:
 %     UYf_data_per_seed : cell(spX, num_IVs) with each cell a matrix (nu*f x N) or (ny*f x N)
@@ -6,6 +6,10 @@ function m0_UYf_iX = calc_stats_seeds_m0(UYf_data_per_seed, num_Uf_ivs, nu, ny, 
 %     nu, ny, f, N, spX : dimensions
 %     pctiles           : percentiles vector
 %     Uf_ij_adiags, Yf_ij_adiags : cell arrays with diag indices
+
+% Pre-compute cell arrays diagonal indices (same for all seeds)
+Uf_ij_adiags = get_subind_diags(f,N,nr=nu,anti=true);
+Yf_ij_adiags = get_subind_diags(f,N,nr=ny,anti=true);
 
 num_IVs = size(UYf_data_per_seed, 2);
 num_diags = f + N - 1;

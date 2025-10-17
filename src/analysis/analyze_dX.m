@@ -54,6 +54,7 @@ switch data_type
         X_all = p_all;
 end
 
+% get data structures - load or by processing data
 if isfile('processed_data.mat')
     expectedVars = {'m0','m1','m2','mLf','m3','m4'};
     availVars = {whos('-file','processed_data.mat').name};

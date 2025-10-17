@@ -1,4 +1,4 @@
-function [Yf_RelErr_sd_block, Yf_RelErr_mean_block] = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f)
+function Yf_RelErr_iX_ks = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f)
 %PROCESS_M4_SEED Compute Yf relative error statistics for a single seed
 %   Returns two blocks of size (ny*f) x num_Cases x 4 where the 4 corresponds
 %   to the different error components. The function assumes sizes are
@@ -16,7 +16,7 @@ num_Cases = numel(Cases);
 % Determine ny*f from dimensions of Yf_by_Ep
 nyf = size(Yf_by_Ep,1);
 
-Yf_RelErr_block = zeros(nyf, num_Cases, 4, 2); % (:,:,:,1) -> std. dev, (:,:,:,2) -> mean
+Yf_RelErr_iX_ks = zeros(nyf, num_Cases, 4, 2); % (:,:,:,1) -> std. dev, (:,:,:,2) -> mean
 
 for kC = 1:num_Cases
     caseName = Cases{kC};
@@ -34,10 +34,10 @@ for kC = 1:num_Cases
     end
 
     % since data can vary greatly in magnitude: use relevative difference
-    [Yf_RelErr_block(:,kC,1,1), Yf_RelErr_block(:,kC,1,2)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
-    [Yf_RelErr_block(:,kC,2,1), Yf_RelErr_block(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
-    [Yf_RelErr_block(:,kC,3,1), Yf_RelErr_block(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
-    [Yf_RelErr_block(:,kC,4,1), Yf_RelErr_block(:,kC,4,2)] = std( Yf_by_Ef./Yf, 0, 2);
+    [Yf_RelErr_iX_ks(:,kC,1,1), Yf_RelErr_iX_ks(:,kC,1,2)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
+    [Yf_RelErr_iX_ks(:,kC,2,1), Yf_RelErr_iX_ks(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
+    [Yf_RelErr_iX_ks(:,kC,3,1), Yf_RelErr_iX_ks(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
+    [Yf_RelErr_iX_ks(:,kC,4,1), Yf_RelErr_iX_ks(:,kC,4,2)] = std( Yf_by_Ef./Yf, 0, 2);
 end
 
 end
