@@ -40,9 +40,10 @@ subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
 nX = numel(subdir2s);
 
 % find Cases used
+%  -> expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
+%                          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
 seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
 Cases = load(seed_mat_files(1).name,'Cases').Cases;
-% expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c', 'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
 num_Cases = numel(Cases);
 
 %% initializing measures
@@ -66,7 +67,7 @@ num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
 % initialize cell arrays: combine mean/median/pctiles into 3rd dim
-m0_UYf = cell(num_Uf_ivs+num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median, (:,:,3)=pctiles
+m0_UYf = cell(num_Uf_ivs + num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median, (:,:,3)=pctiles
 
 % ======================== initialize measure 1 (m1) ======================
 % -> how well IV approximates optimal IV
@@ -82,8 +83,8 @@ m0_UYf = cell(num_Uf_ivs+num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median, 
 pctiles = 0:5:100;
 
 % --- Preallocate "sliced" containers ---
-m1_Uf_data = zeros(num_Uf_ivs, nX, spX);
-m1_Yf_data = zeros(num_Yf_ivs, nX, spX);
+% Combine Uf and Yf into a single array for easier handling: (num_Uf_ivs+num_Yf_ivs) x nX x spX
+m1_UYf = zeros(num_Uf_ivs + num_Yf_ivs, nX, spX);
 
 % ======================== initialize measure 2 (m2) ======================
 % -> identification error (frobenius norm)
@@ -145,10 +146,8 @@ else
     end
 end
 
-
 % start iterating over Re \ N \ p values
 for iX = 1:nX
-
     switch data_type
         case {'N','p'}
             if strcmp(data_type,'N')
@@ -181,18 +180,10 @@ for iX = 1:nX
     % ======================== processing m0, m1, m2, m3 ==================
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
-    % ------------------------ calculations for m0 ------------------------
-    if ismember('m0',OutVars)
-        m0_UYf(:,iX,:) = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
-    end
-
-    % --------------------- calculations for m1,m2,m3 ---------------------
-    if any(ismember({'m1','m2','mLf','m3'},OutVars))
     % iterates over noise realizations
-    [m1_Uf_data(:, iX, :), m1_Yf_data(:, iX, :),  m2_data(:, :, iX, :), mLf_data{iX},...
+    [m0_UYf(:,iX,:),m1_UYf(:, iX, :), m2_data(:, :, iX, :), mLf_data{iX},...
      m3_data(:, :, iX, :), Yf_RelErr_sd(iX,:,:,:),Yf_RelErr_mean(iX,:,:,:)] ...
-     = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,OutVars);
-    end
+     = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars);
 
     cd(subdir1);
 end
@@ -200,170 +191,44 @@ if ismember('SlurmProfile1',parallel.clusterProfiles)
     delete(gcp('nocreate')); % close parallel pool
 end
 
-%% processing data - m0 (IV statistics)
-if ismember('m0',OutVars)
-    fprintf("Processing m0 data\n")
-    m0 = struct;
-    % Uf part
-    tic
-    for k = 1:num_Uf_ivs
-        for iX = 1:nX
-            iXstr = sprintf('iX%d',iX);
-            m0.Uf.(Uf_ivs{k}).(iXstr).mean     = m0_UYf{k,iX,1};
-            m0.Uf.(Uf_ivs{k}).(iXstr).median   = m0_UYf{k,iX,2};
-            m0.Uf.(Uf_ivs{k}).(iXstr).pctiles  = m0_UYf{k,iX,3};
-        end
+%% ============= Data processing and transforming to structures ============
+[m0,m1,m2,mLf,m3,m4] = deal([]); % overwritten if in OutVars
+for k = 1:numel(OutVars)
+    OutVar = OutVars{k};
+    switch OutVar
+        % ----- m0 (IV statistics) ------------------------------------------
+        case 'm0'
+            m0 = m0_data2struct(m0_UYf, Uf_ivs, Yf_ivs, nX);
+            clear m0_UYf
+        
+        % ----- m1 (quality of the approximation of the optimal IV) ---------
+        case 'm1'
+            m1 = m1_data2struct(m1_UYf, Uf_ivs, Yf_ivs,pctiles);
+            clear m1_UYf
+        
+        % ----- m2 (identification error, frobenius norm) -------------------
+        case 'm2'
+            m2 = m2_data2struct(m2_data, Cases, IDerrorTypes, pctiles);
+            clear m2_data;
+        
+        % ----- mLf (Lf values) ---------------------------------------------
+        case 'mLf'
+            mLf = mLf_data2struct(mLf_data, Cases, nX, pctiles);
+            clear mLf_data;
+        
+        % ----- m3 (DDPC performance) ---------------------------------------
+        case 'm3'
+            m3 = m3_data2struct(m3_data,cost_types,Cases,pctiles);
+            clear m3_data;
+        
+        % ----- m4 (yf prediction errors) -----------------------------------
+        case 'm4'
+            m4 = m4_data2struct(Yf_RelErr_mean,Yf_RelErr_sd,Cases,nX);
+            clear Yf_RelErr_mean Yf_RelErr_sd
     end
-    clear m0_Uf
-    toc
-
-    % Yf part
-    tic
-    for k = num_Uf_ivs+(1:num_Yf_ivs)
-        kY = k - num_Uf_ivs;
-        for iX = 1:nX
-            iXstr = sprintf('iX%d',iX);
-            m0.Yf.(Yf_ivs{kY}).(iXstr).mean     = m0_UYf{k,iX,1};
-            m0.Yf.(Yf_ivs{kY}).(iXstr).median   = m0_UYf{k,iX,2};
-            m0.Yf.(Yf_ivs{kY}).(iXstr).pctiles  = m0_UYf{k,iX,3};
-        end
-    end
-    clear m0_Yf
-    toc
-else
-    m0 = [];
 end
 
-%% processing data - m1 (quality of the approximation of the optimal IV)
-if ismember('m1',OutVars)
-    fprintf("Processing m1 data\n")
-    m1 = struct();
-    tic
-    % Uf part
-    for k = 1:numel(Uf_ivs)
-        m1.Uf.(Uf_ivs{k}).data     = squeeze( m1_Uf_data(k,:,:) );
-        m1.Uf.(Uf_ivs{k}).mean     = mean(    m1.Uf.(Uf_ivs{k}).data, 2);
-        m1.Uf.(Uf_ivs{k}).median   = median(  m1.Uf.(Uf_ivs{k}).data, 2);
-        m1.Uf.(Uf_ivs{k}).pctiles  = prctile( m1.Uf.(Uf_ivs{k}).data, pctiles, 2);
-    end
-    clear m1_Uf_data
-    toc
-
-    tic
-    % Yf part
-    for k = 1:numel(Yf_ivs)
-        m1.Yf.(Yf_ivs{k}).data     = squeeze( m1_Yf_data(k,:,:) );
-        m1.Yf.(Yf_ivs{k}).mean     = mean(    m1.Yf.(Yf_ivs{k}).data, 2);
-        m1.Yf.(Yf_ivs{k}).median   = median(  m1.Yf.(Yf_ivs{k}).data, 2);
-        m1.Yf.(Yf_ivs{k}).pctiles  = prctile( m1.Yf.(Yf_ivs{k}).data, pctiles, 2);
-    end
-    clear m1_Yf_data
-    toc
-else
-    m1 = [];
-end
-
-%% processing data - m2 (identification error)
-if ismember('m2',OutVars)
-    fprintf("Processing m2 data\n")
-    m2 = struct(); % <- m2_data(kType, kIVn, iX, ks)
-    tic
-    for kType = 1:numel(IDerrorTypes)
-        typeName = IDerrorTypes{kType};
-        for kIVn = 1:numel(Cases)
-            caseName = Cases{kIVn};
-            m2.(typeName).(caseName).data    = squeeze( m2_data(kType, kIVn, :, :) );
-            m2.(typeName).(caseName).mean    = mean(    m2.(typeName).(caseName).data, 2);
-            m2.(typeName).(caseName).median  = median(  m2.(typeName).(caseName).data, 2);
-            m2.(typeName).(caseName).pctiles = prctile( m2.(typeName).(caseName).data, pctiles, 2);
-        end
-    end
-    clear m2_data
-    toc
-else
-    m2 = [];
-end
-
-if ismember('mLf',OutVars)
-    fprintf("Processing mLf data\n")
-    mLf = struct(); % <- mLf_data = nan(nX,num_Cases,spX,ny*f,size(Lf,1),size(Lf,2));
-    tic
-    for kC = 1:num_Cases
-        caseName = Cases{kC};
-        for iX = 1:nX
-            iXstr = sprintf('iX%d',iX);
-            mLf_data_iX_kC = squeeze(mLf_data{iX}(kC, :, :,:));
-            if strcmp(caseName,'actLf')
-                mLf.(caseName).(iXstr) = squeeze(mLf_data_iX_kC(1,:,:)); % same for all seeds
-            else
-                mLf.(caseName).(iXstr).data    = mLf_data_iX_kC;
-                mLf.(caseName).(iXstr).mean    = squeeze( mean(    mLf_data_iX_kC, 1) );
-                mLf.(caseName).(iXstr).median  = squeeze( median(  mLf_data_iX_kC, 1) );
-                mLf.(caseName).(iXstr).pctiles = squeeze( prctile( mLf_data_iX_kC, pctiles, 1) );
-                mLf.(caseName).(iXstr).std     = squeeze( std( mLf_data_iX_kC, 0 ,1) );
-            end
-        end
-    end
-    clear mLf_data
-    toc
-else
-    mLf = [];
-end
-
-%% processing data - m3 (DDPC performance)
-if ismember('m3',OutVars)
-    fprintf("Processing m3 data\n")
-    m3 = struct(); % <- m3_data(kType, kIVn, iX, ks)
-    tic
-    for kType = 1:numel(cost_types)
-        costName = cost_types{kType};
-        for kIVn = 1:numel(Cases)
-            caseName = Cases{kIVn};
-            m3.(costName).(caseName).data    = squeeze( m3_data(kType, kIVn, :, :) );
-            m3.(costName).(caseName).mean    = mean(    m3.(costName).(caseName).data, 2);
-            m3.(costName).(caseName).median  = median(  m3.(costName).(caseName).data, 2);
-            m3.(costName).(caseName).pctiles = prctile( m3.(costName).(caseName).data, pctiles, 2);
-        end
-    end
-    clear m3_data
-    toc
-else
-    m3 = [];
-end
-
-%% processing data - m4 (yf prediction errors)
-% since data can vary greatly in magnitude: use relevative difference
-if ismember('m4',OutVars)
-    fprintf("Processing m4 data\n")
-    m4 = struct;
-    tic;
-    for kC = 1:numel(Cases)
-        caseName = Cases{kC};
-        for iX = 1:nX
-            iXstr = sprintf('iX%d',iX);
-            % (Yf_hat  - Yf)./Yf -> yfhat
-            m4.yfhat.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,1)); % mean over spX seeds
-            m4.yfhat.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,1));   % mean std. dev. per seed over spX seeds
-
-            % (Yf_hatS  - Yf)./Yf -> yfhatS
-            m4.yfhatS.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,2)); % mean over spX seeds
-            m4.yfhatS.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,2));   % mean std. dev. per seed over spX seeds
-
-            % Yf_by_Ep./Yf -> MatEp        ratio of contribution of Ep to Yf
-            m4.MatEp.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,3)); % mean over spX seeds
-            m4.MatEp.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,3));   % mean std. dev. per seed over spX seeds
-
-            % Yf_by_Ef./Yf -> HfEf          = Hf*Ef./Yf
-            m4.HfEf.(caseName).(iXstr).mean = squeeze(Yf_RelErr_mean(iX,:,kC,4)); % mean over spX seeds
-            m4.HfEf.(caseName).(iXstr).std  = squeeze(Yf_RelErr_sd(iX,:,kC,4));   % mean std. dev. per seed over spX seeds
-        end
-    end
-    toc
-else
-    m4 = [];
-end
-
-%% save processed data
+%% save processed data structures
 fndata = 'processed_data.mat';
 fprintf('Saving data to %s\n',fndata);
 if isfile(fndata)

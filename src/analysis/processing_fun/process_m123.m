@@ -1,18 +1,21 @@
-function [m1_Uf_data_iX, m1_Yf_data_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
+function [m0_UYf_iX,m1_UYf_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
     Yf_RelErr_sd_iX,Yf_RelErr_mean_iX] ...
-    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,OutVars)
+    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars)
+%% ======================== initialize data containers ======================
+
 num_OutVars = numel(OutVars);
 % initializing max counters needed for nested for loop inside parfor
 num_Uf_ivs       = numel(Uf_ivs); 
-num_Yf_ivs       = numel(Yf_ivs); 
+num_Yf_ivs       = numel(Yf_ivs);
 num_Cases        = numel(Cases);
 num_IDerrorTypes = numel(IDerrorTypes);
 num_cost_types   = numel(cost_types);
+num_IVs          = num_Uf_ivs + num_Yf_ivs;
 
-m1_Uf_data_iX = zeros(num_Uf_ivs,spX);
-m1_Yf_data_iX = zeros(num_Yf_ivs,spX);
+m0_UYf_data   = cell(spX, num_IVs);
+m1_UYf_iX     = zeros(num_IVs, spX);
 m2_data_iX    = zeros(num_IDerrorTypes,num_Cases,spX);
-m3_data_iX    = zeros(num_cost_types,num_Cases,spX);
+m3_data_iX    = zeros(num_cost_types,  num_Cases,spX);
 cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
@@ -21,12 +24,14 @@ mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 Yf_RelErr_sd_iX   = zeros(ny*f, num_Cases, spX, 4);
 Yf_RelErr_mean_iX = zeros(ny*f, num_Cases, spX, 4);
 
+% determine if running on cluster
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
     onCluster = true;
 else
     onCluster = false;
 end
 
+% waitbar setup
 if ~onCluster
     % Initialize progress tracking
     w = waitbar(0,sprintf('Progress: (%d/%d) -> %.1f%%',0,spX,0));
@@ -37,6 +42,7 @@ else
     D = []; % needed to prevent error in parfor
 end
 
+%% ---------------- Parallel iteration over seeds -------------------------
 m123_tictoc = tic;
 txt_iters = sprintf('\tm1, m2, m3: Iterating over seeds (see waitbar).');
 fprintf('%s',txt_iters);
@@ -49,11 +55,14 @@ parfor ks = 1:spX
     for kOutVar = 1:num_OutVars
         OutVar = OutVars{kOutVar};
     switch OutVar
-    
+    % =================================================================
+    % m0) statistics of Uf & Yf per IV
+        case 'm0'
+            m0_UYf_data(ks, :) = process_m0_seed(Z, Uf_ivs, Yf_ivs, nu, ny, f);
     % =================================================================
     % m1) how well IV approximates optimal one
         case 'm1'
-            [m1_Uf_data_iX(:,ks), m1_Yf_data_iX(:,ks)] = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f);
+            m1_UYf_iX(:, ks) = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f);
 
     % =================================================================
     % m2) identification error (frobenius norm)
@@ -81,6 +90,12 @@ parfor ks = 1:spX
     if ~onCluster; send(D, []); end % update waitbar
 end % of parfor
 
+%% processing of seeds
+if ismember('m0',OutVars)
+    % calculate statistics for m0 data from all seeds
+    m0_UYf_iX = calc_stats_seeds_m0(m0_UYf_data, num_Uf_ivs, nu, ny, f, N, spX, pctiles, Uf_ij_adiags, Yf_ij_adiags);
+end
+
 % reformat data for m4
 if ismember('m4',OutVars)
     % mean over seeds (3rd dim). Result: ny*f x num_Cases x 1 x 4 -> squeeze to ny*f x num_Cases x 4
@@ -101,7 +116,7 @@ function [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_s
     loadVars = {};
     for kOutVar = 1:numel(OutVars)
         switch OutVars{kOutVar}
-            case 'm1'
+            case {'m0','m1'}
                 loadVars = [loadVars, 'Z'];
             case 'm2'
                 loadVars = [loadVars, 'FroIDerror'];

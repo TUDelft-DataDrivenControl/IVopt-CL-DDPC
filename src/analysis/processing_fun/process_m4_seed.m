@@ -16,8 +16,7 @@ num_Cases = numel(Cases);
 % Determine ny*f from dimensions of Yf_by_Ep
 nyf = size(Yf_by_Ep,1);
 
-Yf_RelErr_sd_block = zeros(nyf, num_Cases, 4);
-Yf_RelErr_mean_block = zeros(nyf, num_Cases, 4);
+Yf_RelErr_block = zeros(nyf, num_Cases, 4, 2); % (:,:,:,1) -> std. dev, (:,:,:,2) -> mean
 
 for kC = 1:num_Cases
     caseName = Cases{kC};
@@ -34,10 +33,11 @@ for kC = 1:num_Cases
         Yf_hatS = Yf_hat;
     end
 
-    [Yf_RelErr_sd_block(:,kC,1), Yf_RelErr_mean_block(:,kC,1)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
-    [Yf_RelErr_sd_block(:,kC,2), Yf_RelErr_mean_block(:,kC,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
-    [Yf_RelErr_sd_block(:,kC,3), Yf_RelErr_mean_block(:,kC,3)] = std( Yf_by_Ep./Yf, 0, 2);
-    [Yf_RelErr_sd_block(:,kC,4), Yf_RelErr_mean_block(:,kC,4)] = std( Yf_by_Ef./Yf, 0, 2);
+    % since data can vary greatly in magnitude: use relevative difference
+    [Yf_RelErr_block(:,kC,1,1), Yf_RelErr_block(:,kC,1,2)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
+    [Yf_RelErr_block(:,kC,2,1), Yf_RelErr_block(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
+    [Yf_RelErr_block(:,kC,3,1), Yf_RelErr_block(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
+    [Yf_RelErr_block(:,kC,4,1), Yf_RelErr_block(:,kC,4,2)] = std( Yf_by_Ef./Yf, 0, 2);
 end
 
 end

@@ -1,13 +1,12 @@
-function [m1_Uf_col, m1_Yf_col] = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f)
+function m1_UYf_col = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f)
 %PROCESS_M1_SEED Compute m1 metrics for a single seed
-%   Returns column vectors m1_Uf_col (numel(Uf_ivs) x 1) and
+%   Returns concatenated column vectors m1_Uf_col (numel(Uf_ivs) x 1) and
 %   m1_Yf_col (numel(Yf_ivs) x 1) for the supplied Z struct.
 
 num_Uf_ivs = numel(Uf_ivs);
 num_Yf_ivs = numel(Yf_ivs);
 
-m1_Uf_col = zeros(num_Uf_ivs,1);
-m1_Yf_col = zeros(num_Yf_ivs,1);
+m1_UYf_col = zeros(num_Uf_ivs+num_Yf_ivs,1);
 
 % precompute index for Yf rows inside Z when needed
 iyf = nu*f + (1:ny*f);
@@ -20,7 +19,7 @@ for kIVu = 1:num_Uf_ivs
             % leave zero since this is the optimal IV for Uf
         otherwise
             Uf_iv = Z.([iv_name,'_']);
-            m1_Uf_col(kIVu) = norm(Uf_iv - Z.iv2a_, 'fro');
+            m1_UYf_col(kIVu) = norm(Uf_iv - Z.iv2a_, 'fro');
     end
 end
 
@@ -48,7 +47,7 @@ for kIVy = 1:num_Yf_ivs
     end
 
     if calc_norm
-        m1_Yf_col(kIVy) = norm(Yf_iv - Z.iv2b_(iyf,:), 'fro');
+        m1_UYf_col(kIVy + num_Uf_ivs) = norm(Yf_iv - Z.iv2b_(iyf,:), 'fro');
     end
 end
 end
