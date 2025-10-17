@@ -1,6 +1,6 @@
 function [m0_UYf_iX,m1_UYf_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
     m4_data_iX] ...
-    = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars)
+    = process_m_all(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars)
 %% ======================== initialize data containers ======================
 
 num_OutVars = numel(OutVars);

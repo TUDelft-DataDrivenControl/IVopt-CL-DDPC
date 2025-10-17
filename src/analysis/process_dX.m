@@ -181,7 +181,7 @@ for iX = 1:nX
     
     % iterates over noise realizations
     [m0_UYf(:,iX,:),m1_UYf(:, iX, :), m2_data(:, :, iX, :), mLf_data{iX},m3_data(:, :, iX, :), m4_data(iX,:,:,:,:)] ...
-     = process_m123(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars);
+     = process_m_all(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars);
 
     cd(subdir1);
 end
