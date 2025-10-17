@@ -65,13 +65,8 @@ Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};                            Yf_ivs
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
-% initialize cell arrays
-m0_Uf_mean = cell(num_Uf_ivs,nX);    % mean         cell sizes: nu x ndiags
-m0_Yf_mean = cell(num_Yf_ivs,nX);    %                          ny x ndiags
-m0_Uf_median = m0_Uf_mean;           % median
-m0_Yf_median = m0_Yf_mean;
-m0_Uf_pctiles = cell(num_Uf_ivs,nX); % percentiles  cell sizes: nu x ndiags x num_pctiles
-m0_Yf_pctiles = cell(num_Yf_ivs,nX); %                          ny x ndiags x num_pctiles
+% initialize cell arrays: combine mean/median/pctiles into 3rd dim
+m0_UYf = cell(num_Uf_ivs+num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median, (:,:,3)=pctiles
 
 % ======================== initialize measure 1 (m1) ======================
 % -> how well IV approximates optimal IV
@@ -188,9 +183,7 @@ for iX = 1:nX
     
     % ------------------------ calculations for m0 ------------------------
     if ismember('m0',OutVars)
-    [m0_Uf_mean(:,iX),   m0_Yf_mean(:,iX),    m0_Uf_median(:,iX), ...
-     m0_Yf_median(:,iX), m0_Uf_pctiles(:,iX), m0_Yf_pctiles(:,iX)] ...
-     = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
+        m0_UYf(:,iX,:) = process_m0(Uf_ivs,Yf_ivs,iX,nu,ny,f,N,seeds,spX,pctiles);
     end
 
     % --------------------- calculations for m1,m2,m3 ---------------------
@@ -213,28 +206,29 @@ if ismember('m0',OutVars)
     m0 = struct;
     % Uf part
     tic
-    for k = 1:numel(Uf_ivs)
+    for k = 1:num_Uf_ivs
         for iX = 1:nX
             iXstr = sprintf('iX%d',iX);
-            m0.Uf.(Uf_ivs{k}).(iXstr).mean     = m0_Uf_mean{k,iX};
-            m0.Uf.(Uf_ivs{k}).(iXstr).median   = m0_Uf_median{k,iX};
-            m0.Uf.(Uf_ivs{k}).(iXstr).pctiles  = m0_Uf_pctiles{k,iX};
+            m0.Uf.(Uf_ivs{k}).(iXstr).mean     = m0_UYf{k,iX,1};
+            m0.Uf.(Uf_ivs{k}).(iXstr).median   = m0_UYf{k,iX,2};
+            m0.Uf.(Uf_ivs{k}).(iXstr).pctiles  = m0_UYf{k,iX,3};
         end
     end
-    clear m0_Uf_mean m0_Uf_median m0_Uf_pctiles
+    clear m0_Uf
     toc
 
     % Yf part
     tic
-    for k = 1:numel(Yf_ivs)
+    for k = num_Uf_ivs+(1:num_Yf_ivs)
+        kY = k - num_Uf_ivs;
         for iX = 1:nX
             iXstr = sprintf('iX%d',iX);
-            m0.Yf.(Yf_ivs{k}).(iXstr).mean     = m0_Yf_mean{k,iX};
-            m0.Yf.(Yf_ivs{k}).(iXstr).median   = m0_Yf_median{k,iX};
-            m0.Yf.(Yf_ivs{k}).(iXstr).pctiles  = m0_Yf_pctiles{k,iX};
+            m0.Yf.(Yf_ivs{kY}).(iXstr).mean     = m0_UYf{k,iX,1};
+            m0.Yf.(Yf_ivs{kY}).(iXstr).median   = m0_UYf{k,iX,2};
+            m0.Yf.(Yf_ivs{kY}).(iXstr).pctiles  = m0_UYf{k,iX,3};
         end
     end
-    clear m0_Yf_mean m0_Yf_median m0_Yf_pctiles
+    clear m0_Yf
     toc
 else
     m0 = [];

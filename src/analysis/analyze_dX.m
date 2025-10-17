@@ -57,7 +57,7 @@ end
 if isfile('processed_data.mat')
     expectedVars = {'m0','m1','m2','mLf','m3','m4'};
     availVars = {whos('-file','processed_data.mat').name};
-    missingVars = settdiff(expectedVars, availVars);
+    missingVars = setdiff(expectedVars, availVars);
 
     if isempty(missingVars)
         % all processed data available, load it
