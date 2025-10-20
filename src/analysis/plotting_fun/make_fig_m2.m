@@ -1,4 +1,4 @@
-function [fig3,ax3,axLeg3] = make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
+function [fig3,ax3,axLeg3] = make_fig_m2(m2,X_all,p_all,f,useFillCases,noPlotCases,opts)
 %MAKE_FIG_M2  Plot figure for Lf error types across cases with custom options.
 %
 %   make_fig_m2(m2, X_all, useFillCases, noPlotCases, opts)
@@ -8,7 +8,9 @@ function [fig3,ax3,axLeg3] = make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
 %
 %   Inputs:
 %     m2           Struct with fields for each Lf error type and case, containing median and percentiles.
-%     X_all        Vector of N or Re values (x-axis).
+%     X_all        Vector of N \ Re \ p values (x-axis).
+%     p_all        Vector of p (past window length) values
+%     f            Future window length
 %     useFillCases Cell array of case names for which to fill percentile bounds.
 %     noPlotCases  Cell array of case names to exclude from plotting.
 %     opts         Options struct with fields:
@@ -27,6 +29,8 @@ function [fig3,ax3,axLeg3] = make_fig_m2(m2,X_all,useFillCases,noPlotCases,opts)
 arguments
     m2 struct
     X_all (:,1) double
+    p_all (:,1) double {mustBeInteger,mustBeFinite,mustBePositive}
+    f     (1,1) double {mustBeInteger,mustBeFinite,mustBePositive}
     useFillCases cell
     noPlotCases cell
     opts.PlotMode (1,:) char {mustBeMember(opts.PlotMode,{'N','Re','p'})} = 'N'
@@ -82,6 +86,15 @@ nCases = numel(Cases);
 for kEt = 1:numel(LfErrorTypes)
     Et = LfErrorTypes{kEt};
     ax3(kEt) = nexttile(tl3);
+    
+    switch Et
+        case {'Up','Yp'}
+            pf_all = f*p_all(:);
+            title_str2 = ', $d_i=p$';
+        case 'Uf'
+            pf_all = repmat(f^2,length(X_all),1);
+            title_str2 = ', $d_i=f$';
+    end
 
     for kC = 1:nCases
         CaseName = Cases{kC};
@@ -116,10 +129,11 @@ for kEt = 1:numel(LfErrorTypes)
         else
             useFill = false;
         end
-
-        plotLineWithFill(m2.(Et).(CaseName).median,...
-               m2.(Et).(CaseName).pctiles(:,6),...  25th percentile -> 6
-               m2.(Et).(CaseName).pctiles(:,16),... 75th percentile -> 16
+        
+        median_vals = m2.(Et).(CaseName).median       ./sqrt(pf_all);
+        lb_vals     = m2.(Et).(CaseName).pctiles(:,6) ./sqrt(pf_all); % 25th percentile -> 6
+        ub_vals     = m2.(Et).(CaseName).pctiles(:,16)./sqrt(pf_all); % 75th percentile -> 16
+        plotLineWithFill(median_vals, lb_vals, ub_vals,... 
                label, Color=col, FaceAlpha = fillAlpha, LineStyle=LineStyle, LineWidth=LineWidth,...
                x=X_all, XScale=XScale,YScale=YScale,useFill = useFill);
         hold on;
@@ -133,11 +147,12 @@ for kEt = 1:numel(LfErrorTypes)
     end
     grid on;
     Et_str = append(Et(1),'_',Et(2));
-    title_str = append('$i=',Et_str,'$');
+    title_str = append('$i=',Et_str,'$',title_str2);
     title(title_str,'Interpreter','latex','FontSize',fontSize);
     xlabel(xAxisLabel,'FontSize',fontSize,'Interpreter','latex');
     if kEt == 1
-        ylabel('$\left\| \Delta L_f^{i}\right\|_{\mathrm{F}}$','FontSize',fontSize,'Interpreter','latex');
+        ylabel('$\frac{\left\| \Delta L_f^{i}\right\|_{\mathrm{F}}}{\sqrt{fd_i}}$',...
+            'FontSize',fontSize*1.25,'Interpreter','latex','Rotation',0); % scale font to account for \frac
     end
 end
 linkaxes([ax3(:)],'x');
