@@ -9,7 +9,13 @@ sN.opts.N = N;
 
 % ----------------- initial CL-sim length & reference ---------------------
 [Nbar, sN.Nbar] = deal(p + f + N -1); % sim. length of initial controller
-sN.yr0  = make_reference(sN.Nbar,ny); % reference of initial controller
+% create initial reference (yr0).
+switch opts2.ref0
+    case 'make'
+        sN.yr0 = make_reference(Nbar,ny); % reference of initial controller
+    case 'prbs'
+        sN.yr0 = repmat(idinput(Nbar,'prbs',[0 1],[-10 10]).',ny,1);
+end
 
 % ---------- references for subsequent closed-loop simulations ------------
 sN.yr1 = make_reference(Ncl+f,ny); % y-ref
@@ -17,7 +23,7 @@ P0  = dcgain(plant(:,1:nu));       % DC gain
 sN.ur1 = P0\sN.yr1;                % u-ref
 
 % ----------------------- save settings for run iN ------------------------
-% -> to data\raw\sys#\dN\<subdir1>\<subdir2>\<iN>_settings.mat
+% -> to data\raw\sys#\ref#\dN\<subdir1>\<subdir2>\<iN>_settings.mat
 str_iN = iN2str(iN,nN); % zero-padded <iN> based on # of decimals for nN
 subdir2 = sprintf('%s_N_%d',str_iN,N); % subdir2 name
 subdir2 = fullfile(subdir1,subdir2);  % subdir2 path

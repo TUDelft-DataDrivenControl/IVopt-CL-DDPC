@@ -1,6 +1,6 @@
 function [subdir1,src_dir] = get_subdir1(data_type)
 
-%% navigate to data\raw\sys#\dX\<subdir1>
+%% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
 load("pdir.mat",'pdir'); % load path of project directory
 src_dir = fullfile(pdir,'src');
 raw_dir = fullfile(pdir,'data','raw');
@@ -10,13 +10,29 @@ sys_dirs = choose_system(raw_dir);
 sys_dir  = choose_named_subdir(sys_dirs,'Choose system for which to analyze data.');
 sys_dir  = fullfile(raw_dir,sys_dir);
 
-dX_dir = fullfile(sys_dir,['d',data_type]);
+% choose reference subdirectory (ref0_<>) under the system folder
+ref_dirs = dir(sys_dir);
+ref_dirs = ref_dirs([ref_dirs.isdir]);
+ref_names = {ref_dirs.name};
+ref_names = ref_names(~ismember(ref_names,{'.','..'}));
+% match folders starting with 'ref_'
+isRef = cellfun(@(x) ~isempty(regexp(x, '^ref0_', 'once')), ref_names);
+ref_names = ref_names(isRef);
+if isempty(ref_names)
+    % no ref subfolders found -> fall back to system dir directly
+    dX_dir = fullfile(sys_dir, ['d',data_type]);
+else
+    % ask user to choose a reference folder
+    ref_choice = choose_named_subdir(ref_names, 'Choose reference folder (ref0_<>) to analyze:');
+    ref_dir = fullfile(sys_dir, ref_choice);
+    dX_dir = fullfile(ref_dir, ['d',data_type]);
+end
 
 % add relevant directories to path
 addpath(genpath(src_dir));
 
 % find <subdir1> candidates:
-% -> subdirectories in data\raw\sys#\dX that match the naming convention from name_subdir1 in main_dX
+% -> subdirectories in data\raw\sys#\ref0_<>\dX that match the naming convention from name_subdir1 in main_dX
 subdir1s = find_named_subdirs_dX(data_type,dX_dir);
 
 % choose <subdir1> to use

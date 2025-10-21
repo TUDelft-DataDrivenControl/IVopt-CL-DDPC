@@ -37,29 +37,33 @@ spP = 100;
 seeds = reshape(1:nP*spP,spP,nP);
 
 % ================== saving data and settings =============================
-% saving this data in data\raw\sys#\dp\<subdir1>
+% saving this data in data\raw\sys#\ref0_<>\dp\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
 sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
 if ~isfolder(sys_dir)
     mkdir(sys_dir);
 end
+% create (or reuse) a reference folder under the system directory
+ref_dir = fullfile(sys_dir,sprintf('ref0_%s',opts.ref0));
+if ~isfolder(ref_dir)
+    mkdir(ref_dir);
+end
+% create data\raw\sys#\ref0_<>\dp if it doesn't exist yet
+if ~isfolder(fullfile(ref_dir,'dp'))
+    mkdir(fullfile(ref_dir,'dp'))
+end
 cd(src_dir);
 
-% create data\raw\sys#\dp if it doesn't exist yet
-if ~isfolder(fullfile(sys_dir,'dp'))
-    mkdir(fullfile(sys_dir,'dp'))
-end
-
-% create subdir1
+% create subdir1 under the chosen ref folder
 subdir1 = name_subdir1(pmin,pmax,nP,opts); % subdir1 name
-subdir1 = fullfile(sys_dir,'dp',subdir1);  % subdir1 path
+subdir1 = fullfile(ref_dir,'dp',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\dp\<subdir1>\mfiles
+% copy dependent .m files to data\raw\sys#\ref0_<>\dp\<subdir1>\mfiles
 copy_dependencies(src_dir,subdir1,'main_dp.m');
 
-% save overall settings to data\raw\sys#\dp\<subdir1>\dp_settings.mat
+% save overall settings to data\raw\sys#\ref0_<>\dp\<subdir1>\dp_settings.mat
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
 %% ========================== iterate over p and seeds ====================
@@ -113,5 +117,6 @@ opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
 opts.sys  (1,1) double = 1;         % flag for model selection
+opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'make'; % 'make' or 'prbs'
 end
 end

@@ -9,7 +9,7 @@ else
     onCluster = false;
 end
 
-%% navigate to data\raw\sys#\dX\<subdir1>
+%% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
 [subdir1,src_dir] = get_subdir1(data_type);
 cd(subdir1); % move to subdir1
 

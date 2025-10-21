@@ -38,7 +38,13 @@ seeds = reshape(1:nRe*spRe,spRe,nRe); % spRe x nRe
 
 % ----------------- initial CL-sim length & reference ---------------------
 Nbar = p + f + N -1; % sim. length of initial controller
-yr0  = make_reference(Nbar,ny); % reference of initial controller
+% create initial reference (yr0).
+switch opts.ref0
+    case 'make'
+        yr0 = make_reference(Nbar,ny); % reference of initial controller
+    case 'prbs'
+        yr0 = repmat(idinput(Nbar,'prbs',[0 1],[-10 10]).',ny,1);
+end
 
 % ---------- references for subsequent closed-loop simulations ------------
 yr1 = make_reference(Ncl+f,ny); % y-ref
@@ -46,29 +52,33 @@ P0  = dcgain(plant(:,1:nu));    % DC gain
 ur1 = P0\yr1;                   % u-ref
 
 % ================== saving data and settings =============================
-% saving this data in data\raw\sys#\dRe\<subdir1>
+% saving this data in data\raw\sys#\ref0_<>\dRe\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
 sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
 if ~isfolder(sys_dir)
     mkdir(sys_dir);
 end
+% create (or reuse) a reference folder under the system directory
+ref_dir = fullfile(sys_dir,sprintf('ref0_%s',opts.ref0));
+if ~isfolder(ref_dir)
+    mkdir(ref_dir);
+end
+% create data\raw\sys#\ref0_<>\dRe if it doesn't exist yet
+if ~isfolder(fullfile(ref_dir,'dRe'))
+    mkdir(fullfile(ref_dir,'dRe'))
+end
 cd(src_dir);
 
-% create data\raw\sys#\dRe if it doesn't exist yet
-if ~isfolder(fullfile(sys_dir,'dRe'))
-    mkdir(fullfile(sys_dir,'dRe'))
-end
-
-% create subdir1
+% create subdir1 under the chosen ref folder
 subdir1 = name_subdir1(Re_min,Re_max,nRe,opts); % subdir1 name
-subdir1 = fullfile(sys_dir,'dRe',subdir1);      % subdir1 path
+subdir1 = fullfile(ref_dir,'dRe',subdir1);      % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\dRe\<subdir1>\mfiles
+% copy dependent .m files to data\raw\sys#\ref0_<>\dRe\<subdir1>\mfiles
 copy_dependencies(src_dir,subdir1,'main_dRe.m');
 
-% save overall settings to data\raw\sys#\dRe\<subdir1>\dRe_settings.mat
+% save overall settings to data\raw\sys#\ref0_<>\dRe\<subdir1>\dRe_settings.mat
 save(fullfile(subdir1,'dRe_settings.mat'),'Re_min','Re_max','nRe','Re_all','spRe','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs','Nbar','yr0','yr1','ur1');
 
 %% ========================== iterate over Re & seeds =====================
@@ -123,5 +133,6 @@ opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
 opts.sys  (1,1) double = 1;         % flag for model selection
+opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'make'; % 'make' or 'prbs'
 end
 end
