@@ -10,9 +10,7 @@ opts = init_opts(Re=1);
 % 2) Control System Toolbox                     v24.2
 % 3) Robust Control Toolbox                     v24.2
 % 4) Statistics and Machine Learning Toolbox    v24.2
-% 5) crameri_colours                            v1.09
-%    Used for plotting if opts.plot = true. Obtained from
-%    https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
+% 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
 % ------------------------- add relevant paths ----------------------------

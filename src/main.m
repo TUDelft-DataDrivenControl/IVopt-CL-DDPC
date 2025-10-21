@@ -17,6 +17,7 @@ arguments (Input)
     opts.save       logical = true;     % save data
     opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
     opts.sys  (1,1) double = 1;         % flag for model selection
+    opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
 end
 [Re, p, f, N, Ncl, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.seed);
 
@@ -25,7 +26,8 @@ end
 % 2) Control System Toolbox                     v24.2
 % 3) Robust Control Toolbox                     v24.2
 % 4) Statistics and Machine Learning Toolbox    v24.2
-% 5) crameri_colours                            v1.09
+% 5) System Identification Toolbox              v24.2
+% 6) crameri_colours                            v1.09
 %    Used for plotting if opts.plot = true. Obtained from
 %    https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
 
@@ -41,7 +43,14 @@ fprintf('Setting simulation settings...\n');
 
 % ----------------- initial CL-sim length & reference ---------------------
 Nbar = p + f + N -1; % sim. length of initial controller
-yr0  = make_reference(Nbar,ny); % reference of initial controller
+switch opts.ref0
+    case 'make'
+        yr0 = make_reference(Nbar,ny); % reference of initial controller
+    case 'prbs'
+        n_bits = ceil(log2(Nbar + 1));
+        yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-10 10]).';
+        yr0 = repmat(yr0(:,1:Nbar),ny,1);
+end
 
 % ---------- references for subsequent closed-loop simulations ------------
 yr1 = make_reference(Ncl+f,ny); % y-ref
