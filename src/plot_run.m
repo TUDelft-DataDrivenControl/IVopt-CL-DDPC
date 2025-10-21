@@ -3,8 +3,11 @@ close all;
 
 %% Choose settings for which to show simulation results
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
-iX   = 10;
-ks = 10;
+
+iX = 10; % index of data_type
+ks = 10; % seed index
+
+% cases not to be plotted (will be augmented with those that are unstable)
 noPlotCases  = {'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
 
 %% navigate to subdir1
@@ -51,7 +54,7 @@ for k = 1:numel(fns)
         noPlotCases = [noPlotCases,{fn}];
     end
 end
-noPlotCases = unique(noPlotCases)
+noPlotCases = unique(noPlotCases);
 
 % select cases to plot
 Cases  = setdiff(Cases,noPlotCases);

@@ -118,6 +118,6 @@ opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
 opts.sys  (1,1) double = 1;         % flag for model selection
-opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'make'; % type of reference: 'make' (default) or 'prbs'
+opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of reference: 'make' (default) or 'prbs'
 end
 end

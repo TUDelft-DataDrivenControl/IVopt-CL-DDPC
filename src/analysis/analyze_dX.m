@@ -15,7 +15,7 @@ cd(subdir1); % move to subdir1
 
 %% load data for choice of dX trials (as specified by <subdir1>)
 
-% load dX settings from data\raw\dX\<subdir1>\dX_settings.mat
+% load dX settings from data\raw\sys#\ref0_<>\dX\<subdir1>\dX_settings.mat
 load(sprintf('d%s_settings.mat',data_type));
 
 switch data_type
