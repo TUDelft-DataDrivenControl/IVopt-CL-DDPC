@@ -9,13 +9,14 @@ sP.opts.p = p;
 
 % ----------------- initial CL-sim length & reference ---------------------
 [Nbar, sP.Nbar] = deal(p + f + N -1); % sim. length of initial controller
-% create initial reference (yr0)
 % create initial reference (yr0).
 switch opts2.ref0
     case 'make'
         sP.yr0 = make_reference(Nbar,ny); % reference of initial controller
     case 'prbs'
-        sP.yr0 = repmat(idinput(Nbar,'prbs',[0 1],[-10 10]).',ny,1);
+        n_bits = ceil(log2(Nbar + 1));
+        sP.yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-10 10]).';
+        sP.yr0 = repmat(sP.yr0(:,1:Nbar),ny,1);
 end
 
 % ---------- references for subsequent closed-loop simulations ------------

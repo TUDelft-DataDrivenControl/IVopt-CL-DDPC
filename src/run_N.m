@@ -14,7 +14,9 @@ switch opts2.ref0
     case 'make'
         sN.yr0 = make_reference(Nbar,ny); % reference of initial controller
     case 'prbs'
-        sN.yr0 = repmat(idinput(Nbar,'prbs',[0 1],[-10 10]).',ny,1);
+        n_bits = ceil(log2(Nbar + 1));
+        sN.yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-10 10]).';
+        sN.yr0 = repmat(sN.yr0(:,1:Nbar),ny,1);
 end
 
 % ---------- references for subsequent closed-loop simulations ------------
