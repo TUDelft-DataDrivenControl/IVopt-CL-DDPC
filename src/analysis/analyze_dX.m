@@ -1,6 +1,6 @@
 clear; 
 close all;
-data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 overwrite = false;
 
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
@@ -32,6 +32,7 @@ switch data_type
         [f,nu,ny,N] = deal(opts.f,opts.nu,opts.ny,opts.N);
         X_all = p_all;
 end
+nX = numel(X_all);
 
 % get data structures - load or by processing data
 if isfile('processed_data.mat')
