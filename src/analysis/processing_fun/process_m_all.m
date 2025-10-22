@@ -43,7 +43,7 @@ end
 
 %% ---------------- Parallel iteration over seeds -------------------------
 m123_tictoc = tic;
-txt_iters = sprintf('\tm1, m2, m3: Iterating over seeds (see waitbar).');
+txt_iters = sprintf('\tIterating over seeds to calculate measures.');
 fprintf('%s',txt_iters);
 parfor ks = 1:spX
     seed = seeds(ks,iX);
@@ -92,17 +92,21 @@ end % of parfor
 if ismember('m0',OutVars)
     % calculate statistics for m0 data from all seeds
     m0_UYf_iX = calc_stats_seeds_m0(m0_UYf_data, num_Uf_ivs, nu, ny, f, N, spX, pctiles);
+else
+    m0_UYf_iX = cell(num_IVs,3);
 end
 
 % reformat data for m4
 if ismember('m4',OutVars)
     % mean over seeds (3rd dim) -> squeeze to ny*f x num_Cases x 4 x 2
     m4_data_iX = squeeze(mean(m4_data_iX, 3));
+else
+    m4_data_iX = zeros(ny*f, num_Cases, 4, 2);
 end
 
 m123_time = toc(m123_tictoc);
 if ~onCluster; close(w); end
-fprintf([repmat('\b',1,numel(txt_iters)),'\tm1, m2, m3: Iterating over seeds\t\tFinished in %.2f seconds\n'], m123_time);
+fprintf('\tFinished in %.2f seconds\n', m123_time);
 
 end
 

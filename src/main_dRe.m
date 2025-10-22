@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=2e2);
+opts = init_opts(N=1e3);
 [N, p, f, Ncl] = deal(opts.N, opts.p, opts.f, opts.Ncl);
 
 % Requirements:
@@ -88,7 +88,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     [ vs.spRe, vs.nRe, vs.seeds, vs.Re_all, vs.Ncl, vs.Nbar, vs.ny, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.yr0, vs.yr1, vs.ur1, vs.proj_dir] = ...
     deal(spRe,    nRe,    seeds,    Re_all,    Ncl,    Nbar,    ny,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    yr0,    yr1,    ur1,    proj_dir);
 
-    run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=20);
+    run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=30);
 
 else
     fprintf('using the local profile');
@@ -105,7 +105,7 @@ end
 %% Helper functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Re_min,Re_max,nRe,opts)
-[N, p] = deal(opts.N, opts.p);
+[N, p, f] = deal(opts.N, opts.p, opts.f);
 
 % Helper function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -116,7 +116,7 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 Re_min_s = trimmed_exp(Re_min);
 Re_max_s = trimmed_exp(Re_max);
 N_s  = trimmed_exp(N);
-subdir1 = sprintf('Re_%s_%s_%d_p_%d_N_%s',Re_min_s,Re_max_s,nRe,p,N_s);
+subdir1 = sprintf('Re_%s_%s_%d_p_%d_N_%s_f_%d_%s',Re_min_s,Re_max_s,nRe,p,N_s,f,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end

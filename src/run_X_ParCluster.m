@@ -78,7 +78,7 @@ for iJob = 1:nJobs
                 run_p(idx,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir);
             end
         case 'N'
-            for iii = 1:ntasks
+            parfor iii = 1:ntasks
                 idx = idxs(iii);
                 run_N(idx,opts,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir);
             end

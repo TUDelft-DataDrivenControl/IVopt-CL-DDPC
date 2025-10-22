@@ -35,9 +35,10 @@ subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
 subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
+subdir2s = subdir2s(~cellfun(@isempty, regexp(subdir2s, '^[0-9]+_')));
 
 % iterate over all Re \ N \ p values
-nX = numel(subdir2s);
+nX = numel(X_all);
 
 % find Cases used
 %  -> expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
@@ -131,7 +132,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
         delete(gcp('nocreate'));
     end
     myCluster = parcluster('SlurmProfile1');
-    nworkers = 30;
+    nworkers = 20;
     myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],15,ntasks=nworkers,cpt=1,GB=3.8);
     parpool(myCluster,nworkers);
 else

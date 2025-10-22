@@ -88,7 +88,7 @@ end
 %% Helper functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Nmin,Nmax,nN,opts)
-[Re, p] = deal(opts.Re, opts.p);
+[Re, p, f] = deal(opts.Re, opts.p, opts.f);
 
 % Helper function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -99,7 +99,7 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 Nmin_s = trimmed_exp(Nmin);
 Nmax_s = trimmed_exp(Nmax);
 Re_s  = trimmed_exp(Re);
-subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d',Nmin_s,Nmax_s,nN,Re_s,p);
+subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d_f_%d_%s',Nmin_s,Nmax_s,nN,Re_s,p,f,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end
