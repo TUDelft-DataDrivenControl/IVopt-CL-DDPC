@@ -42,7 +42,7 @@ switch opts.ref0
         yr0 = make_reference(Nbar,ny); % reference of initial controller
     case 'prbs'
         n_bits = ceil(log2(Nbar + 1));
-        yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-10 10]).';
+        yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-1 1]).';
         yr0 = repmat(yr0(:,1:Nbar),ny,1);
 end
 
@@ -88,7 +88,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     [ vs.spRe, vs.nRe, vs.seeds, vs.Re_all, vs.Ncl, vs.Nbar, vs.ny, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.yr0, vs.yr1, vs.ur1, vs.proj_dir] = ...
     deal(spRe,    nRe,    seeds,    Re_all,    Ncl,    Nbar,    ny,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    yr0,    yr1,    ur1,    proj_dir);
 
-    run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=30);
+    run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=20);
 
 else
     fprintf('using the local profile');

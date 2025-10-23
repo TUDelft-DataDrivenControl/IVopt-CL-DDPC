@@ -15,7 +15,7 @@ switch opts2.ref0
         sP.yr0 = make_reference(Nbar,ny); % reference of initial controller
     case 'prbs'
         n_bits = ceil(log2(Nbar + 1));
-        sP.yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-10 10]).';
+        sP.yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-1 1]).';
         sP.yr0 = repmat(sP.yr0(:,1:Nbar),ny,1);
 end
 
