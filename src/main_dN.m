@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(Re=1);
+opts = init_opts(Re=1e-1,sys=5);
 [Re, p, f, Ncl] = deal(opts.Re, opts.p, opts.f, opts.Ncl);
 
 % Requirements:
@@ -80,7 +80,7 @@ else
         nworker = myCluster.NumWorkers; % (max.) workers per node
         parpool(myCluster,nworker);
     end
-    for ii = 1:nN*spN
+    parfor ii = 1:nN*spN
         run_N(ii,opts,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir);
     end
 end
