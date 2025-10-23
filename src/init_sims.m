@@ -3,18 +3,26 @@ function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 
 %% choose a  plant model
 switch opts.sys
-    case 1
+    case {1,5}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
-        W2 = [];
         fn_Cz0 = 'Cz0_Landau1995.mat';
+        if opts.sys==5
+            % change system such that it has no input-output delay
+            [b,a] = ss2tf(A,B(:,1),C,D(:,1));
+            b2 = circshift(b,-3);
+            plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
+            A = plant.A;
+            B = plant.B(:,1);
+            C = plant.C;
+            D = plant.D(:,1);
+        end
     case 2
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
         plant.Ts = 1;
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
         W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
-        W2 = ss(1e-1);
         fn_Cz0 = 'Cz0_Bemporad2002.mat';
     case 3
         % system from Favoreel 1999; SPC: Subspace Predictive Control
@@ -33,7 +41,6 @@ switch opts.sys
         plant = ss(A,[B K], C, [D eye(ny,nu)],1);
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        W2 = ss(1e-1);
         fn_Cz0 = 'Cz0_Favoreel1999.mat';
     case 4
         [plant,Cz0,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023();
