@@ -1,17 +1,28 @@
-clear; 
-close all;
-
 %% Choose settings for which to show simulation results
-data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+if ~exist('data_type','var')
+    data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+end
 
-iX = 10; % index of data_type
-ks = 10; % seed index
+if ~exist('iX','var')
+    iX = 1; % index of data_type
+end
+if ~exist('ks','var')
+    ks = 1; % seed index
+end
 
 % cases not to be plotted (will be augmented with those that are unstable)
-noPlotCases  = {'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
+if ~exist('noPlotCases','var')
+    noPlotCases  = {'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
+end
+
+if ~exist('subdir1','var')
+    subdir1 = [];
+end
 
 %% navigate to subdir1
-[subdir1,src_dir] = get_subdir1(data_type);
+if isempty(subdir1)
+    [subdir1,~] = get_subdir1(data_type);
+end
 cd(subdir1);
 
 %% load data
@@ -77,10 +88,24 @@ marker_styles = {'o', 's', 'd', '^', 'v', '>', '<', 'p', 'h'};
 marker_interval = 2; % Show marker every 2nd data point
 % ------------------------------- outputs ----------------------------
 ax11 = nexttile;
-stairs(Tsteps,[e0 e1],'r-','DisplayName','noise'); hold on; % innovation noise
+stairs(Tsteps,[e0 e1],'r-','DisplayName','$e_k$'); hold on; % innovation noise
 stairs(Tsteps0,y0,'b-','DisplayName','past data');
 for k = 1:nCases
     CaseName = Cases{k};
+    switch CaseName
+        case 'CLSPC'
+            DispName = 'CL-SPC';
+        case 'TrPred'
+            DispName = 'TP';
+        case 'actLf'
+            DispName = 'actual $L_f$';
+        otherwise
+            if startsWith(CaseName,'iv')
+                DispName = ['IV',CaseName(3:end)];
+            else
+                DispName = CaseName;
+            end
+    end
     
     % Cycle through line & marker styles, & marker indices
     line_style = line_styles{mod(k-1, numel(line_styles)) + 1};
@@ -94,7 +119,7 @@ for k = 1:nCases
         'LineStyle', line_style, ...
         'Marker', marker_style, ...
         'MarkerSize', 6,...
-        'DisplayName',CaseName);
+        'DisplayName',DispName);
     
     stairs(Tsteps1, y_cl.(CaseName), ... plotting of stairs
         'Color', cCram(k,:), ...
@@ -112,8 +137,9 @@ stairs(0:Nbar+Ncl-1+f,[yr0 yr1],'k-','LineWidth',1.5,'DisplayName','ref.');  % r
 
 xline(Nbar-0.5,'LineWidth',2,'Color','k','LineStyle','-.','HandleVisibility','off');
 grid on;
-ylabel('$y_k$','Interpreter','latex');
-legend;
+ylabel('$y_k$','Interpreter','latex','FontSize',12);
+lgd = legend;
+lgd.Interpreter = 'latex';
 
 % ------------------------------- inputs -----------------------------
 ax12 = nexttile;
@@ -147,8 +173,8 @@ stairs(Nbar:Nbar+Ncl-1+f,ur1,'k-','LineWidth',1.5);  % references
 
 xline(Nbar-0.5,'LineWidth',2,'Color','k','LineStyle','-.');
 grid on;
-ylabel('$u_k$','Interpreter','latex');
-xlabel('Time step','Interpreter','latex');
+ylabel('$u_k$','Interpreter','latex','FontSize',12);
+xlabel('Time step','Interpreter','latex','FontSize',12);
 
 linkaxes([ax11 ax12],'x');
 

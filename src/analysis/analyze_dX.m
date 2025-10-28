@@ -12,6 +12,7 @@ end
 %% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
 [subdir1,src_dir] = get_subdir1(data_type);
 cd(subdir1); % move to subdir1
+fprintf('Analyzing data in %s\n',subdir1(length(src_dir)-3:end));
 
 %% load data for choice of dX trials (as specified by <subdir1>)
 
@@ -69,9 +70,13 @@ if onCluster
     return;
 end
 
-%% Get monitor positions
+%% Preliminaries before plotting
 monitors = get(0, 'MonitorPositions');
 monPos = monitors(2,:);
+
+Cases = fieldnames(m4.yfhat);
+ivBs = Cases(endsWith(Cases,'b') & startsWith(Cases,'iv'));
+ivCs = Cases(endsWith(Cases,'c') & startsWith(Cases,'iv'));
 
 %% Plotting - figure 1: example of Uf_iv (m0)
 % possible cases: see ivs in CaseDefinitions.m
@@ -89,7 +94,7 @@ switch data_type
         [fig1,ax1,axLeg1] = make_fig_m0(m0, pX, useFillCases, noPlotCases, LegCols=[2,2]);
 
     case 'Re'
-        pX = 8; % index of Re in Re_all to plot this for
+        pX = 10; % index of Re in Re_all to plot this for
         useFillCases = {'iv1','iv2a','iv2b'};
         noPlotCases  = {};
 
@@ -132,15 +137,15 @@ fig2.OuterPosition(1:2) = monPos(1:2) + [50 100];
 % noPlotCases:  cases to exclude from final plot
 switch data_type
     case 'N'
-        useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-        noPlotCases  = {};
+        useFillCases = {'iv1','CLSPC','TrPred','iv2a','iv2b'};
+        noPlotCases  = [ivBs;ivCs;{'actLf';'iv1'}];
 
         % plotting figure
         [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, p*ones(nX,1), f, useFillCases, noPlotCases,PlotMode=data_type,LegCols=2);
 
     case 'Re'
         useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-        noPlotCases  = {};
+        noPlotCases  = {'actLf'};
 
         % plotting figure
         [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, p*ones(nX,1), f, useFillCases, noPlotCases,PlotMode=data_type,LegCols=1);
@@ -148,7 +153,7 @@ switch data_type
 
     case 'p'
         useFillCases = {'iv1','CLSPC','iv2a','iv2b'};
-        noPlotCases  = {};
+        noPlotCases  = {'actLf'};
 
         % plotting figure
         [fig3,ax3,axLeg3] = make_fig_m2(m2, X_all, p_all, f, useFillCases, noPlotCases,XScale='linear',PlotMode=data_type,LegCols=2);
@@ -164,7 +169,7 @@ fig3.OuterPosition(1:2) = monPos(1:2) + [50 150]; % repositioning figure
 switch data_type
     case 'N'
         useFillCases = {'iv1','CLSPC','actLf'};
-        noPlotCases  = {};
+        noPlotCases  = [ivBs;ivCs;{'iv1'}];
         XScale = 'log';
         YScale = 'linear';
         LegCols = 2;

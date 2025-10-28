@@ -8,6 +8,7 @@ docs/manuscript/feedback/
 docs/manuscript/unused/
 docs/review/
 results/
+!src/results/
 src/@Oracle/
 src/d_Nbar/
 src/d_pf/

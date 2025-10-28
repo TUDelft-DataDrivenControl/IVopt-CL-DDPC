@@ -33,7 +33,7 @@ for kC = 1:num_Cases
         Yf_hatS = Yf_hat;
     end
 
-    % since data can vary greatly in magnitude: use relevative difference
+    % since data can vary greatly in magnitude: use relative difference
     [Yf_RelErr_iX_ks(:,kC,1,1), Yf_RelErr_iX_ks(:,kC,1,2)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
     [Yf_RelErr_iX_ks(:,kC,2,1), Yf_RelErr_iX_ks(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
     [Yf_RelErr_iX_ks(:,kC,3,1), Yf_RelErr_iX_ks(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
