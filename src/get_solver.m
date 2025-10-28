@@ -34,7 +34,7 @@ par = [up_(:); yp_(:); Lest_(:); yrf_(:); urf_(:)];
 % construct cost function
 er_y = yrf_(:) - yf_(:);
 er_u = urf_(:) - uf_(:);
-duf = uf_ - [up_(:,end) uf_(:,2:end)];                           % u_k - u_{k-1}
+duf = uf_ - [up_(:,end) uf_(:,1:end-1)];                         % u_k - u_{k-1}
 cost = er_y.'*Q*er_y + er_u(:).'*R*er_u(:) + duf(:).'*dR*duf(:); % total cost
 
 % construct QP:
