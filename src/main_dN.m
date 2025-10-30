@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(Re=1e-1,sys=1);
+opts = init_opts(Re=1e-2,sys=1);
 [Re, p, f, Ncl] = deal(opts.Re, opts.p, opts.f, opts.Ncl);
 
 % Requirements:
@@ -106,7 +106,7 @@ end
 
 function opts = init_opts(opts)
 arguments
-opts.Re   (1,1) double  = 1e-1;  % innovation noise variance
+opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
 opts.plot       logical = false;
 opts.p    (1,1) double  = 20;       % window lengths
 opts.f    (1,1) double  = 20;

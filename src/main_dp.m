@@ -105,7 +105,7 @@ end
 
 function opts = init_opts(opts)
 arguments
-opts.Re   (1,1) double  = 1e-1;  % innovation noise variance
+opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
 opts.plot       logical = false;
 opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
 opts.f    (1,1) double  = 20;

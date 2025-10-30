@@ -1,6 +1,7 @@
 autosam.*
 !autosam.tex
 !autosam.bib
+data_old/
 data/raw/
 data/temp/
 bin/external/
