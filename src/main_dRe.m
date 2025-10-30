@@ -22,7 +22,7 @@ fprintf('Setting simulation settings...\n');
 % ============ set Re values to iterate over & number of seeds per Re =====
 % set N values to iterate over
 Re_min = 1e-5;
-Re_max = 1;
+Re_max = 1e-2;
 nRe  = 10;  % number of Re values to iterate over
 Re_all = logspace(log10(Re_min),log10(Re_max),nRe);
 
