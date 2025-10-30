@@ -6,6 +6,7 @@ arguments
     noPlotCases cell
     opts.CrameriColors (1,:) char = 'roma';  % possible colors: see the 'crameri' command
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]; % figure position
+    opts.FigUnits = 'pixels';
     opts.fillAlpha (1,1) double {mustBePositive,mustBeReal,mustBeFinite,...
                                  mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.LineWidth (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 2
@@ -13,6 +14,8 @@ arguments
     opts.LegCols (1,2) double {mustBeFinite,mustBeReal,mustBeGreaterThan(opts.LegCols,0),mustBeInteger} = [1, 1];
     opts.FS_Label (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 15;
     opts.FS_Legend (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 12;
+    opts.LegIVnumOnly (1,1) logical = false
+    opts.Leg_BoxWidth (1,1) double = 30;
 end
 %MAKE_FIG_M0  Prepare and plot IV trajectories with bounds for a given index.
 %
@@ -52,7 +55,7 @@ Cidxs = unique(cellfun(@(s) ivName2ColorIdx(s), [Uf_ivs;Yf_ivs]));
 Cidxs = setdiff(Cidxs,6); % remove case 6 since these are plotted in black
 msk_1 = Cidxs == 1;
 msk_2 = Cidxs == 2;
-Cidxs = [Cidxs(msk_2); Cidxs(~(msk_1 | msk_2)); Cidxs(msk_1);];
+Cidxs = [Cidxs(msk_1); Cidxs(~(msk_1 | msk_2)); Cidxs(msk_2);];
 % if Cidxs(1) == 1
 %     Cidxs = circshift(Cidxs,-1); % clearly separate cases 1 & 2
 % end
@@ -62,75 +65,20 @@ numColors = numel(Cidxs);
 load("pdir.mat",'pdir');
 addpath(fullfile(pdir,'bin','external','crameri_colours'))
 cCram = crameri(cColors, numColors); % colors
+cCram2 = crameri('roma',numColors);
 
 % Define line styles to cycle through
-lineStyles = {'-','--',':','-.'};
+lineStyles = {'--','-.'};
 
 iX_str = sprintf('iX%d',pX);
 % select the 25th and 75th percentile -> 6 & 16th of 21
 % see size(m0.Uf.iv1.iX1.pctiles,3);
 
-fig1 = figure("Position",Position);
-tl1 = tiledlayout(2,1,'TileSpacing','compact','Padding','compact');
-
-%% ============================= Uf IVs =================================
-ax1(1) = nexttile(tl1,1);
-Uf_lb_fs = replace(Uf_ivs,'iv','l');
-Uf_ub_fs = replace(Uf_ivs,'iv','u');
-Uf_av_fs = replace(Uf_ivs,'iv','m');
-num_Uf_ivs = numel(Uf_ivs);
-
-u_iv = struct;
-for kIV = 1:num_Uf_ivs
-    lb_name = Uf_lb_fs{kIV};
-    ub_name = Uf_ub_fs{kIV};
-    av_name = Uf_av_fs{kIV};
-    iv_name = Uf_ivs{kIV};
-    
-    mean_vals = m0.Uf.(iv_name).(iX_str).median;
-    lb_vals = squeeze(m0.Uf.(iv_name).(iX_str).pctiles(:,:,6));
-    ub_vals = squeeze(m0.Uf.(iv_name).(iX_str).pctiles(:,:,16));
-
-    cIdx = ivName2ColorIdx(iv_name);
-    cIdx2 = find(Cidxs == cIdx,1,'first');
-    
-    switch iv_name
-        case 'iv1',  label = '1) open-loop IV';          col = cCram(cIdx2,:);
-        case 'iv2a', label = '2a) opt. IV';              col = cCram(cIdx2,:);
-        case 'iv2c', label = '2c) opt. IV + 2SLS';       col = cCram(cIdx2,:);
-        case 'iv3c', label = '3c) LCF + 2SLS';           col = cCram(cIdx2,:);
-        case 'iv4a', label = '4a) w/o Cz info';          col = cCram(cIdx2,:);
-        case 'iv4c', label = '4c) w/o Cz info + 2SLS';   col = cCram(cIdx2,:);
-        case 'iv5a', label = '5a) w/ Cz info';           col = cCram(cIdx2,:);
-        case 'iv5c', label = '5c) w/ Cz info + 2SLS';    col = cCram(cIdx2,:);
-        case 'iv6c', label = '6c) ref + 2SLS';           col = [0 0 0]; % black
-        otherwise,  label = iv_name;                     col = [0 0 0];
-    end
-    switch iv_name
-        case 'iv2a', thisStyle = '-';
-        otherwise, thisStyle = lineStyles{mod(kIV-1,numel(lineStyles))+1}; % cycle
-    end
-    if any(ismember(iv_name,useFillCases))
-        useFill = true;
-    else
-        useFill = false;
-    end
-
-    plotLineWithFill(mean_vals, lb_vals, ub_vals, label, Color=col, ...
-        FaceAlpha = fillAlpha, LineStyle=thisStyle, LineWidth=LineWidth,...
-        XScale='linear',YScale='linear',useFill = useFill);
-    hold on;
-
-    u_entries(kIV) = struct('Color',col, 'Alpha',fillAlpha*useFill, ...
-                    'LineStyle',thisStyle, 'LineWidth',LineWidth, ...
-                    'Text',label,'FontSize',fontSize_legend);
-end
-grid on;
-ylabel('$u_k$','Interpreter','latex','FontSize',fontSize_xyLabel);
-axLeg1(1) = customLegend(u_entries,ax1(1),cols=LegsCols(1),Location=LegsLoc(1),RelScaling=true);
+fig1 = figure("Position",Position,"Units",opts.FigUnits);
+tl1 = tiledlayout(2,1,'TileSpacing','tight','Padding','tight');
 
 %% ============================= Yf IVs ================================
-ax1(2) = nexttile(tl1,2);
+ax1(1) = nexttile(tl1,1);
 
 Yf_lb_fs = replace(Yf_ivs,'iv','l');
 Yf_ub_fs = replace(Yf_ivs,'iv','u');
@@ -138,6 +86,7 @@ Yf_av_fs = replace(Yf_ivs,'iv','m');
 num_Yf_ivs = numel(Yf_ivs);
 
 y_iv = struct;
+kStyle = 1;
 for kIV = 1:num_Yf_ivs
     lb_name = Yf_lb_fs{kIV};
     ub_name = Yf_ub_fs{kIV};
@@ -152,33 +101,110 @@ for kIV = 1:num_Yf_ivs
     cIdx2 = find(Cidxs == cIdx,1,'first');
 
     switch iv_name
-        case 'iv2b', label = '2b) opt. IV';             col = cCram(cIdx2,:);
-        case 'iv4b', label = '4b) w/o Cz info';         col = cCram(cIdx2,:);
-        case 'iv5b', label = '5b) w/ Cz info';          col = cCram(cIdx2,:);
-        case 'iv3a', label = '3a) LCF-IV ($\Theta$)';   col = cCram(cIdx2,:);
-        case 'iv6a', label = '6a) ref';                 col = [0 0 0]; % black
-        otherwise, label = iv_name;                     col = [0 0 0];
+        case 'iv2b', label = '2b) opt. IV';             label2 = '$\tilde{Y}_{\mathrm{f}}$';          col = cCram2(cIdx2,:); StyleFree = false;
+        case 'iv4b', label = '4b) w/o Cz info';         label2 = '$\hat{\tilde{Y}}_{\mathrm{f,4b}}$'; col = cCram(cIdx2,:);  StyleFree = true;
+        case 'iv5b', label = '5b) w/ Cz info';          label2 = '$\hat{\tilde{Y}}_{\mathrm{f,5b}}$'; col = cCram(cIdx2,:);  StyleFree = true;
+        case 'iv3a', label = '3a) LCF-IV ($\Xi_f$)';    label2 = '$\Xi_f$';                           col = cCram(cIdx2,:);  StyleFree = true;
+        case 'iv6a', label = '6a) ref.';                label2 = '$W_f$';                             col = [0 0 0];         StyleFree = false; % black
+        otherwise,   label = iv_name;                   label2 = label;                               col = [0 0 0];         StyleFree = true;
     end
-    thisStyle = lineStyles{mod(kIV-1,numel(lineStyles))+1}; % cycle
+    if StyleFree
+        thisStyle = lineStyles{mod(kStyle-1,numel(lineStyles))+1}; % cycle
+        kStyle = kStyle + 1;
+        LW = LineWidth;
+    else
+        thisStyle = '-';
+        LW = LineWidth+0.5;
+    end
     if any(ismember(iv_name,useFillCases))
         useFill = true;
     else
         useFill = false;
     end
+    if opts.LegIVnumOnly
+        label = label2;
+        % if strcmp(iv_name,'iv3a')
+        %     label = 'IV3a ($\Xi_f$)';
+        % else
+        %     label = ['IV',iv_name(3:end)];
+        % end
+    end
 
     plotLineWithFill(mean_vals, lb_vals, ub_vals, label, Color=col, ...
-        FaceAlpha = fillAlpha, LineStyle=thisStyle, LineWidth=LineWidth,...
+        FaceAlpha = fillAlpha, LineStyle=thisStyle, LineWidth=LW,...
         XScale='linear',YScale='linear',useFill = useFill);
     hold on;
 
     y_entries(kIV) = struct('Color',col, 'Alpha',fillAlpha*useFill, ...
-                    'LineStyle',thisStyle, 'LineWidth',LineWidth, ...
+                    'LineStyle',thisStyle, 'LineWidth',LW, ...
                     'Text',label,'FontSize',fontSize_legend);
 end
 grid on;
 ylabel('$y_k$','Interpreter','latex','FontSize',fontSize_xyLabel);
+axLeg1(1) = customLegend(y_entries,ax1(1),cols=LegsCols(1),Location=LegsLoc(1),...
+    RelScaling=false,FontSize=fontSize_legend,BoxWidth=opts.Leg_BoxWidth);
+
+%% ============================= Uf IVs =================================
+ax1(2) = nexttile(tl1,2);
+Uf_lb_fs = replace(Uf_ivs,'iv','l');
+Uf_ub_fs = replace(Uf_ivs,'iv','u');
+Uf_av_fs = replace(Uf_ivs,'iv','m');
+num_Uf_ivs = numel(Uf_ivs);
+
+u_iv = struct;
+kStyle = 1;
+for kIV = 1:num_Uf_ivs
+    lb_name = Uf_lb_fs{kIV};
+    ub_name = Uf_ub_fs{kIV};
+    av_name = Uf_av_fs{kIV};
+    iv_name = Uf_ivs{kIV};
+    
+    mean_vals = m0.Uf.(iv_name).(iX_str).median;
+    lb_vals = squeeze(m0.Uf.(iv_name).(iX_str).pctiles(:,:,6));
+    ub_vals = squeeze(m0.Uf.(iv_name).(iX_str).pctiles(:,:,16));
+
+    cIdx = ivName2ColorIdx(iv_name);
+    cIdx2 = find(Cidxs == cIdx,1,'first');
+    
+    switch iv_name
+        case 'iv1',  label = '1) open-loop IV';          label2 = '$U_{\mathrm{f}}$';                  col = cCram2(cIdx2,:);
+        case 'iv2a', label = '2a) opt. IV';              label2 = '$\tilde{U}_{\mathrm{f}}$';          col = cCram2(cIdx2,:);
+        case 'iv2c', label = '2c) opt. IV + 2SLS';       label2 = '$\hat{\tilde{U}}_{\mathrm{f,2c}}$'; col = cCram2(cIdx2,:);
+        case 'iv3c', label = '3c) LCF + 2SLS';           label2 = '$\hat{\tilde{U}}_{\mathrm{f,3c}}$'; col = cCram(cIdx2,:);
+        case 'iv4a', label = '4a) w/o Cz info';          label2 = '$\hat{\tilde{U}}_{\mathrm{f,4a}}$'; col = cCram(cIdx2,:);
+        case 'iv4c', label = '4c) w/o Cz info + 2SLS';   label2 = '$\hat{\tilde{U}}_{\mathrm{f,4c}}$'; col = cCram(cIdx2,:);
+        case 'iv5a', label = '5a) w/ Cz info';           label2 = '$\hat{\tilde{U}}_{\mathrm{f,5a}}$'; col = cCram(cIdx2,:);
+        case 'iv5c', label = '5c) w/ Cz info + 2SLS';    label2 = '$\hat{\tilde{U}}_{\mathrm{f,5c}}$'; col = cCram(cIdx2,:);
+        case 'iv6c', label = '6c) ref. + 2SLS';          label2 = '$\hat{\tilde{U}}_{\mathrm{f,6c}}$'; col = [0 0 0]; % black
+        otherwise,  label = iv_name;                     label2 = label;                                                col = [0 0 0];
+    end
+    switch iv_name
+        case {'iv2a','iv1','iv6c'}, thisStyle = '-'; LW = LineWidth + 0.5;
+        otherwise, thisStyle = lineStyles{mod(kStyle-1,numel(lineStyles))+1}; kStyle = kStyle + 1; LW = LineWidth;% cycle
+    end
+    if any(ismember(iv_name,useFillCases))
+        useFill = true;
+    else
+        useFill = false;
+    end
+    if opts.LegIVnumOnly
+        label = label2; %['IV',iv_name(3:end)];
+    end
+
+    plotLineWithFill(mean_vals, lb_vals, ub_vals, label, Color=col, ...
+        FaceAlpha = fillAlpha, LineStyle=thisStyle, LineWidth=LW,...
+        XScale='linear',YScale='linear',useFill = useFill);
+    hold on;
+
+    u_entries(kIV) = struct('Color',col, 'Alpha',fillAlpha*useFill, ...
+                    'LineStyle',thisStyle, 'LineWidth',LW, ...
+                    'Text',label,'FontSize',fontSize_legend);
+end
+grid on;
+ylabel('$u_k$','Interpreter','latex','FontSize',fontSize_xyLabel);
 xlabel('Time step', 'Interpreter','latex','FontSize',fontSize_xyLabel);
-axLeg1(2) = customLegend(y_entries,ax1(2),cols=LegsCols(2),Location=LegsLoc(2),RelScaling=true);
+axLeg1(2) = customLegend(u_entries,ax1(2),cols=LegsCols(2),Location=LegsLoc(2),...
+    RelScaling=false,FontSize=fontSize_legend,BoxWidth=opts.Leg_BoxWidth);
 
 linkaxes(ax1,'x');
 

@@ -89,7 +89,7 @@ axLeg.Position(3:4) = fixedWH_pix;
 
 %% ==================== scale size relative to figure =====================
 if opts.RelScaling
-    % use axLeg.Units = pixels here to preven rescaling of legend upon
+    % use axLeg.Units = pixels here to prevent rescaling of legend upon
     % rescaling of figure
     
     % get position of legend in pixels
@@ -206,7 +206,7 @@ for k = 1:nEntries
     text(axLeg, xPad+textX + xBase, yCenter, entries(k).Text, ...
         'Interpreter','latex', ...
         'VerticalAlignment','middle', ...
-        'FontSize',12);
+        'FontSize',fontSize);
 end
 
 %% --- Move legend to stay inside parent axes plotting box ---

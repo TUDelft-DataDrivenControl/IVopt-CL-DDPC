@@ -23,7 +23,7 @@ function UYf_row = process_m0_seed(Z, Uf_ivs, Yf_ivs, nu, ny, f)
         Yf_iv_name = Yf_ivs{kIVuy};
         switch Yf_iv_name
             case 'iv3a'
-                Yf_iv = Z.iv3a_(1:ny*f,:);
+                Yf_iv = Z.iv3a_(1:ny*f,:); % only select \Xi_f (IV_Theta). N.B. works here because size(\Xi_f,1)/f==ny
             case 'iv6a'
                 Yf_iv = Z.iv6a_;
             otherwise
