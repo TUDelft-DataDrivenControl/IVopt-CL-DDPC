@@ -7,6 +7,7 @@ arguments
     opts.fontSize (1,1) double = 15;
     opts.CrameriColors char = 'roma';  % possible colors: see the 'crameri' command
     opts.FigPos (1,4) double {mustBeReal,mustBeFinite} = [50 50 1000 600]; % figure position
+    opts.Units = 'pixels'
     opts.fillAlpha (1,1) double {mustBeGreaterThanOrEqual(opts.fillAlpha,0),...
                                  mustBeLessThanOrEqual(opts.fillAlpha,1)} = 0.25
     opts.XScale char {mustBeMember(opts.XScale,["log","linear"])} = 'log';
@@ -14,6 +15,7 @@ arguments
     opts.LineWidth (1,1) double {mustBeFinite,mustBeReal,mustBePositive} = 2;
     opts.LegLocations (1,:) = "northeast"; % parsing done by mustBeValidLegLocation
     opts.LegCols (1,2) double {mustBeFinite,mustBeReal,mustBePositive,mustBeInteger} = [1, 1];
+    opts.FS_Legend (1,1) double {mustBeReal,mustBeFinite,mustBePositive} = 12;
 end
 
 fontSize  = opts.fontSize;      % font size of x & y labels (scaled later for y due to orientation)
@@ -38,7 +40,7 @@ switch data_type
         N_all = repmat(opts.N,1,numel(X_all));
 
         if strcmp(data_type,'Re')
-            xlab = '$\mathrm{Var}(e_k)$';
+            xlab = '$\Sigma_e$';
         else
             xlab = '$p$';
         end        
@@ -56,15 +58,14 @@ end
 
 
 set_xlabel_2   = @() xlabel(xlab,'interpreter','latex','FontSize',fontSize);
-set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j U_{\mathrm{f}}^{\mathrm{iv},2a}\|_\mathrm{F}}{\sqrt{N}}$',...
+set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j \tilde{U}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
-set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j Y_{\mathrm{f}}^{\mathrm{iv},2b}\|_\mathrm{F}}{\sqrt{N}}$',...
+set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j \tilde{Y}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
 
-fig2 = figure();
-tl2 = tiledlayout(2,1,"TileSpacing",'compact','Padding','compact');
+fig2 = figure('Units',opts.Units,'Position',Position);
+tl2 = tiledlayout(2,1,"TileSpacing",'tight','Padding','tight');
 fig2.Units = 'pixels';
-fig2.Position = Position;
 ax2(1) = nexttile();
 
 % --------------------- plotting for Uf_ivs -------------------------------
@@ -73,6 +74,7 @@ ax2(1) = nexttile();
 % see size(m1.Uf.iv1.pctiles,2);
 
 Uf_ivs     = fieldnames(m1.Uf);
+Uf_ivs = setdiff(Uf_ivs,{'iv2a'}); % exclude case that is logically zero
 Uf_lb_fs = replace(Uf_ivs,'iv','l');
 Uf_ub_fs = replace(Uf_ivs,'iv','u');
 Uf_av_fs = replace(Uf_ivs,'iv','m');
@@ -92,16 +94,15 @@ for kIV = 1:num_Uf_ivs
     
     % determine color
     switch iv_name
-        case 'iv6c', label = '$j=6c$: ref. + 2SLS';        col = [0 0 0];       LineStyle = '-';
-        case 'iv2a', label = '$j=2a$: opt. IV';            col = cCram(1,:);    LineStyle = '-.';
-        case 'iv2c', label = '$j=2c$: opt. IV + 2SLS';     col = cCram(2,:);    LineStyle = '-.';
-        case 'iv3c', label = '$j=3c$: LCF + 2SLS';         col = cCram(3,:);    LineStyle = '--';
-        case 'iv4a', label = '$j=4a$: w/o Cz info';        col = cCram(4,:);    LineStyle = ':';
-        case 'iv4c', label = '$j=4c$: w/o Cz info + 2SLS'; col = cCram(5,:);    LineStyle = ':';
-        case 'iv5a', label = '$j=5a$: w/ Cz info';         col = cCram(6,:);    LineStyle = '-.';
-        case 'iv5c', label = '$j=5c$: w/ Cz info + 2SLS';  col = cCram(7,:);    LineStyle = '-.';
-        case 'iv1',  label = '$j=1$: OL-IV';               col = cCram(9,:);    LineStyle = '-.';
-        otherwise,   label = iv_name;                      col = [0 0 0];       LineStyle = '-';
+        case 'iv6c', label = '$\hat{\tilde{U}}_{\mathrm{f,6c}}$'; col = [0 0 0];       LineStyle = '-';
+        case 'iv2c', label = '$\hat{\tilde{U}}_{\mathrm{f,2c}}$'; col = cCram(2,:);    LineStyle = '-.';
+        case 'iv3c', label = '$\hat{\tilde{U}}_{\mathrm{f,3c}}$'; col = cCram(3,:);    LineStyle = '-';
+        case 'iv4a', label = '$\hat{\tilde{U}}_{\mathrm{f,4a}}$'; col = cCram(4,:);    LineStyle = '-*';
+        case 'iv4c', label = '$\hat{\tilde{U}}_{\mathrm{f,4c}}$'; col = cCram(5,:);    LineStyle = '-^';
+        case 'iv5a', label = '$\hat{\tilde{U}}_{\mathrm{f,5a}}$'; col = cCram(6,:);    LineStyle = '-.*';
+        case 'iv5c', label = '$\hat{\tilde{U}}_{\mathrm{f,5c}}$'; col = cCram(7,:);    LineStyle = '-.^';
+        case 'iv1',  label = '$U_{\mathrm{f}}$';                  col = cCram(9,:);    LineStyle = '-';
+        otherwise,   label = iv_name;                             col = [0 0 0];       LineStyle = '-';
     end
 
     plotLineWithFill(u_iv.(av_name),u_iv.(lb_name),u_iv.(ub_name), label, ...
@@ -115,12 +116,13 @@ for kIV = 1:num_Uf_ivs
 end
 set_ylabel_2_1();
 grid on;
-axLeg2(1) = customLegend(u_entries,ax2(1),Location=LegsLoc(1),cols=LegsCols(1));
+axLeg2(1) = customLegend(u_entries,ax2(1),Location=LegsLoc(1),cols=LegsCols(1),FontSize=opts.FS_Legend);
 
 % --------------------- plotting for Yf_ivs -------------------------------
 ax2(2) = nexttile(tl2,2);
 
 Yf_ivs     = fieldnames(m1.Yf);
+Yf_ivs = setdiff(Yf_ivs,{'iv2b'}); % exclude case that is logically zero
 Yf_lb_fs = replace(Yf_ivs,'iv','l');
 Yf_ub_fs = replace(Yf_ivs,'iv','u');
 Yf_av_fs = replace(Yf_ivs,'iv','m');
@@ -139,13 +141,11 @@ for kIV = 1:num_Yf_ivs
 
     % determine color
     switch iv_name
-        case 'iv1',  label = '$j=1$: OL-IV';         col = cCram(9,:);  LineStyle = '--';
-        case 'iv2b', label = '$j=2b$: opt. IV';      col = cCram(1,:);  LineStyle = '-.';
-        case 'iv4b', label = '$j=4b$: w/o Cz info';  col = cCram(4,:);  LineStyle = ':';
-        case 'iv5b', label = '$j=5b$: w/ Cz info';   col = cCram(6,:);  LineStyle = '-.';
-        case 'iv3a', label = '$j=3a$: $\Xi_\mathrm{f}$ (LCF-IV)' ; col = cCram(8,:);  LineStyle = '--';
-        case 'iv6a', label = '$j=3a,6a$: ref.';      col = [0 0 0];     LineStyle = '-';
-        otherwise,   label = field;              col = [0 0 0];     LineStyle = '-';
+        case 'iv4b', label = '$\hat{\tilde{Y}}_{\mathrm{f,4b}}$'; col = cCram(4,:);  LineStyle = '-';
+        case 'iv5b', label = '$\hat{\tilde{Y}}_{\mathrm{f,5b}}$'; col = cCram(6,:);  LineStyle = '-.d';
+        case 'iv3a', label = '$\Xi_f$' ;                          col = cCram(8,:);  LineStyle = '-x';
+        case 'iv6a', label = '$W_f$';                             col = [0 0 0];     LineStyle = '-';
+        otherwise,   label = field;                               col = [0 0 0];     LineStyle = '-';
     end
 
     plotLineWithFill(y_iv.(av_name),y_iv.(lb_name),y_iv.(ub_name), label, ...
@@ -160,7 +160,7 @@ end
 set_ylabel_2_2();
 set_xlabel_2();
 grid on;
-axLeg2(2) = customLegend(y_entries,ax2(2),Location=LegsLoc(2),cols=LegsCols(2));
+axLeg2(2) = customLegend(y_entries,ax2(2),Location=LegsLoc(2),cols=LegsCols(2),FontSize=opts.FS_Legend);
 end
 
 %% Helper functions

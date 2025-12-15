@@ -90,7 +90,7 @@ pX_dir = fullfile(fig2_dir,names{firstMatchIdx});
 cd(pX_dir);
 seed_files = dir('seed_*.mat');
 cd(pdir);
-load(seed_files(1).name,'opts','y0','e0','u0'); % makes sense, also only one seed per Re in subdir1
+load(fullfile(pX_dir,seed_files(1).name),'opts','y0','e0','u0'); % makes sense, also only one seed per Re in subdir1
 
 % overlaying e_k & y_k on plots
 plot(ax2(1),e0(opts.p+1:end),'r-','DisplayName','$e_k$','LineWidth',1);
@@ -120,6 +120,170 @@ axLeg2(2).Position(1:2) = [112.3333  142.4892];
 % exporting figure
 set(fig2, 'Color', 'w');
 exportgraphics(fig2, fullfile(pdir,'results','fig2_exampleIVs.pdf'), ...
+    'BackgroundColor', 'white', ...
+    'ContentType', 'vector', ...
+    'Resolution', 600);
+
+%% Figure 3
+clearvars -except pdir
+cd(pdir);
+% ------------------------- settings --------------------------------------
+data_type = 'Re';
+% subdir1 = 'Re_1e-05_1e-02_10_p_20_N_1e03_f_20_20251030_1517';
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
+fig3_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
+fig3_file = fullfile(fig3_dir,'processed_data.mat');
+load(fig3_file);
+load(fullfile(fig3_dir,sprintf('d%s_settings.mat',data_type)));
+[p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
+
+FS_Tick   = 9;
+FS_Label  = 10;
+Fs_Legend = 8;
+
+[fig3,ax3,axLeg3] = make_fig_m1(m1,'Re',Re_all,N=N, YScale='log', LegCols=[2 2],...
+    LegLocations=["northwest","west"],fontSize=FS_Label,FS_Legend=Fs_Legend,...
+    FigPos=[50 50 252 400],Units='points');
+ax3(1).YLim(2) = 2;
+fig3.Units = 'points';
+
+for k=1:2
+    ax3(k).FontSize = FS_Tick;
+    ax3(k).YLabel.FontSize = FS_Label*1.5;
+end
+ax3(k).XLabel.FontSize = FS_Label*1.5;
+
+set(fig3, 'Color', 'w');
+exportgraphics(fig3, fullfile(pdir,'results','fig3_IVdiff_dRe.pdf'), ...
+    'BackgroundColor', 'white', ...
+    'ContentType', 'vector', ...
+    'Resolution', 600);
+
+%% Figure 4
+clearvars -except pdir
+cd(pdir);
+close all;
+% ------------------------- settings --------------------------------------
+data_type = 'Re';
+% subdir1 = 'Re_1e-05_1e-02_10_p_20_N_1e03_f_20_20251030_1517';
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
+fig3_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
+fig3_file = fullfile(fig3_dir,'processed_data.mat');
+load(fig3_file);
+load(fullfile(fig3_dir,sprintf('d%s_settings.mat',data_type)));
+[p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
+iX = find(Re_all >= 5e-2,1,'first');
+iX_str = sprintf('iX%d',iX);
+Cases = fieldnames(m4.yfhat);
+ivBs = Cases(endsWith(Cases,'b') & startsWith(Cases,'iv'));
+ivCs = Cases(endsWith(Cases,'c') & startsWith(Cases,'iv'));
+noPlotCases = [{'actLf'};ivCs;{'iv6a'}];%{'actLf'};%
+Cases = [{'actLf'};setdiff(Cases,noPlotCases)];
+
+% Get number of cases
+nCases = numel(Cases);
+
+% Define base line styles and markers for variety
+baseLineStyles = {'-', '--', ':', '-.'};
+baseMarkers = {'none', 'o', 's', '^', 'd', 'v', '>', '<', 'p', 'h', '*', 'x'};
+markerSize = 5;
+lineWidth = 1.2;
+FS_Tick   = 15;
+FS_Label  = 20;
+Fs_Legend = 15;
+
+% Get colormap from crameri - use enough colors to cycle through
+nColors = max(nCases, 8); % Ensure at least 8 colors for good distribution
+allColors = crameri('batlow', nColors);  % Alternative: 'roma', 'berlin', 'vik', 'oslo'
+
+% Create cycling arrays for the actual number of cases
+colors = allColors(mod(0:nCases-1, nColors) + 1, :);
+lineStyles = baseLineStyles(mod(0:nCases-1, numel(baseLineStyles)) + 1);
+markers = baseMarkers(mod(0:nCases-1, numel(baseMarkers)) + 1);
+
+% Create figure with appropriate size for two-column layout
+% Two-column width is typically ~7 inches
+fig4 = figure('Units', 'inches', 'Position', [1, 1, 7, 9]);
+tiledlayout(2,1,'TileSpacing','tight','Padding','tight');
+
+% Plot mean
+ax4(1) = nexttile;
+hold on; box on; grid on;
+h = gobjects(nCases, 1);
+for kC = 1:nCases
+    CaseName = Cases{kC};
+
+    if startsWith(CaseName,'iv')
+        DispName = ['$j=',CaseName(3:end),'$'];
+    elseif strcmp(CaseName,'CLSPC')
+        DispName = 'CL-SPC';
+    elseif strcmp(CaseName,'TrPred')
+        DispName = 'TP';
+    elseif strcmp(CaseName,'actLf')
+        DispName = 'actual $L_f$';
+    end
+    
+    yfhat  = m4.yfhat.(CaseName).(iX_str).mean;
+    h(kC) = plot(1:f, yfhat, ...
+        'Color', colors(kC,:), ...
+        'LineStyle', lineStyles{kC}, ...
+        'Marker', markers{kC}, ...
+        'MarkerSize', markerSize, ...
+        'LineWidth', lineWidth, ...
+        'DisplayName', DispName, ...
+        'MarkerFaceColor', 'none', ...
+        'MarkerEdgeColor', colors(kC,:));
+end
+ylabel('Mean of $(\hat{y}_k/y_k-1)$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+set(gca, 'FontSize', FS_Tick);
+xlim([1, f]);
+
+% Plot std
+ax4(2) = nexttile;
+hold on; box on; grid on;
+for kC = 1:nCases
+    CaseName = Cases{kC};
+    
+    if startsWith(CaseName,'iv')
+        DispName = ['$j=',CaseName(3:end),'$'];
+    elseif strcmp(CaseName,'CLSPC')
+        DispName = 'CL-SPC';
+    elseif strcmp(CaseName,'TrPred')
+        DispName = 'TP';
+    elseif strcmp(CaseName,'actLf')
+        DispName = 'actual $L_f$';
+    end
+    
+    yfhat  = m4.yfhat.(CaseName).(iX_str).std;
+    plot(1:f, yfhat, ...
+        'Color', colors(kC,:), ...
+        'LineStyle', lineStyles{kC}, ...
+        'Marker', markers{kC}, ...
+        'MarkerSize', markerSize, ...
+        'LineWidth', lineWidth, ...
+        'DisplayName', DispName, ...
+        'MarkerFaceColor', 'none', ...
+        'MarkerEdgeColor', colors(kC,:));
+end
+xlabel('Number of time steps ahead ($k$)', 'Interpreter', 'latex', 'FontSize', FS_Label);
+ylabel('Std. dev. of $(\hat{y}_k/y_k-1)$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+set(gca, 'FontSize', FS_Tick);
+xlim([1, f]);
+
+% Create a shared legend outside the plots
+% Adjust number of columns based on number of cases
+nLegCols = min(5, ceil(nCases/2)); % Max 5 columns, but adaptive
+leg = legend(h, 'Orientation', 'horizontal', ...
+    'NumColumns', nLegCols, ...
+    'Location', 'northoutside', ...
+    'FontSize', Fs_Legend, ...
+    'Interpreter', 'latex');
+
+% Link x-axes
+linkaxes(ax4, 'x');
+
+set(fig4, 'Color', 'w');
+exportgraphics(fig4, fullfile(pdir,'results','fig4_rel_yfpred_error.pdf'), ...
     'BackgroundColor', 'white', ...
     'ContentType', 'vector', ...
     'Resolution', 600);

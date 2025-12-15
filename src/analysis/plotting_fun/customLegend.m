@@ -195,12 +195,21 @@ for k = 1:nEntries
     % Patch
     patch(axLeg, [0 boxW boxW 0]+xPad + xBase, [y0 y0 y1 y1], entries(k).Color, ...
         'FaceAlpha', entries(k).Alpha, 'EdgeColor','none');
+    
+    % Separate the line style from marker
+    [lineStyle, marker] = separateLineMarker(entries(k).LineStyle);
 
     % Line
     line(axLeg, [0 boxW]+xPad + xBase, [yCenter yCenter], ...
         'Color', entries(k).Color, ...
-        'LineStyle', entries(k).LineStyle, ...
+        'LineStyle', lineStyle, ...
         'LineWidth', entries(k).LineWidth);
+    if ~isempty(marker)
+        line(axLeg,boxW/2+xPad + xBase, yCenter, ...
+        'Color', entries(k).Color, ...
+        'Marker',marker,...
+        'LineWidth', entries(k).LineWidth);
+    end
 
     % Label
     text(axLeg, xPad+textX + xBase, yCenter, entries(k).Text, ...
@@ -440,4 +449,55 @@ if ~isempty(opts.MaxRelWidth)
         {'scalar','real','finite','>=',0,'<=',0.9},mfilename,'MaxRelHeight');
 end
 
+end
+
+function [lineStyle, marker] = separateLineMarker(styleStr)
+    % separateLineMarker - Separates line style from marker type
+    %
+    % Syntax: [lineStyle, marker] = separateLineMarker(styleStr)
+    %
+    % Inputs:
+    %   styleStr - String containing line style and/or marker (e.g., '-o', '--x', ':')
+    %
+    % Outputs:
+    %   lineStyle - Line style ('-', '--', ':', '-.', or 'none')
+    %   marker - Marker type ('o', 'x', '+', etc., or 'none')
+    
+    % Initialize outputs
+    lineStyle = 'none';
+    marker = 'none';
+    
+    if isempty(styleStr)
+        return;
+    end
+    
+    % Define valid line styles (order matters - check longer ones first)
+    lineStyles = {'--', '-.', '-', ':'};
+    
+    % Define valid markers
+    markers = {'+', 'o', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', ...
+               'p', 'h', 'square', 'diamond', 'pentagram', 'hexagram'};
+    
+    % Check for line style
+    for i = 1:length(lineStyles)
+        if contains(styleStr, lineStyles{i})
+            lineStyle = lineStyles{i};
+            % Remove line style from string
+            styleStr = strrep(styleStr, lineStyles{i}, '');
+            break;
+        end
+    end
+    
+    % Check for marker in remaining string
+    for i = 1:length(markers)
+        if contains(styleStr, markers{i})
+            marker = markers{i};
+            break;
+        end
+    end
+    
+    % If nothing was found, default to solid line
+    if strcmp(lineStyle, 'none') && strcmp(marker, 'none')
+        lineStyle = '-';
+    end
 end

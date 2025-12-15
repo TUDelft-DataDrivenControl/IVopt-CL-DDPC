@@ -117,9 +117,9 @@ fig1.OuterPosition(1:2) = monPos(1:2) + [50 50];
 % -> difference of Yf_iv w.r.t. Yf_iv2b
 switch data_type
     case 'N'
-        [fig2,ax2,axLeg2] = make_fig_m1(m1,'N', N_all,                                     LegCols=[3 3],LegLocations="west");
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,'N', N_all,                     YScale='linear',   LegCols=[3 3],LegLocations="west");
     case 'Re'
-        [fig2,ax2,axLeg2] = make_fig_m1(m1,'Re',Re_all,N=N,                YScale='linear',LegCols=[3 3],LegLocations=["west","northwest"]);
+        [fig2,ax2,axLeg2] = make_fig_m1(m1,'Re',Re_all,N=N,                YScale='log', LegCols=[3 2],LegLocations=["east","west"]);
         axLeg2(1).Position(1:2) = axLeg2(1).Position(1:2) + [-10 -10];
         axLeg2(2).Position(1:2) = axLeg2(2).Position(1:2) + [-10 -20];
     case 'p'

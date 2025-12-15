@@ -74,7 +74,7 @@ function h = plotLineWithFill(y, yLower, yUpper, description, varargin)
                       'HandleVisibility','off');%'DisplayName', description);
         hold on;
     end
-    h.line = plot(ax, x, y, 'LineStyle', ls, 'Color', c, 'LineWidth', lw, ...
+    h.line = plot(ax, x, y, ls, 'Color', c, 'LineWidth', lw, ...
                   'HandleVisibility','off'); % hide line in legend
 
     % --- set axis scaling ---
