@@ -167,25 +167,29 @@ close all;
 data_type = 'Re';
 % subdir1 = 'Re_1e-05_1e-02_10_p_20_N_1e03_f_20_20251030_1517';
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
-fig3_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
-fig3_file = fullfile(fig3_dir,'processed_data.mat');
-load(fig3_file);
-load(fullfile(fig3_dir,sprintf('d%s_settings.mat',data_type)));
+fig4_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
+fig4_file = fullfile(fig4_dir,'processed_data.mat');
+load(fig4_file);
+load(fullfile(fig4_dir,sprintf('d%s_settings.mat',data_type)));
 [p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
 iX = find(Re_all >= 5e-2,1,'first');
 iX_str = sprintf('iX%d',iX);
 Cases = fieldnames(m4.yfhat);
+ivAs = Cases(endsWith(Cases,'a') & startsWith(Cases,'iv'));
 ivBs = Cases(endsWith(Cases,'b') & startsWith(Cases,'iv'));
 ivCs = Cases(endsWith(Cases,'c') & startsWith(Cases,'iv'));
-noPlotCases = [{'actLf'};ivCs;{'iv6a'}];%{'actLf'};%
-Cases = [{'actLf'};setdiff(Cases,noPlotCases)];
+noPlotCases = {'actLf'};
+% noPlotCases = [{'actLf'};ivBs;ivCs;{'iv1';'iv6a';'CLSPC';'TrPred'}];
+% noPlotCases = [{'actLf'};ivCs; {'iv1';'CLSPC';'TrPred'}];
+% noPlotCases = setdiff(noPlotCases,{'iv2a','iv2b','iv2c'});
+Cases = setdiff(Cases,noPlotCases);
 
 % Get number of cases
 nCases = numel(Cases);
 
 % Define base line styles and markers for variety
 baseLineStyles = {'-', '--', ':', '-.'};
-baseMarkers = {'none', 'o', 's', '^', 'd', 'v', '>', '<', 'p', 'h', '*', 'x'};
+baseMarkers = {'none', 'o', 's', '^', 'd', 'v', '>', '<'};%, 'p', 'h', '*', 'x'};
 markerSize = 5;
 lineWidth = 1.2;
 FS_Tick   = 15;
@@ -234,7 +238,7 @@ for kC = 1:nCases
         'MarkerFaceColor', 'none', ...
         'MarkerEdgeColor', colors(kC,:));
 end
-ylabel('Mean of $(\hat{y}_k/y_k-1)$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+ylabel('Mean of $\Delta\hat{y}^*_k$', 'Interpreter', 'latex', 'FontSize', FS_Label);
 set(gca, 'FontSize', FS_Tick);
 xlim([1, f]);
 
@@ -254,8 +258,8 @@ for kC = 1:nCases
         DispName = 'actual $L_f$';
     end
     
-    yfhat  = m4.yfhat.(CaseName).(iX_str).std;
-    plot(1:f, yfhat, ...
+    yfhat2  = m4.yfhat.(CaseName).(iX_str).std;
+    plot(1:f, yfhat2, ...
         'Color', colors(kC,:), ...
         'LineStyle', lineStyles{kC}, ...
         'Marker', markers{kC}, ...
@@ -266,7 +270,7 @@ for kC = 1:nCases
         'MarkerEdgeColor', colors(kC,:));
 end
 xlabel('Number of time steps ahead ($k$)', 'Interpreter', 'latex', 'FontSize', FS_Label);
-ylabel('Std. dev. of $(\hat{y}_k/y_k-1)$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+ylabel('Std. dev. of $\Delta\hat{y}^*_k$', 'Interpreter', 'latex', 'FontSize', FS_Label);
 set(gca, 'FontSize', FS_Tick);
 xlim([1, f]);
 

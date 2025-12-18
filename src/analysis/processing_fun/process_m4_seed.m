@@ -18,14 +18,14 @@ nyf = size(Yf_by_Ep,1);
 
 Yf_RelErr_iX_ks = zeros(nyf, num_Cases, 4, 2); % (:,:,:,1) -> std. dev, (:,:,:,2) -> mean
 
+% create Hankel matrices for inputs & outputs
+u_all = [u0(:,end-p+1:end) u_cl.actLf];%u_cl.(caseName)
+[~, Up, Uf] = make_Hankel(u_all, p, f);
+y_all = [y0(:,end-p+1:end) y_cl.actLf];%y_cl.(caseName)
+[~, Yp, Yf] = make_Hankel(y_all, p, f);
+
 for kC = 1:num_Cases
     caseName = Cases{kC};
-    % create Hankel matrices for inputs & outputs
-    u_all = [u0(:,end-p+1:end) u_cl.(caseName)];
-    [~, Up, Uf] = make_Hankel(u_all, p, f);
-    y_all = [y0(:,end-p+1:end) y_cl.(caseName)];
-    [~, Yp, Yf] = make_Hankel(y_all, p, f);
-
     Yf_hat = Lf.(caseName)*[Up;Yp;Uf];      % prediction w/ Lf estimate
     if ~strcmp(caseName,'actLf')
         Yf_hatS = Lf.('actLf')*[Up;Yp;Uf];  % prediction w/ actual Lf
@@ -34,7 +34,7 @@ for kC = 1:num_Cases
     end
 
     % since data can vary greatly in magnitude: use relative difference
-    [Yf_RelErr_iX_ks(:,kC,1,1), Yf_RelErr_iX_ks(:,kC,1,2)] = std( (Yf_hat  - Yf)./Yf, 0, 2);
+    [Yf_RelErr_iX_ks(:,kC,1,1), Yf_RelErr_iX_ks(:,kC,1,2)] = std( (Yf_hat  - Yf_hatS)./Yf_hatS, 0, 2);
     [Yf_RelErr_iX_ks(:,kC,2,1), Yf_RelErr_iX_ks(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
     [Yf_RelErr_iX_ks(:,kC,3,1), Yf_RelErr_iX_ks(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
     [Yf_RelErr_iX_ks(:,kC,4,1), Yf_RelErr_iX_ks(:,kC,4,2)] = std( Yf_by_Ef./Yf, 0, 2);
