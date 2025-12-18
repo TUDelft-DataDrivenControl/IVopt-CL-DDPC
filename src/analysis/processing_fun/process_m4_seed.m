@@ -16,7 +16,7 @@ num_Cases = numel(Cases);
 % Determine ny*f from dimensions of Yf_by_Ep
 nyf = size(Yf_by_Ep,1);
 
-Yf_RelErr_iX_ks = zeros(nyf, num_Cases, 4, 2); % (:,:,:,1) -> std. dev, (:,:,:,2) -> mean
+Yf_RelErr_iX_ks = zeros(nyf, num_Cases, 3); % (:,:,1) -> std. dev, (:,:,2) -> mean, (:,:,3) -> rms
 
 % create Hankel matrices for inputs & outputs
 u_all = [u0(:,end-p+1:end) u_cl.actLf];%u_cl.(caseName)
@@ -34,10 +34,9 @@ for kC = 1:num_Cases
     end
 
     % since data can vary greatly in magnitude: use relative difference
-    [Yf_RelErr_iX_ks(:,kC,1,1), Yf_RelErr_iX_ks(:,kC,1,2)] = std( (Yf_hat  - Yf_hatS)./Yf_hatS, 0, 2);
-    [Yf_RelErr_iX_ks(:,kC,2,1), Yf_RelErr_iX_ks(:,kC,2,2)] = std( (Yf_hatS - Yf)./Yf, 0, 2);
-    [Yf_RelErr_iX_ks(:,kC,3,1), Yf_RelErr_iX_ks(:,kC,3,2)] = std( Yf_by_Ep./Yf, 0, 2);
-    [Yf_RelErr_iX_ks(:,kC,4,1), Yf_RelErr_iX_ks(:,kC,4,2)] = std( Yf_by_Ef./Yf, 0, 2);
+    dYkStar = (Yf_hat  - Yf_hatS)./Yf_hatS;
+    [Yf_RelErr_iX_ks(:,kC,1), Yf_RelErr_iX_ks(:,kC,2)] = std( dYkStar, 0, 2);
+    Yf_RelErr_iX_ks(:,kC,3) = rms( dYkStar, 2);
 end
 
 end

@@ -20,8 +20,8 @@ cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
 % measure 4: future output relative errors: actual, predictions & contributions (by Ep & Ef)
-% Combine the 4 error components into one 5-D array: (ny*f) x num_Cases x spX x 4 x 2
-m4_data_iX = zeros(ny*f, num_Cases, spX, 4, 2); % (:,:,:,:,i): i=1 -> std. dev, i=2 -> mean
+% Combine the 4 error components into one 4-D array: (ny*f) x num_Cases x spX x 3
+m4_data_iX = zeros(ny*f, num_Cases, spX, 3); % (:,:,:,i): i=1 -> std. dev, i=2 -> mean, i=3 -> rms
 
 % determine if running on cluster
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
@@ -80,7 +80,7 @@ parfor ks = 1:spX
     % =================================================================
     % m4) prediction error
         case 'm4'
-            m4_data_iX(:,:,ks,:,:) = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f);
+            m4_data_iX(:,:,ks,:) = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f);
     end
     end
 
@@ -101,7 +101,7 @@ if ismember('m4',OutVars)
     % mean over seeds (3rd dim) -> squeeze to ny*f x num_Cases x 4 x 2
     m4_data_iX = squeeze(mean(m4_data_iX, 3));
 else
-    m4_data_iX = zeros(ny*f, num_Cases, 4, 2);
+    m4_data_iX = zeros(ny*f, num_Cases, 3);
 end
 
 m123_time = toc(m123_tictoc);

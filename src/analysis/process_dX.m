@@ -123,7 +123,7 @@ m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);
 
 % ======================== measure 4 (prediction error) ===================
 % -> prediction error
-m4_data = zeros(nX,ny*f,num_Cases,4,2);
+m4_data = zeros(nX,ny*f,num_Cases,3);
 
 %% -------------------- loop over Re \ N \ p values -----------------------
 % Check and start parallel pool if needed

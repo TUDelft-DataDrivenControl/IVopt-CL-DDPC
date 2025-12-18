@@ -129,7 +129,6 @@ clearvars -except pdir
 cd(pdir);
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-02_10_p_20_N_1e03_f_20_20251030_1517';
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
 fig3_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
 fig3_file = fullfile(fig3_dir,'processed_data.mat');
@@ -165,7 +164,6 @@ cd(pdir);
 close all;
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-02_10_p_20_N_1e03_f_20_20251030_1517';
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
 fig4_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
 fig4_file = fullfile(fig4_dir,'processed_data.mat');
