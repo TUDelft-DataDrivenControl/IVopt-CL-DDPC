@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=1e3,f=20);
+opts = init_opts(N=1e3,f=20,sys=6);
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 % Requirements:

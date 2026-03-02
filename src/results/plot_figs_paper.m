@@ -4,6 +4,8 @@ clear;
 clc;
 close all;
 
+save_figs = false;
+
 pdir = load('pdir.mat').pdir;
 cd(pdir);
 
@@ -41,14 +43,16 @@ end
 xlim(gca,[0 length(yr0)+length(yr1)-1])
 
 % exporting figure
-set(fig1, 'Color', 'w');
-exportgraphics(fig1, fullfile(pdir,'results','fig1_exampleMC.pdf'), ...
-    'BackgroundColor', 'white', ...
-    'ContentType', 'vector', ...
-    'Resolution', 300);
+if save_figs
+    set(fig1, 'Color', 'w');
+    exportgraphics(fig1, fullfile(pdir,'results','fig1_exampleMC.pdf'), ...
+        'BackgroundColor', 'white', ...
+        'ContentType', 'vector', ...
+        'Resolution', 300);
+end
 
 %% Figure 2 - example of IVs
-clearvars -except pdir
+clearvars -except pdir save_figs
 cd(pdir);
 
 % ------------------------- settings --------------------------------------
@@ -118,14 +122,16 @@ axLeg2(1).Position(1:2) = [40.3333  356.3083];
 axLeg2(2).Position(1:2) = [112.3333  142.4892];
 
 % exporting figure
-set(fig2, 'Color', 'w');
-exportgraphics(fig2, fullfile(pdir,'results','fig2_exampleIVs.pdf'), ...
-    'BackgroundColor', 'white', ...
-    'ContentType', 'vector', ...
-    'Resolution', 600);
+if save_figs
+    set(fig2, 'Color', 'w');
+    exportgraphics(fig2, fullfile(pdir,'results','fig2_exampleIVs.pdf'), ...
+        'BackgroundColor', 'white', ...
+        'ContentType', 'vector', ...
+        'Resolution', 600);
+end
 
 %% Figure 3
-clearvars -except pdir
+clearvars -except pdir save_figs
 cd(pdir);
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
@@ -152,14 +158,16 @@ for k=1:2
 end
 ax3(k).XLabel.FontSize = FS_Label*1.5;
 
-set(fig3, 'Color', 'w');
-exportgraphics(fig3, fullfile(pdir,'results','fig3_IVdiff_dRe.pdf'), ...
-    'BackgroundColor', 'white', ...
-    'ContentType', 'vector', ...
-    'Resolution', 600);
+if save_figs
+    set(fig3, 'Color', 'w');
+    exportgraphics(fig3, fullfile(pdir,'results','fig3_IVdiff_dRe.pdf'), ...
+        'BackgroundColor', 'white', ...
+        'ContentType', 'vector', ...
+        'Resolution', 600);
+end
 
 %% Figure 4
-clearvars -except pdir
+clearvars -except pdir save_figs
 cd(pdir);
 close all;
 % ------------------------- settings --------------------------------------
@@ -180,7 +188,14 @@ noPlotCases = {'actLf'};
 % noPlotCases = [{'actLf'};ivBs;ivCs;{'iv1';'iv6a';'CLSPC';'TrPred'}];
 % noPlotCases = [{'actLf'};ivCs; {'iv1';'CLSPC';'TrPred'}];
 % noPlotCases = setdiff(noPlotCases,{'iv2a','iv2b','iv2c'});
-Cases = setdiff(Cases,noPlotCases);
+% Cases = setdiff(Cases,noPlotCases);
+% Cases = {'iv1'};
+% Cases = {'iv2a','iv2b','iv2c'};
+% Cases = {'iv3a',       'iv3c'};
+% Cases = {'iv4a','iv4b','iv4c'};
+% Cases = {'iv5a','iv5b','iv5c'};
+% Cases = {'iv6a',       'iv6c'};
+Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv5a','iv3a','iv6a'};
 
 % Get number of cases
 nCases = numel(Cases);
@@ -284,11 +299,13 @@ leg = legend(h, 'Orientation', 'horizontal', ...
 % Link x-axes
 linkaxes(ax4, 'x');
 
-set(fig4, 'Color', 'w');
-exportgraphics(fig4, fullfile(pdir,'results','fig4_rel_yfpred_error.pdf'), ...
-    'BackgroundColor', 'white', ...
-    'ContentType', 'vector', ...
-    'Resolution', 600);
+if save_figs
+    set(fig4, 'Color', 'w');
+    exportgraphics(fig4, fullfile(pdir,'results','fig4_rel_yfpred_error.pdf'), ...
+        'BackgroundColor', 'white', ...
+        'ContentType', 'vector', ...
+        'Resolution', 600);
+end
 
 %% Helper functions
 

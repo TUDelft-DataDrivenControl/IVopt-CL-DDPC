@@ -3,20 +3,26 @@ function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 
 %% choose a  plant model
 switch opts.sys
-    case {1,5}
+    case {1,5,6}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
-        fn_Cz0 = 'Cz0_Landau1995.mat';
-        if opts.sys==5
-            % change system such that it has no input-output delay
-            [b,a] = ss2tf(A,B(:,1),C,D(:,1));
-            b2 = circshift(b,-3);
-            plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
-            A = plant.A;
-            B = plant.B(:,1);
-            C = plant.C;
-            D = plant.D(:,1);
+        
+        switch opts.sys
+            case 1
+                fn_Cz0 = 'Cz0_Landau1995.mat';
+            case 5
+                fn_Cz0 = 'Cz0_Landau1995.mat'; % still tuned for opts.sys = 1
+                % change system such that it has no input-output delay
+                [b,a] = ss2tf(A,B(:,1),C,D(:,1));
+                b2 = circshift(b,-3);
+                plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
+                A = plant.A;
+                B = plant.B(:,1);
+                C = plant.C;
+                D = plant.D(:,1);
+            case 6
+                fn_Cz0 = 'Cz0_Landau1995_D0.mat';
         end
     case 2
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);

@@ -1,11 +1,21 @@
 close all;
-opts.sys = 1;
+opts.sys = 6;
 switch opts.sys
-    case 1
+    case {1,5,6}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
+        if opts.sys == 5
+            % change system such that it has no input-output delay
+            [b,a] = ss2tf(A,B(:,1),C,D(:,1));
+            b2 = circshift(b,-3);
+            plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
+            A = plant.A;
+            B = plant.B(:,1);
+            C = plant.C;
+            D = plant.D(:,1);
+        end
     case 2
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
         plant.Ts = 1;
@@ -41,21 +51,40 @@ end
 G = plant(:,1);
 [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
 
-if opts.sys == 1
-    Cz0 = minreal(Cz0);
-    [tz,po,kg] = zpkdata(Cz0);
-    [~,idx] = sort(abs(po{1}));
-    po{1}(idx(end)) = 1;
-    Cz0 = zpk(tz,po,kg,Cz0.Ts);
-    Cz0 = ss(tf(Cz0));
-    S = feedback(1,G*Cz0);
-    KS = Cz0*S;
-    T = 1-S;
-    Ms = [W1*S;W3*T];
-else
-    S = feedback(1,G*Cz0);
-    KS = Cz0*S;
-    T = 1-S;
+switch opts.sys
+    case {1,5,6}
+        Cz0 = minreal(Cz0);
+        if opts.sys == 6 %-------------------- using hinfstruct -----------
+            nK = 5;
+            Cz1 = tunableSS('K',nK,1,1,plant.Ts,'companion');
+            % ------- force Cz1.D = 0 -------
+            Cz1.D.Value = 0;
+            Cz1.D.Free  = false;   % forces Cz1.D = 0
+            % ------- initialize rest w/ mixsyn result -----------
+            [Cz1.A.Value,Cz1.B.Value,Cz1.C.Value,~] = ssdata(Cz0);
+
+            S = feedback(1,G*Cz1);     % sensitivity
+            T = feedback(G*Cz1,1);     % complementary sensitivity
+            
+            CL = [ W1*S ; W3*T ];
+            opt = hinfstructOptions('Display','final');
+            [CLopt,gamma] = hinfstruct(CL,opt);
+            
+            Cz0 = getBlockValue(CLopt,'K'); gamma
+        end %--------------------------------------------------------------
+        [tz,po,kg] = zpkdata(Cz0);
+        [~,idx] = sort(abs(po{1}));
+        po{1}(idx(end)) = 1;
+        Cz0 = zpk(tz,po,kg,Cz0.Ts);
+        Cz0 = ss(tf(Cz0));
+        S = feedback(1,G*Cz0);
+        KS = Cz0*S;
+        T = 1-S;
+        Ms = [W1*S;W3*T];
+    otherwise
+        S = feedback(1,G*Cz0);
+        KS = Cz0*S;
+        T = 1-S;
 end
 
 %% closed-loop system
