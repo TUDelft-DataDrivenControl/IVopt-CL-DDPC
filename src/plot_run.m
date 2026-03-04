@@ -72,7 +72,7 @@ Cases  = setdiff(Cases,noPlotCases);
 nCases = numel(Cases);
 
 % determine colours to use
-cCram = crameri('roma', nCases); % colors
+cCram = crameri('batlow', nCases); % colors
 
 % time steps
 Tsteps0 = 0:Nbar-1;
@@ -83,9 +83,11 @@ Tsteps  = [Tsteps0 Tsteps1];
 figure()
 tl = tiledlayout(2,1,'TileSpacing','compact','Padding','compact');
 % Define line styles and marker styles to cycle through
-line_styles = {'-', '--', '-.'};
-marker_styles = {'o', 's', 'd', '^', 'v', '>', '<', 'p', 'h'};
-marker_interval = 2; % Show marker every 2nd data point
+line_styles = {'-'};%, '--', '-.'};
+marker_styles = {'o', 's', 'd', '^', 'none','v', '>', '<', 'p', 'h'};
+if ~exist('marker_interval','var')
+    marker_interval = 2; % Show marker every 2nd data point
+end
 % ------------------------------- outputs ----------------------------
 ax11 = nexttile;
 stairs(Tsteps,[e0 e1],'r-','DisplayName','$e_k$'); hold on; % innovation noise
@@ -110,8 +112,11 @@ for k = 1:nCases
     % Cycle through line & marker styles, & marker indices
     line_style = line_styles{mod(k-1, numel(line_styles)) + 1};
     marker_style = marker_styles{mod(k-1, numel(marker_styles)) + 1};
-    marker_indices = mod(k-1, marker_interval) + 1:marker_interval:numel(Tsteps1);
-    
+    marker_indices = floor((k-1)/nCases*marker_interval) + 1:marker_interval:numel(Tsteps1);
+    if max(marker_indices) > numel(Tsteps1)
+        marker_indices = marker_indices(marker_indices <= numel(Tsteps1));
+    end
+
     % Add markers at specified intervals
     hold on;
     plot(nan, nan, ...      just for legend
@@ -152,8 +157,11 @@ for k = 1:nCases
     % Cycle through line & marker styles, & marker indices
     line_style = line_styles{mod(k-1, numel(line_styles)) + 1};
     marker_style = marker_styles{mod(k-1, numel(marker_styles)) + 1};
-    marker_indices = mod(k-1, marker_interval) + 1:marker_interval:numel(Tsteps1);
-    
+    marker_indices = floor((k-1)/nCases*marker_interval) + 1:marker_interval:numel(Tsteps1);
+    if max(marker_indices) > numel(Tsteps1)
+        marker_indices = marker_indices(marker_indices <= numel(Tsteps1));
+    end
+
     % Add markers at specified intervals
     hold on;   
     stairs(Tsteps1, u_cl.(CaseName), ... plotting of stairs
