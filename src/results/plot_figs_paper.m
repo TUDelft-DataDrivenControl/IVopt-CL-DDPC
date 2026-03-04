@@ -4,7 +4,7 @@ clear;
 clc;
 close all;
 
-save_figs = false;
+save_figs = true;
 
 pdir = load('pdir.mat').pdir;
 cd(pdir);
@@ -15,7 +15,7 @@ addpath(genpath(pwd));
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 iX = 14;          % index of data_type
 ks = 5;           % seed index
-marker_interval = 25;
+marker_interval = 20;
 close all;
 noPlotCases  = {'iv2a','iv3a','iv5a','TrPred',...
     'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};

@@ -9,6 +9,7 @@ docs/manuscript/feedback/
 docs/manuscript/unused/
 docs/review/
 results/
+results_old/
 !src/results/
 src/@Oracle/
 src/d_Nbar/
