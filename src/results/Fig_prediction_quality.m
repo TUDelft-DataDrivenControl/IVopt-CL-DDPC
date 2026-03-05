@@ -1,8 +1,22 @@
 function fig = Fig_prediction_quality(fig_dir,iX,data_type,varargin)
-% fig = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases)
-narginchk(3,5); % at least 3, at most 5 arguments
+% fig = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
+%   insetYLims        : optional 2-element cell {yLim_top, yLim_bot} for zoom insets
+%   insetPos          : optional 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bot} inset position
+%                       X,Y = bottom-left corner; W,H = size; all as fraction of parent axes
+%   MainYLims         : optional 2-element cell {yLim_top, yLim_bot} for main axes
+%                       each entry is either 'free' or a [ymin ymax] vector
+%   ConnectorLocation : optional 2-element cell {'loc_top','loc_bot'}, each one of:
+%                       'south' - top    of rect  -> bottom of inset (inset above)
+%                       'north' - bottom of rect  -> top    of inset (inset below)
+%                       'west'  - right  of rect  -> left   of inset (inset right)
+%                       'east'  - left   of rect  -> right  of inset (inset left)
+narginchk(3,9); % at least 3, at most 9 arguments
 
 nVararg = length(varargin);
+insetYLims        = {}; % default: use axis limits
+insetPos          = {}; % default: use hard-coded values
+MainYLims         = {}; % default: use axis limits
+ConnectorLocation = {'south','south'}; % default
 switch nVararg
     case 1
         Cases = varargin{1};
@@ -11,6 +25,32 @@ switch nVararg
         Cases = varargin{1};
         noPlotCases = varargin{2};
         Cases = setdiff(Cases,noPlotCases);
+    case 3
+        Cases = varargin{1};
+        noPlotCases = varargin{2};
+        Cases = setdiff(Cases,noPlotCases);
+        insetYLims = varargin{3};
+    case 4
+        Cases = varargin{1};
+        noPlotCases = varargin{2};
+        Cases = setdiff(Cases,noPlotCases);
+        insetYLims = varargin{3};
+        insetPos   = varargin{4};
+    case 5
+        Cases = varargin{1};
+        noPlotCases = varargin{2};
+        Cases = setdiff(Cases,noPlotCases);
+        insetYLims = varargin{3};
+        insetPos   = varargin{4};
+        MainYLims  = varargin{5};
+    case 6
+        Cases = varargin{1};
+        noPlotCases = varargin{2};
+        Cases = setdiff(Cases,noPlotCases);
+        insetYLims        = varargin{3};
+        insetPos          = varargin{4};
+        MainYLims         = varargin{5};
+        ConnectorLocation = varargin{6};
 end
 
 fig_file = fullfile(fig_dir,'processed_data.mat');
@@ -72,7 +112,7 @@ for kC = 1:nCases
     CaseName = Cases{kC};
 
     if startsWith(CaseName,'iv')
-        DispName = ['$j=',CaseName(3:end),'$'];
+        DispName = ['IV',CaseName(3:end)];
     elseif strcmp(CaseName,'CLSPC')
         DispName = 'CL-SPC';
     elseif strcmp(CaseName,'TrPred')
@@ -140,4 +180,239 @@ leg = legend(h, 'Orientation', 'horizontal', ...
 % Link x-axes
 linkaxes(ax4, 'x');
 
+%% Add zoom insets
+
+drawnow; % ensure axes positions and limits are finalised
+xInset = xlim(ax4(1));
+axInsets = gobjects(2,1);
+
+for k = 1:2 % do all operations that can adjust axis positioning
+    if strcmp(MainYLims{k},'free')
+        MainYLims{k} = ylim(ax4(k));
+    end
+    if strcmp(insetYLims{k},'free')
+        insetYLims{k} = ylim(ax4(k));
+    end
+    ax4(k).YLim = MainYLims{k}; % can adjust positioning
+end
+for k = 1:2
+    % create flag: which axis limits are tighter
+    yLimsFlag = sign(MainYLims{k}-insetYLims{k});
+
+    % determine where to draw rectangle and connectors
+    if all(yLimsFlag == [1 -1]) || all(yLimsFlag == [1 0]) || all(yLimsFlag == [0 -1])
+        % main axis limits are tighter than inset limits
+        % -> draw rectangle on inset, skip connectors
+        drawRectangle = 'inset';
+        drawConnectors = false;
+    elseif all(yLimsFlag == [-1 1]) || all(yLimsFlag == [0 1]) || all(yLimsFlag == [-1 0])
+        % inset axis limits are tighter than main limits
+        % -> draw rectangle on main, draw connectors
+        drawRectangle = 'main';
+        drawConnectors = true;
+    else
+        % no clear containment relationship
+        % -> skip rectangle and connectors entirely
+        drawRectangle = 'none';
+        drawConnectors = false;       
+    end
+
+    % Inset for axes
+    axInsets(k) = add_zoom_inset(ax4(k), fig, FS_Tick-2, ...
+        insetPos{k}(3), insetPos{k}(4), ...  % insetW, insetH  (fraction of parent axes)
+        insetPos{k}(1), insetPos{k}(2), ...  % insetX, insetY  (fraction of parent axes, bottom-left corner)
+        xInset, insetYLims{k});  % xInset, yInset, mainYLim
+
+    % Drawing rectangle
+    switch drawRectangle
+        % case 'inset'
+        %     % Draw rectangle on inset
+        %     zoomBox = rectangle(axInsets(k), ...
+        %         'Position', [xInset(1), MainYLims{k}(1), diff(xInset), diff(MainYLims{k})], ...
+        %         'EdgeColor', [0.2 0.2 0.2], ...
+        %         'LineStyle', '--', ...
+        %         'LineWidth', 1.0);
+        case 'main'
+            % Draw rectangle on main
+            zoomBox = rectangle(ax4(k), ...
+                'Position', [xInset(1), insetYLims{k}(1), diff(xInset), diff(insetYLims{k})], ...
+                'EdgeColor', [0.2 0.2 0.2], ...
+                'LineStyle', '--', ...
+                'LineWidth', 1.0);
+        otherwise
+            % skip rectangle entirely
+    end
+
+    % Draw connectors if needed
+    if drawConnectors
+        draw_connectors(ax4(k), axInsets(k), fig, zoomBox, ConnectorLocation{k});
+    end
+end
+
+end
+
+%% Helper functions
+
+function axInset = add_zoom_inset(axTop, fig1, insetTickFontSize, insetW, insetH, insetX, insetY, xInset, yInset)
+% Define inset size/position relative to plotted area (normalized figure units)
+insetW = insetW * axTop.Position(3);
+insetH = insetH * axTop.Position(4);
+insetX = axTop.Position(1) + insetX * axTop.Position(3);
+insetY = axTop.Position(2) + insetY * axTop.Position(4);
+
+% Create inset axes in the same figure
+axInset = axes('Parent', fig1, ...
+    'Units', 'normalized', ...
+    'Position', [insetX insetY insetW insetH], ...
+    'Box', 'on', ...
+    'FontSize', insetTickFontSize);
+grid on;
+
+% Copy all plotted children from top axes into inset axes
+CopiedChildren = copyobj(allchild(axTop), axInset);
+axInset.ClippingStyle = 'rectangle';
+
+% Keep copied objects that have XData with at least one non-NaN value
+hasNonNanXData = false(size(CopiedChildren));
+for k = 1:numel(CopiedChildren)
+    if isprop(CopiedChildren(k), 'XData')
+        xData = CopiedChildren(k).XData;
+        if ~isempty(xData) && any(~isnan(xData(:)))
+            hasNonNanXData(k) = true;
+        end
+    end
+end
+lineObjs = CopiedChildren(hasNonNanXData);
+isLineOrStair = arrayfun(@(h) strcmp(get(h,'Type'),'line') || strcmp(get(h,'Type'),'stair'), lineObjs);
+lineObjs = lineObjs(isLineOrStair);
+
+for k = 1:numel(lineObjs)
+    xData = lineObjs(k).XData;
+    yData = lineObjs(k).YData;
+    idx = find(xData >= xInset(1) & xData <= xInset(2));
+    lineObjs(k).XData = xData(idx);
+    lineObjs(k).YData = yData(idx);
+end
+
+% Apply final inset limits
+xlim(axInset, xInset);
+ylim(axInset, yInset);
+end
+
+function draw_connectors(axTop, axInset, fig1, zoomBox, connLoc)
+% Draws two connector lines from a side of the zoom rectangle on the main
+% axis to the corresponding side of the inset axis.
+%
+% connLoc : one of 'south','north','west','east'
+%   'south' - top    of rectangle -> bottom of inset  (inset above)
+%   'north' - bottom of rectangle -> top    of inset  (inset below)
+%   'west'  - right  of rectangle -> left   of inset  (inset to the right)
+%   'east'  - left   of rectangle -> right  of inset  (inset to the left)
+
+if nargin < 5 || isempty(connLoc)
+    connLoc = 'south';
+end
+
+% Move ticks to opposite side of connection point
+switch lower(connLoc)
+    case 'south', axInset.XAxisLocation = 'top';
+    case 'north', axInset.XAxisLocation = 'bottom';
+    case 'west',  axInset.YAxisLocation = 'right';
+    case 'east',  axInset.YAxisLocation = 'left';
+end
+
+% Create two annotation lines (initial dummy positions; updated immediately)
+hLine1 = annotation(fig1, 'line', [0 0], [0 0], ...
+    'Color', zoomBox.EdgeColor, 'LineWidth', 0.9);
+hLine2 = annotation(fig1, 'line', [0 0], [0 0], ...
+    'Color', zoomBox.EdgeColor, 'LineWidth', 0.9);
+
+    function update_lines(~,~)
+        [p1a, p1b, p2a, p2b] = compute_connector_pts(axTop, axInset, zoomBox, connLoc);
+        hLine1.X = [p1a(1), p1b(1)];
+        hLine1.Y = [p1a(2), p1b(2)];
+        hLine2.X = [p2a(1), p2b(1)];
+        hLine2.Y = [p2a(2), p2b(2)];
+    end
+
+% Initial draw
+update_lines();
+
+% Listen to position changes on axes and figure resize so lines stay in sync
+addlistener(axTop,   'Position', 'PostSet', @update_lines);
+addlistener(axInset, 'Position', 'PostSet', @update_lines);
+addlistener(fig1, 'SizeChanged', @update_lines);
+end
+
+function [p1a, p1b, p2a, p2b] = compute_connector_pts(axTop, axInset, zoomBox, connLoc)
+% Returns two pairs of points (in normalised figure coords) that form
+% the two connector lines between the zoom rectangle and the inset axes.
+
+% Derive zoom region from rectangle position
+xInset = [zoomBox.Position(1), zoomBox.Position(1) + zoomBox.Position(3)];
+yInset = [zoomBox.Position(2), zoomBox.Position(2) + zoomBox.Position(4)];
+
+xTopL    = xlim(axTop);
+yTopL    = ylim(axTop);
+axTopPos = axTop.Position;
+axInsPos = axInset.Position;
+
+% Rectangle corners in normalised figure coordinates
+x1n = axTopPos(1) + (xInset(1)-xTopL(1))/diff(xTopL) * axTopPos(3);
+x2n = axTopPos(1) + (xInset(2)-xTopL(1))/diff(xTopL) * axTopPos(3);
+if strcmpi(axTop.YDir, 'reverse')
+    y1n = axTopPos(2) + (yTopL(2)-yInset(1))/diff(yTopL) * axTopPos(4);
+    y2n = axTopPos(2) + (yTopL(2)-yInset(2))/diff(yTopL) * axTopPos(4);
+else
+    y1n = axTopPos(2) + (yInset(1)-yTopL(1))/diff(yTopL) * axTopPos(4);
+    y2n = axTopPos(2) + (yInset(2)-yTopL(1))/diff(yTopL) * axTopPos(4);
+end
+yBot = min(y1n, y2n);
+yTop = max(y1n, y2n);
+
+% Rectangle side endpoints
+rectTopLeft     = [x1n, yTop];
+rectTopRight    = [x2n, yTop];
+rectBottomLeft  = [x1n, yBot];
+rectBottomRight = [x2n, yBot];
+rectRightTop    = [x2n, yTop];
+rectRightBottom = [x2n, yBot];
+rectLeftTop     = [x1n, yTop];
+rectLeftBottom  = [x1n, yBot];
+
+% Inset side endpoints in normalised figure coordinates
+iL = axInsPos(1);               iR = axInsPos(1) + axInsPos(3);
+iB = axInsPos(2);               iT = axInsPos(2) + axInsPos(4);
+insetBotLeft   = [iL, iB];      insetBotRight  = [iR, iB];
+insetTopLeft   = [iL, iT];      insetTopRight  = [iR, iT];
+
+switch lower(connLoc)
+    case 'south'   % top of rect -> bottom of inset
+        boxPts   = [rectTopLeft;    rectTopRight];
+        insetPts = [insetBotLeft;   insetBotRight];
+    case 'north'   % bottom of rect -> top of inset
+        boxPts   = [rectBottomLeft; rectBottomRight];
+        insetPts = [insetTopLeft;   insetTopRight];
+    case 'west'    % right of rect -> left of inset
+        boxPts   = [rectRightTop;   rectRightBottom];
+        insetPts = [insetTopLeft;   insetBotLeft];
+    case 'east'    % left of rect -> right of inset
+        boxPts   = [rectLeftTop;    rectLeftBottom];
+        insetPts = [insetTopRight;  insetBotRight];
+    otherwise
+        error('ConnectorLocation must be ''south'', ''north'', ''west'', or ''east''.');
+end
+
+% Pair endpoints to avoid crossing connectors
+d11 = norm(boxPts(1,:) - insetPts(1,:));
+d22 = norm(boxPts(2,:) - insetPts(2,:));
+d12 = norm(boxPts(1,:) - insetPts(2,:));
+d21 = norm(boxPts(2,:) - insetPts(1,:));
+if (d11 + d22) <= (d12 + d21)
+    p1a = boxPts(1,:);  p1b = insetPts(1,:);
+    p2a = boxPts(2,:);  p2b = insetPts(2,:);
+else
+    p1a = boxPts(1,:);  p1b = insetPts(2,:);
+    p2a = boxPts(2,:);  p2b = insetPts(1,:);
+end
 end

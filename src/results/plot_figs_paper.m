@@ -16,7 +16,6 @@ data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 iX = 14;          % index of data_type
 ks = 5;           % seed index
 marker_interval = 20;
-close all;
 noPlotCases  = {'iv2a','iv3a','iv5a','TrPred',...
     'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
 
@@ -34,6 +33,7 @@ fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval);
 save_fig(save_figs,fig1,pdir,'fig1_exampleMC.pdf');
 
 %% Figure: example of IVs
+%{
 clearvars -except pdir save_figs
 cd(pdir);
 
@@ -93,17 +93,15 @@ fig2 = Fig_IV_example(fig2_dir, iX, useFillCases, noPlotCases, pdir, xyLims, Leg
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig2,pdir,'fig2_exampleIVs.pdf');
+%}
+
 
 %% Figure: approximation of optimal IV
 clearvars -except pdir save_figs
-cd(pdir);
+cd(pdir); close all;
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
-% fig3_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e02_f_20_20260303_1429';
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_3e02_f_20_20260303_1453';
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
 fig3_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
 
 fig3 = Fig_IV_approx(data_type,fig3_dir);
@@ -111,23 +109,37 @@ fig3 = Fig_IV_approx(data_type,fig3_dir);
 % conditional save of figure to results folder
 save_fig(save_figs,fig3,pdir,'fig3_IVdiff_dRe.pdf');
 
-%% Figure 4
+%% Figure: Lf estimates
 clearvars -except pdir save_figs
 cd(pdir);
+
+Cases = {'actLf','iv1','iv6a','iv5a','iv4a','iv3a','TrPred'};
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
+subdir1 = fullfile(pdir,'data','raw','sys6','ref0_prbs','dRe',subdir1);
+cd(subdir1);
+load("dRe_settings.mat")
+load("processed_data.mat");
+iX = 14;
+fig = Fig_Lf_estimates(Cases,mLf,iX,opts);
+save_fig(save_figs,fig,pdir,'fig2_Lf_estimates.pdf');
+
+%% Figure: yf prediction quality
+clearvars -except pdir save_figs
+cd(pdir); close all;
+
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20251030_2331';
-% fig4_dir = fullfile(pdir,'data','raw','sys1','ref0_prbs',['d',data_type],subdir1);
-% iX = 14; %= find(Re_all >= 5e-2,1,'first');
-
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e02_f_20_20260303_1429';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_3e02_f_20_20260303_1453';
 fig4_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
 iX = 14;
 
 Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv5a','iv3a','iv6a'};
-fig4 = Fig_prediction_quality(fig4_dir,iX,data_type,Cases);
+MainYLims  = {[-0.58 1.2],[0     50]};    % yLims for main axes; 'free' or [ymin ymax] vector
+insetYLims = {'free', 'free'};    % yLim for top & bottom-axes insets
+insetPos   = {[0.40,   0.6,    0.55,   0.37], ... % [X, Y, W, H] for top-axes inset
+              [0.1120, 0.5970, 0.5370, 0.3700]};  % [X, Y, W, H] for bottom-axes inset
+ConnectorLocation = {'south','south'};  % connector side: 'south','north','west','east'
+fig4 = Fig_prediction_quality(fig4_dir,iX,data_type,Cases,[],insetYLims,insetPos,MainYLims,ConnectorLocation);
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig4,pdir,'fig4_rel_yfpred_error.pdf');
