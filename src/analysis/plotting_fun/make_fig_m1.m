@@ -58,9 +58,9 @@ end
 
 
 set_xlabel_2   = @() xlabel(xlab,'interpreter','latex','FontSize',fontSize);
-set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j \tilde{U}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
+set_ylabel_2_1 = @() ylabel('$\frac{\|\Delta_j \widetilde{U}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
-set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j \tilde{Y}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
+set_ylabel_2_2 = @() ylabel('$\frac{\|\Delta_j \widetilde{Y}_{\mathrm{f}}\|_\mathrm{F}}{\sqrt{N}}$',...
     'Interpreter','latex','Rotation',0,'FontSize',fontSize*1.25);
 
 fig2 = figure('Units',opts.Units,'Position',Position);
@@ -94,13 +94,13 @@ for kIV = 1:num_Uf_ivs
     
     % determine color
     switch iv_name
-        case 'iv6c', label = '$\hat{\tilde{U}}_{\mathrm{f,6c}}$'; col = [0 0 0];       LineStyle = '-';
-        case 'iv2c', label = '$\hat{\tilde{U}}_{\mathrm{f,2c}}$'; col = cCram(2,:);    LineStyle = '-.';
-        case 'iv3c', label = '$\hat{\tilde{U}}_{\mathrm{f,3c}}$'; col = cCram(3,:);    LineStyle = '-';
-        case 'iv4a', label = '$\hat{\tilde{U}}_{\mathrm{f,4a}}$'; col = cCram(4,:);    LineStyle = '-*';
-        case 'iv4c', label = '$\hat{\tilde{U}}_{\mathrm{f,4c}}$'; col = cCram(5,:);    LineStyle = '-^';
-        case 'iv5a', label = '$\hat{\tilde{U}}_{\mathrm{f,5a}}$'; col = cCram(6,:);    LineStyle = '-.*';
-        case 'iv5c', label = '$\hat{\tilde{U}}_{\mathrm{f,5c}}$'; col = cCram(7,:);    LineStyle = '-.^';
+        case 'iv6c', label = '$\hat{\widetilde{U}}_{\mathrm{f,6c}}$'; col = [0 0 0];       LineStyle = '-';
+        case 'iv2c', label = '$\hat{\widetilde{U}}_{\mathrm{f,2c}}$'; col = cCram(2,:);    LineStyle = '-.';
+        case 'iv3c', label = '$\hat{\widetilde{U}}_{\mathrm{f,3c}}$'; col = cCram(3,:);    LineStyle = '-';
+        case 'iv4a', label = '$\hat{\widetilde{U}}_{\mathrm{f,4a}}$'; col = cCram(4,:);    LineStyle = '-*';
+        case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; col = cCram(5,:);    LineStyle = '-^';
+        case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; col = cCram(6,:);    LineStyle = '-.*';
+        case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; col = cCram(7,:);    LineStyle = '-.^';
         case 'iv1',  label = '$U_{\mathrm{f}}$';                  col = cCram(9,:);    LineStyle = '-';
         otherwise,   label = iv_name;                             col = [0 0 0];       LineStyle = '-';
     end
@@ -141,8 +141,8 @@ for kIV = 1:num_Yf_ivs
 
     % determine color
     switch iv_name
-        case 'iv4b', label = '$\hat{\tilde{Y}}_{\mathrm{f,4b}}$'; col = cCram(4,:);  LineStyle = '-';
-        case 'iv5b', label = '$\hat{\tilde{Y}}_{\mathrm{f,5b}}$'; col = cCram(6,:);  LineStyle = '-.d';
+        case 'iv4b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,4b}}$'; col = cCram(4,:);  LineStyle = '-';
+        case 'iv5b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,5b}}$'; col = cCram(6,:);  LineStyle = '-.d';
         case 'iv3a', label = '$\Xi_f$' ;                          col = cCram(8,:);  LineStyle = '-x';
         case 'iv6a', label = '$W_f$';                             col = [0 0 0];     LineStyle = '-';
         otherwise,   label = field;                               col = [0 0 0];     LineStyle = '-';
