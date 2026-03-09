@@ -98,13 +98,15 @@ save_fig(save_figs,fig2,pdir,'fig2_exampleIVs.pdf');
 
 %% Figure: approximation of optimal IV
 clearvars -except pdir save_figs
-cd(pdir); close all;
+cd(pdir);
 % ------------------------- settings --------------------------------------
 data_type = 'Re';
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
 fig3_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
+leg1PosOnAx1 = [0.4, 0.05];
+leg2PosOnAx2 = [0.02, 0.45];
 
-fig3 = Fig_IV_approx(data_type,fig3_dir);
+fig3 = Fig_IV_approx(data_type,fig3_dir,leg1PosOnAx1,leg2PosOnAx2);
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig3,pdir,'fig3_IVdiff_dRe.pdf');
