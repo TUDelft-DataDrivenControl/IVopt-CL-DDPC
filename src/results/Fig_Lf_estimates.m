@@ -5,14 +5,15 @@ FS_Label = 9;
 nCases = numel(Cases);
 iXstr = sprintf('iX%d',iX);
 
+Lf_act = mLf.actLf.(iXstr);
 for k = 1:nCases
     switch Cases{k}
         case 'actLf'
-            Lf = mLf.actLf.(iXstr);
+            Lf_plt = Lf_act;
         otherwise
-            Lf = mLf.(Cases{k}).(iXstr).mean;
+            Lf_plt = mLf.(Cases{k}).(iXstr).mean - Lf_act;
     end
-    maxabsval = max(abs(Lf),[],'all');
+    maxabsval = max(abs(Lf_plt),[],'all');
 end
 
 fig = figure();
@@ -21,10 +22,10 @@ tl = tiledlayout(nCases,1,"TileSpacing",'tight','Padding','tight');
 for k = 1:nCases
     switch Cases{k}
         case 'actLf'
-            Lf = mLf.actLf.(iXstr);
+            Lf_plt = Lf_act;
             yLabel = 'actual';
         otherwise
-            Lf = mLf.(Cases{k}).(iXstr).mean;
+            Lf_plt = mLf.(Cases{k}).(iXstr).mean - Lf_act;
             if strcmp(Cases{k},'TrPred')
                 yLabel = 'TP';
             elseif strcmp(Cases{k},'CLSPC')
@@ -34,7 +35,7 @@ for k = 1:nCases
             end
     end
     ax = nexttile;
-    imagesc(Lf);
+    imagesc(Lf_plt);
     clim([-maxabsval maxabsval]);
     cmap = crameri('vik','pivot',0);
     colormap(cmap);
