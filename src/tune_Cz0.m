@@ -1,7 +1,7 @@
 close all;
-opts.sys = 6;
+opts.sys = 8;
 switch opts.sys
-    case {1,5,6,7}
+    case {1,5,6,7,8}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
@@ -52,7 +52,7 @@ G = plant(:,1);
 [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
 
 switch opts.sys
-    case {1,5,6,7}
+    case {1,5,6,7,8}
         Cz0 = minreal(Cz0);
         if opts.sys == 6 %-------------------- using hinfstruct -----------
             nK = 5;
@@ -71,10 +71,14 @@ switch opts.sys
             [CLopt,gamma] = hinfstruct(CL,opt);
 
             Cz0 = getBlockValue(CLopt,'K'); gamma
-        elseif opts.sys == 7 %-------------------- using hinfstruct with companion form -----------
+        elseif opts.sys == 7 || opts.sys == 8 %-------------------- using hinfstruct with companion form -----------
             [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
             nx = size(Cz0.A,1);
-            nK = 20;            
+            if opts.sys == 7
+                nK = 20;        
+            else
+                nK = 50;
+            end
             Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
             Cz1.A.Free(1:nK-1,:) = false;
             Cz1.A.Free(end,:) = true;
@@ -108,7 +112,7 @@ switch opts.sys
             Cz0 = ss(tf(num{1},denP,plant.Ts));
 
         end %--------------------------------------------------------------
-        if opts.sys ~= 7
+        if opts.sys ~= 7 && opts.sys ~= 8
             % force use of an integrator (to complement H-inf design)
             [tz,po,kg] = zpkdata(Cz0);
             [~,idx] = sort(abs(po{1}));

@@ -3,7 +3,7 @@ function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 
 %% choose a  plant model
 switch opts.sys
-    case {1,5,6,7}
+    case {1,5,6,7,8}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
@@ -25,6 +25,8 @@ switch opts.sys
                 fn_Cz0 = 'Cz0_Landau1995_D0.mat';
             case 7
                 fn_Cz0 = 'Cz0_Landau1995_D0_n20.mat';
+            case 8
+                fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
         end
     case 2
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
