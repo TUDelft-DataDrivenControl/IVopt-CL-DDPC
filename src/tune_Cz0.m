@@ -1,7 +1,7 @@
 close all;
 opts.sys = 6;
 switch opts.sys
-    case {1,5,6}
+    case {1,5,6,7}
         [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
@@ -52,7 +52,7 @@ G = plant(:,1);
 [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
 
 switch opts.sys
-    case {1,5,6}
+    case {1,5,6,7}
         Cz0 = minreal(Cz0);
         if opts.sys == 6 %-------------------- using hinfstruct -----------
             nK = 5;
@@ -69,14 +69,54 @@ switch opts.sys
             CL = [ W1*S ; W3*T ];
             opt = hinfstructOptions('Display','final');
             [CLopt,gamma] = hinfstruct(CL,opt);
-            
+
             Cz0 = getBlockValue(CLopt,'K'); gamma
+        elseif opts.sys == 7 %-------------------- using hinfstruct with companion form -----------
+            [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
+            nx = size(Cz0.A,1);
+            nK = 20;            
+            Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
+            Cz1.A.Free(1:nK-1,:) = false;
+            Cz1.A.Free(end,:) = true;
+            Cz1.A.Value(1:nK-1,:) = [zeros(nK-1,1) eye(nK-1)];
+            Cz1.B.Free(:) = false; Cz1.B.Value(:,1) = [zeros(nK-1,1); 1];
+            Cz1.D.Value = 0; Cz1.D.Free(:) = false;
+            % ------- initialize rest w/ mixsyn result -----------
+            Cz1.C.Value(1,1:nx) = fliplr(num(1,2:end));
+            Cz1.A.Value(end,1:nx) = -fliplr(den(1,2:end));
+
+            S = feedback(1,G*Cz1);     % sensitivity
+            T = feedback(G*Cz1,1);     % complementary sensitivity
+            
+            CL = [ W1*S ; W3*T ];
+            opt = hinfstructOptions('Display','iter');
+            [CLopt,gamma] = hinfstruct(CL,opt);
+
+            Cz0 = getBlockValue(CLopt,'K2'); gamma
+            Cz0 = ss(real(Cz0.A),real(Cz0.B),real(Cz0.C),real(Cz0.D),plant.Ts); % forces real-valued controller
+
+            % insert an integrator (to complement H-inf design)
+            Poles = eig(Cz0.A);
+            % Extract only real poles (exclude those with nonzero imaginary part)
+            isRealPole = abs(imag(Poles)) == 0 ;%< 1e-10;
+            realPoles = Poles(isRealPole);
+            [~, idxMax] = max(abs(real(realPoles)));  % Find pole with largest real part
+            idxInOriginal = find(isRealPole);
+            Poles(idxInOriginal(idxMax)) = 1;    % Set largest real pole to z=1
+            denP = poly(diag(Poles));
+            [num,den] = tfdata(tf(Cz0));
+            Cz0 = ss(tf(num{1},denP,plant.Ts));
+
         end %--------------------------------------------------------------
-        [tz,po,kg] = zpkdata(Cz0);
-        [~,idx] = sort(abs(po{1}));
-        po{1}(idx(end)) = 1;
-        Cz0 = zpk(tz,po,kg,Cz0.Ts);
-        Cz0 = ss(tf(Cz0));
+        if opts.sys ~= 7
+            % force use of an integrator (to complement H-inf design)
+            [tz,po,kg] = zpkdata(Cz0);
+            [~,idx] = sort(abs(po{1}));
+            po{1}(idx(end)) = 1;            % change largest stable to z=1
+            Cz0 = zpk(tz,po,kg,Cz0.Ts);
+            Cz0 = ss(tf(Cz0));
+        end
+
         S = feedback(1,G*Cz0);
         KS = Cz0*S;
         T = 1-S;
