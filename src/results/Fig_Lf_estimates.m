@@ -6,6 +6,7 @@ nCases = numel(Cases);
 iXstr = sprintf('iX%d',iX);
 
 Lf_act = mLf.actLf.(iXstr);
+maxabsval = 0;
 for k = 1:nCases
     switch Cases{k}
         case 'actLf'
@@ -13,7 +14,7 @@ for k = 1:nCases
         otherwise
             Lf_plt = mLf.(Cases{k}).(iXstr).mean - Lf_act;
     end
-    maxabsval = max(abs(Lf_plt),[],'all');
+    maxabsval = max(max(abs(Lf_plt),[],'all'),maxabsval);
 end
 
 fig = figure();
@@ -32,9 +33,9 @@ for k = 1:nCases
                 yLabel = 'CL-SPC';
             else
                 yLabel = ['IV',Cases{k}(3:end)];
-            end
+            end            
     end
-    ax = nexttile;
+    ax = nexttile(tl);
     imagesc(Lf_plt);
     clim([-maxabsval maxabsval]);
     cmap = crameri('vik','pivot',0);

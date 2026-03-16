@@ -1,4 +1,4 @@
-function fig = Fig_IV_approx(data_type,fig_dir,leg1PosOnAx1,leg2PosOnAx2)
+function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn,TitleColIdxs)
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
 load(fullfile(fig_dir,sprintf('d%s_settings.mat',data_type)));
@@ -42,7 +42,7 @@ Yf_ivs = fieldnames(m1.Yf);
 Colors = make_color_struct([Uf_ivs, Yf_ivs'], CrameriColor);
 
 set_xlabel   = @() xlabel(xlab,'interpreter','latex','FontSize',FS_Label);
-set_ylabel = @(UorY) ylabel(['$\big\|\Delta_j \widetilde{',UorY,'}_{\mathrm{f}}\big\|_\mathrm{F}$'],...
+set_ylabel = @(UorY) ylabel(['$\big\| \widetilde{',UorY,'}_{\mathrm{f}}-\alpha\big\|_\mathrm{F}$'],...
     'Interpreter','latex','FontSize',FS_Label*1.25);%,'Rotation',0
 
 fig = figure('Units',Units,'Position',FigPos);
@@ -73,7 +73,7 @@ for kIV = 1:num_Uf_ivs
         case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = ':';  Marker = 'o';
         case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = ':';  Marker = 'none';
         case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = '^';
-        case 'iv1',  label = '$U_{\mathrm{f}}$';                      LineStyle = '-';  Marker = 'none';
+        case 'iv1',  label = '$U_{\mathrm{f}}\vphantom{\hat{\widetilde{U}}}$'; LineStyle = '-';  Marker = 'none';
         otherwise,   label = iv_name;                                 LineStyle = '-';  Marker = 'none';
     end
     col = Colors.(iv_name);
@@ -106,7 +106,7 @@ for kIV = 1:num_Yf_ivs
     switch iv_name
         case 'iv4b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,4b}}$'; LineStyle = '-'; Marker = 'none';
         case 'iv5b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,5b}}$'; LineStyle = ':'; Marker = 'none';
-        case 'iv3a', label = '$\Xi_f$' ;                              LineStyle = '-'; Marker = 'none';
+        case 'iv3a', label = '$\Xi_f\vphantom{\hat{\widetilde{Y}}}$'; LineStyle = '-'; Marker = 'none';
         case 'iv6a', label = '$W_f$';                                 LineStyle = '-.'; Marker = 'none';
         otherwise,   label = iv_name;                                 LineStyle = '-'; Marker = 'none';
     end
@@ -133,19 +133,30 @@ ax(k).XLabel.FontSize = FS_Label;
 
 %% create legends
 
-% Create legend on axis for Yf_ivs
-leg2 = legend(ax(2), y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
- 'NumColumns', 2,'Box', 'on','IconColumnWidth',15);
-leg2PosOnFig = RelPosAx2Fig(ax(2), leg2PosOnAx2, {'x','y'});
-leg2.Position([1, 2]) = leg2PosOnFig;
-
 % create 'staircase' legend for Uf_ivs
-leg1 = create_staircase_legend(ax(1), u_plot_handles, u_labels, leg1PosOnAx1, 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
+leg1 = create_columnwise_legend(ax(1), u_plot_handles, u_labels, legPosOnAx{1},...
+    legendEntriesPerColumn{1}, TitleColIdxs(1), 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
 
+% create legend for Yf_ivs
+leg2 = create_columnwise_legend(ax(2), y_plot_handles, y_labels, legPosOnAx{2},...
+    legendEntriesPerColumn{2}, TitleColIdxs(2), 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
+
+% leg2 = make_leg2(ax, y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend);
+% leg2.Title.String = '$\alpha=$';
+% leg2.Title.Interpreter = 'latex';
+% leg2.Title.FontSize = Fs_Legend+1;
+% leg2.TitleSeparator.Visible = 'off';
 
 end
 
 %% Helper functions
+function leg2 = make_leg2(ax, y_plot_handles, y_labels, leg2PosOnAx2, Fs_Legend)
+    leg2 = legend(ax(2), y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
+    'NumColumns', 4,'Box', 'on','IconColumnWidth',15);
+    leg2PosOnFig = RelPosAx2Fig(ax(2), leg2PosOnAx2, {'x','y'});
+    leg2.Position([1, 2]) = leg2PosOnFig;
+end
+
 function color_struct = make_color_struct(IV_names,CrameriColor)
     nIVs = numel(IV_names);
     color_types = nan(1,nIVs);
@@ -235,39 +246,30 @@ function RelPosFig = RelPosAx2Fig(ax, RelPosAx, varargin)
 end
 
 % Staircase Legend
-function leg_handles = create_staircase_legend(ax, handles, labels, xyPos, varargin)
+function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_entry_counts, title_col, varargin)
     % Create a staircase-shaped legend with adjacent columns
     %
-    % Each legend column contains one more entry than the previous:
-    % Column 1: 1 entry
-    % Column 2: 2 entries
-    % Column 3: 3 entries, etc.
+    % Input:
+    %   ax                  - axes object where the legend is placed
+    %   handles             - array of graphics objects to include in legend
+    %   labels              - cell array of legend labels
+    %   xyPos               - [x, y] position relative to axis [0,1]
+    %   col_entry_counts    - vector specifying number of entries per column
+    %                         e.g., [1, 2, 3] creates 3 columns with 1, 2, and 3 entries
+    %   varargin            - additional legend property name-value pairs
     %
     % Legends are placed side by side, bottom-aligned. A white background patch
     % with black perimeter is drawn to create a unified staircase boundary.
     % Each legend is placed on its own invisible overlay axis.
     %
-    % Usage: leg_handles = create_staircase_legend(ax, handles, labels, xyPos, ...)
+    % Usage: leg_handles = create_staircase_legend(ax, handles, labels, xyPos, col_entry_counts, ...)
     
     n_entries = numel(handles);
     
-    % Calculate number of columns needed
-    % n_entries = 1 + 2 + 3 + ... + n_cols
-    % Solve: n_cols*(n_cols+1)/2 >= n_entries
-    n_cols = ceil((-1 + sqrt(1 + 8*n_entries)) / 2);
-    
-    % Distribute entries across columns
-    col_entry_counts = [];
-    cumsum_entries = 0;
-    for col = 1:n_cols
-        if cumsum_entries + col <= n_entries
-            col_entry_counts = [col_entry_counts, col];
-            cumsum_entries = cumsum_entries + col;
-        else
-            % Remaining entries go in last column
-            col_entry_counts(end) = col_entry_counts(end) + (n_entries - cumsum_entries);
-            break;
-        end
+    % Validate col_entry_counts
+    if sum(col_entry_counts) ~= n_entries
+        error('Sum of col_entry_counts (%d) must equal number of legend entries (%d)', ...
+              sum(col_entry_counts), n_entries);
     end
     
     % Create individual legends (one per column) with no box
@@ -296,15 +298,9 @@ function leg_handles = create_staircase_legend(ax, handles, labels, xyPos, varar
         % Create overlay axis for legends 2 onward
         if col > 1
             % Create invisible overlay axis as child of figure with same position as original
-            ax_overlay(col) = axes('Parent', fig, 'Position', ax_pos);
-            ax_overlay(col).Color = 'none';
-            ax_overlay(col).XColor = 'none';
-            ax_overlay(col).YColor = 'none';
-            ax_overlay(col).ZColor = 'none';
-            ax_overlay(col).XTick = [];
-            ax_overlay(col).YTick = [];
-            ax_overlay(col).ZTick = [];
-            ax_overlay(col).Box = 'off';
+            ax_overlay(col) = axes('Parent', fig, 'Position', ax_pos,...
+             'Color','none','XColor','none','YColor','none','ZColor','none',...
+             'XTick',[],'YTick',[],'ZTick',[],'Box','off','HitTest','off');
             % Match limits of original axis
             ax_overlay(col).XLim = ax.XLim;
             ax_overlay(col).YLim = ax.YLim;
@@ -313,6 +309,13 @@ function leg_handles = create_staircase_legend(ax, handles, labels, xyPos, varar
         % Create single-column legend without box on the appropriate axis
         leg_handles(col) = legend(ax_overlay(col), col_handles, col_labels, 'Interpreter', 'latex',...
             'NumColumns', 1, 'Box', 'on', 'Color','white','EdgeColor','white', varargin{:});
+        if col == title_col
+            leg_handles(col).Title.String = '$\alpha=$';
+            leg_handles(col).Title.Interpreter = 'latex';
+            leg_handles(col).Title.FontSize = leg_handles(col).FontSize+1;
+            leg_handles(col).TitleSeparator.Visible = 'off';
+        end
+
         if col == 1
             leg_handles(col).Location = 'none';
             leg_handles(col).Position([1, 2]) = RelPosAx2Fig(ax_overlay(col), xyPos, {'x','y'});
