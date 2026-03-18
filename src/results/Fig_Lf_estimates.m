@@ -87,40 +87,24 @@ drawnow;
 % align bottom axes
 yPositions = align_bottom(axs,yPositions);
 
-% make a new axes to the right of other plots
-xCB_spacing = 0.02;
+% calculate position of new colorbar
+xCB_spacing = 0.02; % spacing between sublots and colorbar
 xCB = sum(axs(end).Position([1,3])) + xCB_spacing;
 yCB = axs(end).Position(2);
 wCB = 1 - xCB;
 hCB = sum(axs(1).Position([2,4]))-axs(end).Position(2);
-axCB = axes('Parent', fig, 'Position', [xCB, yCB, wCB, hCB],...
-     'Color','none','XColor','none','YColor','none','ZColor','none',...
-     'XTick',[],'YTick',[],'ZTick',[],'Box','on','HitTest','off');
-drawnow;
 
 % Add colorbar manually to the right of the last subplot
 cb = colorbar(axs(end),'Location','manual','FontSize',FS_Tick,'Position',[xCB, yCB, wCB, hCB]);%axs(end),'Location','manual','Position',axCB.Position.*[1 1 0.5 1]);
-% colormap(cmap);
-% clim([-maxabsval maxabsval]);
-% cb.FontSize = FS_Tick;
-% cb.Location = 'west';
-% cb.AxisLocation = 'in';
 cb.Location = 'manual';
 cb.Position = [xCB, yCB, wCB, hCB];%axCB.Position;
 drawnow;
 
 % room left over on the right
-ii = 0;
-pos = getColorbarPosition(cb);
+pos = getCBpos(cb);
 RoomRight = 1-sum(pos([1,3]));
-fprintf('ii=%d, RoomRight: %0.5f\n', ii, RoomRight);
-while ii == 0 || abs(RoomRight) > 1e-4
+for ii = 1:10
     if RoomRight ~= 0
-        % cb.Position(1) = cb.Position(1) + RoomRight/2;
-        % cb.Position(3) = cb.Position(3) + RoomRight/2;
-        % for k = 1:nCases
-        %     axs(k).Position(3) = axs(k).Position(3) + RoomRight/2;
-        % end
         RightTotalRoom = 1 - axs(1).Position(1);
         RoomNeeded = RightTotalRoom - RoomRight;
         xScaleFac = RightTotalRoom/RoomNeeded;
@@ -133,10 +117,11 @@ while ii == 0 || abs(RoomRight) > 1e-4
         cb.Position = [xCB, yCB, wCB, hCB];
     end
     drawnow;
-    pos = getColorbarPosition(cb);
+    pos = getCBpos(cb);
     RoomRight = 1-sum(pos([1,3]));
-    ii = ii + 1;
-    fprintf('ii=%d, RoomRight: %0.5f\n', ii, RoomRight);
+    if abs(RoomRight) <= 1e-4
+        break;
+    end
 end
 
 % create line to separate top subplot from subplots below it
@@ -146,27 +131,28 @@ annotation(fig,'line', [0.1-axs(1).TightInset(1), sum(axs(1).Position([1,3]))], 
 end
 
 %% Helper functions
-function pos = getColorbarPosition(cb)
+function cbOuterPos = getCBpos(cb)
 
-    tmp = axes('Position', cb.Position, 'YAxisLocation', 'right', ...
-            'YLim', cb.Limits, 'FontSize', cb.FontSize, 'Units', cb.Units, ...
+    % Create temporary axes to measure colorbar position
+    originalUnits = cb.Units;
+    measAxes = axes('Position', cb.Position, 'YAxisLocation', 'right', ...
+            'YLim', cb.Limits, 'Units', cb.Units, 'YTick', cb.Ticks,...
             'FontWeight', cb.FontWeight, 'Visible', 'on', ...
-            'FontName', cb.FontName, 'YTick', cb.Ticks, ...
-            'YTickLabels', cb.TickLabels, 'XTick', [],'TickDir',cb.TickDirection);
+            'FontSize', cb.FontSize, 'XTick', [], 'FontName', cb.FontName, ...
+            'TickDir',cb.TickDirection, 'YTickLabels', cb.TickLabels);
 
     if ~isempty(cb.Label.String)
-        ylabel(tmp, cb.Label.String, 'FontSize', cb.Label.FontSize, ...
-        'FontWeight', cb.Label.FontWeight, 'FontWeight', cb.Label.FontWeight)
+        ylabel(measAxes, cb.Label.String, 'FontSize', cb.Label.FontSize, ...
+        'FontWeight', cb.Label.FontWeight)
     end
 
-    % hack to account for additional space between colorbar and tick labels
-    tmp_old = tmp.Units;
-    tmp.Units = 'pixels';
-    tmp.Position(3) = tmp.Position(3) + 4; % 4 pixels as an esimate of the additional space
-    tmp.Units = tmp_old;
-    pos = get(tmp, 'OuterPosition');
-
-    delete(tmp);
+    % Adjust for (estimated) additional space between colorbar and tick labels
+    measAxes.Units = 'pixels';
+    measAxes.Position(3) = measAxes.Position(3) + 4; % add 4 pixels (adjust as needed)
+    measAxes.Units = originalUnits;
+    
+    cbOuterPos = get(measAxes, 'OuterPosition');
+    delete(measAxes);
 end
 
 % calculate y positions for subplots
