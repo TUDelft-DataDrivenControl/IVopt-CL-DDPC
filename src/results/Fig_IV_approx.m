@@ -1,4 +1,4 @@
-function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn,TitleColIdxs)
+function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn)
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
 load(fullfile(fig_dir,sprintf('d%s_settings.mat',data_type)));
@@ -135,25 +135,27 @@ ax(k).XLabel.FontSize = FS_Label;
 
 % create 'staircase' legend for Uf_ivs
 leg1 = create_columnwise_legend(ax(1), u_plot_handles, u_labels, legPosOnAx{1},...
-    legendEntriesPerColumn{1}, TitleColIdxs(1), 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
+    legendEntriesPerColumn{1} , 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
 
 % create legend for Yf_ivs
-leg2 = create_columnwise_legend(ax(2), y_plot_handles, y_labels, legPosOnAx{2},...
-    legendEntriesPerColumn{2}, TitleColIdxs(2), 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
+% leg2 = create_columnwise_legend(ax(2), y_plot_handles, y_labels, legPosOnAx{2},...
+%     legendEntriesPerColumn{2}, 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
 
-% leg2 = make_leg2(ax, y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend);
+leg2 = make_leg2(ax(2), y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend, 2);
 % leg2.Title.String = '$\alpha=$';
 % leg2.Title.Interpreter = 'latex';
 % leg2.Title.FontSize = Fs_Legend+1;
 % leg2.TitleSeparator.Visible = 'off';
+vertices = [leg2.Position(1:2); leg2.Position(1) leg2.Position(2)+leg2.Position(4)];
+h_title = make_alpha_title_left(Fs_Legend+1,ax(2),vertices,'figure');
 
 end
 
 %% Helper functions
-function leg2 = make_leg2(ax, y_plot_handles, y_labels, leg2PosOnAx2, Fs_Legend)
-    leg2 = legend(ax(2), y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
-    'NumColumns', 4,'Box', 'on','IconColumnWidth',15);
-    leg2PosOnFig = RelPosAx2Fig(ax(2), leg2PosOnAx2, {'x','y'});
+function leg2 = make_leg2(ax, y_plot_handles, y_labels, leg2PosOnAx2, Fs_Legend, NumCol)
+    leg2 = legend(ax, y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
+    'NumColumns', NumCol,'Box', 'on','IconColumnWidth',15);
+    leg2PosOnFig = RelPosAx2Fig(ax, leg2PosOnAx2, {'x','y'});
     leg2.Position([1, 2]) = leg2PosOnFig;
 end
 
@@ -245,8 +247,70 @@ function RelPosFig = RelPosAx2Fig(ax, RelPosAx, varargin)
     ax.Units = axUnits;
 end
 
+% Convert position from figure frame of reference to axes frame of reference (inverse of RelPosAx2Fig)
+function RelPosAx = RelPosFig2Ax(ax, RelPosFig, varargin)
+    narginchk(2,3);
+    
+    % save old units
+    axUnits = ax.Units;
+    fig = gcf; FigUnits = fig.Units;
+    
+    % set units to normalized
+    ax.Units = 'normalized';
+    fig.Units = 'normalized';
+    
+    if numel(RelPosFig) == 4
+        coordTypes = {'x','y','w','h'};
+    elseif numel(RelPosFig) ~= numel(varargin{1})
+        error('Please specify coordinate types for each element of RelPosFig (e.g. ''x'',''y'',''w'',''h'')');
+    else
+        coordTypes = varargin{1};
+    end
+
+    axPos = ax.Position;
+    [RelPosAx_x, RelPosAx_y, RelPosAx_w, RelPosAx_h] = deal(nan);
+    for k = 1:numel(coordTypes)
+        switch coordTypes{k}
+            case 'x'
+                RelPosAx_x = (RelPosFig(1) - axPos(1)) / axPos(3);
+            case 'y'
+                RelPosAx_y = (RelPosFig(2) - axPos(2)) / axPos(4);
+            case 'w'
+                RelPosAx_w = RelPosFig(3) / axPos(3);
+            case 'h'
+                RelPosAx_h = RelPosFig(4) / axPos(4);
+        end
+    end
+    RelPosAx = [RelPosAx_x, RelPosAx_y, RelPosAx_w, RelPosAx_h];
+    RelPosAx = RelPosAx(~isnan(RelPosAx));
+
+    % reset units
+    fig.Units = FigUnits;
+    ax.Units = axUnits;
+end
+
+% Create text object on the first overlay axis with background box
+function h_title = make_alpha_title_left(FontSize,ax,vertices,FigAxMode)
+        if strcmp(FigAxMode,'axes')
+            vertices(1,:) = RelPosAx2Fig(ax,vertices(1,:),{'x','y'});
+            vertices(2,:) = RelPosAx2Fig(ax,vertices(2,:),{'x','y'});
+        elseif ~strcmp(FigAxMode,'figure')
+            error('Either specify "axes" or "figure" as relative coordinate type.')
+        end
+        RelPosTitle = mean(vertices) - [0.02 0]; % Fig
+        RelPosTitle  = RelPosFig2Ax(ax, RelPosTitle, {'x','y'}); % -> Ax
+        h_title = text(ax, RelPosTitle(1), RelPosTitle(2), '$\alpha=$', ...
+            'Units', 'normalized', ...
+            'Interpreter', 'latex', ...
+            'FontSize', FontSize, ...
+            'HorizontalAlignment', 'right', ...
+            'VerticalAlignment', 'middle', ...
+            'BackgroundColor', 'white', ...
+            'EdgeColor', 'none');
+end
+
 % Staircase Legend
-function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_entry_counts, title_col, varargin)
+function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_entry_counts, varargin)
     % Create a staircase-shaped legend with adjacent columns
     %
     % Input:
@@ -263,7 +327,6 @@ function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_
     % Each legend is placed on its own invisible overlay axis.
     %
     % Usage: leg_handles = create_staircase_legend(ax, handles, labels, xyPos, col_entry_counts, ...)
-    
     n_entries = numel(handles);
     
     % Validate col_entry_counts
@@ -309,13 +372,6 @@ function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_
         % Create single-column legend without box on the appropriate axis
         leg_handles(col) = legend(ax_overlay(col), col_handles, col_labels, 'Interpreter', 'latex',...
             'NumColumns', 1, 'Box', 'on', 'Color','white','EdgeColor','white', varargin{:});
-        if col == title_col
-            leg_handles(col).Title.String = '$\alpha=$';
-            leg_handles(col).Title.Interpreter = 'latex';
-            leg_handles(col).Title.FontSize = leg_handles(col).FontSize+1;
-            leg_handles(col).TitleSeparator.Visible = 'off';
-        end
-
         if col == 1
             leg_handles(col).Location = 'none';
             leg_handles(col).Position([1, 2]) = RelPosAx2Fig(ax_overlay(col), xyPos, {'x','y'});
@@ -380,4 +436,8 @@ function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_
         end
     end
     annoLines = build_annoLines(vertices);
+
+    % Add title annotation to the left of the staircase legend if title_left is true
+    title_fontsize = leg_handles(1).FontSize + 1;
+    h_title = make_alpha_title_left(title_fontsize,ax_overlay(1),[vertices(1,:);vertices(end,:)],'figure');
 end

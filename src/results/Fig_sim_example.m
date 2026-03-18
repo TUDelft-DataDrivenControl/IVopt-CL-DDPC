@@ -1,4 +1,4 @@
-function fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval)
+function fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval,ylim_y1,ylim_y2)
 
 FS_Tick   = 8;
 FS_Label  = 9;
@@ -87,7 +87,7 @@ stairs(0:Nbar+Ncl-1+f,[yr0 yr1],'k-','LineWidth',1.5,'DisplayName','ref.');  % r
 xline(Nbar-0.5,'LineWidth',2,'Color','k','LineStyle','-.','HandleVisibility','off');
 grid on;
 ylabel('$y_k$','Interpreter','latex','FontSize',12);
-ylim([-14.4 15.2]);
+ylim(ylim_y1{1});
 
 % add a legend north of the plots
 lgd = legend('Interpreter','latex','Orientation','Horizontal',...
@@ -98,7 +98,7 @@ lgd.Layout.Tile = 'north';
 ax11r = nexttile(2*nColsPerTile+1,[1 nColsPerTile]);
 AxCopy1 = copyobj(allchild(ax11), ax11r);
 grid on; box on;
-xInset = [2210 2370]; yInsetTop = [8.9 13.4];%[1210 1370]
+xInset = [2210 2370]; yInsetTop = ylim_y1{2};%[1210 1370]
 xlim(ax11r, xInset); ylim(ax11r, yInsetTop);
 ax11r.YAxisLocation = 'right';
 trim_copied_objects(AxCopy1, xInset, yInsetTop);
@@ -123,13 +123,13 @@ xlabel('Time step','Interpreter','latex','FontSize',12);
 
 linkaxes([ax11 ax12],'x');
 xlim(ax12,[floor(Nbar*0.8) length(yr0)+length(yr1)-1]);
-ylim(ax12,[-16 14.5]);
+ylim(ax12,ylim_y2{1});
 
 % focus box:
 ax12r = nexttile(nTileCols+2*nColsPerTile+1,[1 nColsPerTile]);
 AxCopy2 = copyobj(allchild(ax12), ax12r);
 grid on; box on
-yInsetBot = [8.5 12.6];
+yInsetBot = ylim_y2{2};
 xlim(ax12r, xInset); ylim(ax12r, yInsetBot);
 ax12r.YAxisLocation = 'right';
 trim_copied_objects(AxCopy2, xInset, yInsetBot);

@@ -2,6 +2,7 @@ clear;
 close all;
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 overwrite = false;
+plotting = false;
 
 if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
     onCluster = true;
@@ -68,7 +69,7 @@ end
 if onCluster
     % do not attempt plotting if running on cluster
     return;
-end
+elseif plotting
 
 %% Preliminaries before plotting
 monitors = get(0, 'MonitorPositions');
@@ -191,6 +192,7 @@ end
 [fig4,ax4,axLeg4] = make_fig_m3(m3, X_all, useFillCases, noPlotCases,PlotMode=data_type,XScale=XScale,YScale=YScale,LegCols=LegCols);
 fig4.OuterPosition(1:2) = monPos(1:2) + [50 200];
 
+end
 %% remove data path again
 cd(src_dir);
 rmpath(genpath(subdir1));

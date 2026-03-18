@@ -1,4 +1,4 @@
-function fig = Fig_prediction_quality(fig_dir,iX,data_type,varargin)
+function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,varargin)
 % fig = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
 %   insetYLims        : optional 2-element cell {yLim_top, yLim_bot} for zoom insets
 %   insetPos          : optional 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bot} inset position
@@ -11,6 +11,7 @@ function fig = Fig_prediction_quality(fig_dir,iX,data_type,varargin)
 %                       'west'  - right  of rect  -> left   of inset (inset right)
 %                       'east'  - left   of rect  -> right  of inset (inset left)
 narginchk(3,9); % at least 3, at most 9 arguments
+mean_std_ratio = 0; % max. value of abs(mean)/(std. dev.)
 
 nVararg = length(varargin);
 insetYLims        = {}; % default: use axis limits
@@ -75,7 +76,7 @@ if isempty(Cases)
     % Cases = {'iv4a','iv4b','iv4c'};
     % Cases = {'iv5a','iv5b','iv5c'};
     % Cases = {'iv6a',       'iv6c'};
-    Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv5a','iv3a','iv6a'};
+    Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv3c','iv3a','iv6a','iv6c'};
 end
 
 % Get number of cases
@@ -120,7 +121,7 @@ for kC = 1:nCases
     elseif strcmp(CaseName,'actLf')
         DispName = 'actual $L_f$';
     end
-    
+    yfhat0 = m4.yfhat.(CaseName).(iX_str).std;
     yfhat  = m4.yfhat.(CaseName).(iX_str).mean;
     h(kC) = plot(1:f, yfhat, ...
         'Color', colors(kC,:), ...
@@ -131,6 +132,7 @@ for kC = 1:nCases
         'DisplayName', DispName, ...
         'MarkerFaceColor', 'none', ...
         'MarkerEdgeColor', colors(kC,:));
+    mean_std_ratio = max(mean_std_ratio,max(abs(yfhat./yfhat0),[],'all'));
 end
 ylabel('Mean of $\Delta\hat{y}^*_k$', 'Interpreter', 'latex', 'FontSize', FS_Label);
 set(gca, 'FontSize', FS_Tick);

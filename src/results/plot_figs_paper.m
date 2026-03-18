@@ -30,7 +30,11 @@ subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
 % subdir1 = 'Re_1e-05_1e-01_15_p_20_N_3e02_f_20_20260303_1453';
 subdir1 = fullfile(pdir,'data','raw','sys6','ref0_prbs','dRe',subdir1);
 
-fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval);
+% Define y-axis limits: ylim_y1 = {[main_axis, zoomed_axis], ylim_y2 = {[main_axis], [zoomed_axis]}
+ylim_y1 = {[-14.4 15.2], [8.9 13.4]}; % outputs: general axes and inset zoom
+ylim_y2 = {[-16.0 14.5], [8.5 12.6]}; % inputs: general axes and inset zoom
+
+fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval,ylim_y1,ylim_y2);
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig1,pdir,'fig1_exampleMC.pdf');
@@ -111,12 +115,9 @@ data_type = 'Re';
 subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
 fig3_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
 
-% leg1PosOnAx1 = [0.2, 0.03];
-% leg2PosOnAx2 = [0.555 0.03];
-legPosOnAx = {[0.4, 0.03], [0.5 0.05]};
-legendEntriesPerColumn = {[1 2 3],[2 2]};%{[1 1 2 2], [1 1 1 1]};
-TitleColIdxs = [1 2];%[4, 4];
-[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,legPosOnAx,legendEntriesPerColumn,TitleColIdxs);
+legPosOnAx = {[0.38, 0.05], [0.53 0.05]};
+legendEntriesPerColumn = {[1 2 3],[2 2]};
+[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,legPosOnAx,legendEntriesPerColumn);
 axs3(1).YLim(1) = 4e-2;
 
 % conditional save of figure to results folder
@@ -124,7 +125,7 @@ save_fig(save_figs,fig3,pdir,'fig3_IVdiff_dRe.pdf');
 
 %% Figure: Lf estimates
 clearvars -except pdir save_figs
-cd(pdir);
+cd(pdir); close all;
 
 % Cases = {'actLf','iv1','iv6a','iv5a','iv4a','iv3a','TrPred'};
 Cases = {'actLf','iv1','iv6a','iv4a','iv3c','iv3a','TrPred'};
@@ -155,14 +156,14 @@ subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826'; % <-- removed norm
 fig4_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
 iX = 14;
 
-Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv5a','iv3a','iv6a'};
-% Cases = {'CLSPC','TrPred','iv1','iv2a','iv2b','iv2c'};%,'iv4a','iv5a','iv3a','iv6a'};
-MainYLims  = {[-0.58 1.2],[0     50]};    % yLims for main axes; 'free' or [ymin ymax] vector
+Cases = {'actLf','CLSPC','TrPred','iv1','iv4a','iv3c','iv3a','iv6a'};
+MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
 insetYLims = {'free', 'free'};    % yLim for top & bottom-axes insets
-insetPos   = {[0.40,   0.6,    0.55,   0.37], ... % [X, Y, W, H] for top-axes inset
-              [0.1120, 0.5970, 0.5370, 0.3700]};  % [X, Y, W, H] for bottom-axes inset
+insetPos   = {[0.08, 0.58, 0.55, 0.37], ... % [X, Y, W, H] for top-axes inset
+              [0.08, 0.58, 0.55, 0.37]};  % [X, Y, W, H] for bottom-axes inset
 ConnectorLocation = {'south','south'};  % connector side: 'south','north','west','east'
-fig4 = Fig_prediction_quality(fig4_dir,iX,data_type,Cases,[],insetYLims,insetPos,MainYLims,ConnectorLocation);
+[fig4,max_ratio] = Fig_prediction_quality(fig4_dir,iX,data_type,Cases,[],insetYLims,insetPos,MainYLims,ConnectorLocation);
+max_ratio
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig4,pdir,'fig4_rel_yfpred_error.pdf');

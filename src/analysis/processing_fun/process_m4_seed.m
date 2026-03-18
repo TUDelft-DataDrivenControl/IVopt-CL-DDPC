@@ -27,14 +27,8 @@ y_all = [y0(:,end-p+1:end) y_cl.actLf];%y_cl.(caseName)
 for kC = 1:num_Cases
     caseName = Cases{kC};
     Yf_hat = Lf.(caseName)*[Up;Yp;Uf];      % prediction w/ Lf estimate
-    if ~strcmp(caseName,'actLf')
-        Yf_hatS = Lf.('actLf')*[Up;Yp;Uf];  % prediction w/ actual Lf
-    else
-        Yf_hatS = Yf_hat;
-    end
 
-    % since data can vary greatly in magnitude: use relative difference
-    dYkStar = (Yf_hat  - Yf_hatS)./Yf_hatS;
+    dYkStar = Yf_hat - (Yf - Yf_by_Ef); % no need to normalize (see stability of SPC w/ actual Lf)
     [Yf_RelErr_iX_ks(:,kC,1), Yf_RelErr_iX_ks(:,kC,2)] = std( dYkStar, 0, 2);
     Yf_RelErr_iX_ks(:,kC,3) = rms( dYkStar, 2);
 end
