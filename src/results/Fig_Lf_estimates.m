@@ -125,8 +125,8 @@ for ii = 1:10
 end
 
 % create line to separate top subplot from subplots below it
-annotation(fig,'line', [0.1-axs(1).TightInset(1), sum(axs(1).Position([1,3]))], (yPositions(1)-space4line/2)*ones(1,2), ...
-                'Color', 'black', 'LineWidth', 1.5);
+% annotation(fig,'line', [0.1-axs(1).TightInset(1), sum(axs(1).Position([1,3]))], (yPositions(1)-space4line/2)*ones(1,2), ...
+%                 'Color', 'black', 'LineWidth', 1.5);
 
 end
 
