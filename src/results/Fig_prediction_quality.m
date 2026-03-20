@@ -25,7 +25,6 @@ switch nVararg
     case 2
         Cases = varargin{1};
         noPlotCases = varargin{2};
-        Cases = setdiff(Cases,noPlotCases);
     case 3
         Cases = varargin{1};
         noPlotCases = varargin{2};
@@ -34,25 +33,23 @@ switch nVararg
     case 4
         Cases = varargin{1};
         noPlotCases = varargin{2};
-        Cases = setdiff(Cases,noPlotCases);
         insetYLims = varargin{3};
         insetPos   = varargin{4};
     case 5
         Cases = varargin{1};
         noPlotCases = varargin{2};
-        Cases = setdiff(Cases,noPlotCases);
         insetYLims = varargin{3};
         insetPos   = varargin{4};
         MainYLims  = varargin{5};
     case 6
         Cases = varargin{1};
         noPlotCases = varargin{2};
-        Cases = setdiff(Cases,noPlotCases);
         insetYLims        = varargin{3};
         insetPos          = varargin{4};
         MainYLims         = varargin{5};
         ConnectorLocation = varargin{6};
 end
+if ~isempty(noPlotCases); Cases = setdiff(Cases,noPlotCases); end
 
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
@@ -114,6 +111,11 @@ for kC = 1:nCases
 
     if startsWith(CaseName,'iv')
         DispName = ['IV',CaseName(3:end)];
+        if strcmp(CaseName,'iv4a')
+            DispName = [DispName, ' (IV2, IV4, IV5)'];
+        elseif strcmp(CaseName,'iv6a')
+            DispName = [DispName, ' (IV6)'];
+        end
     elseif strcmp(CaseName,'CLSPC')
         DispName = 'CL-SPC';
     elseif strcmp(CaseName,'TrPred')

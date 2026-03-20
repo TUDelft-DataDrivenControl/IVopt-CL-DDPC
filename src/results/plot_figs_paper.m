@@ -156,7 +156,7 @@ subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826'; % <-- removed norm
 fig4_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
 iX = 14;
 
-Cases = {'actLf','CLSPC','TrPred','iv1','iv4a','iv3c','iv3a','iv6a'};
+Cases = {'CLSPC','TrPred','actLf','iv4a','iv1','iv3c','iv3a','iv6a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
 insetYLims = {'free', 'free'};    % yLim for top & bottom-axes insets
 insetPos   = {[0.08, 0.58, 0.55, 0.37], ... % [X, Y, W, H] for top-axes inset
