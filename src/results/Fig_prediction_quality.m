@@ -99,7 +99,7 @@ markers = baseMarkers(mod(0:nCases-1, numel(baseMarkers)) + 1);
 
 % Create figure with appropriate size for two-column layout
 % Two-column width is typically ~7 inches
-fig = figure('Units', 'inches', 'Position', [1, 1, 7, 9]);
+fig = figure('Units', 'inches', 'Position', [1, 1, 7, 7]);
 tiledlayout(2,1,'TileSpacing','tight','Padding','tight');
 
 % Plot mean

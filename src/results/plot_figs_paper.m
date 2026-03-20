@@ -158,9 +158,9 @@ iX = 14;
 
 Cases = {'CLSPC','TrPred','actLf','iv4a','iv1','iv3c','iv3a','iv6a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
-insetYLims = {'free', 'free'};    % yLim for top & bottom-axes insets
-insetPos   = {[0.08, 0.58, 0.55, 0.37], ... % [X, Y, W, H] for top-axes inset
-              [0.08, 0.58, 0.55, 0.37]};  % [X, Y, W, H] for bottom-axes inset
+insetYLims = {[-0.41 0.41], 'free'};    % yLim for top & bottom-axes insets
+insetPos   = {[0.11, 0.61, 0.52, 0.34], ... % [X, Y, W, H] for top-axes inset
+              [0.11, 0.61, 0.52, 0.34]};  % [X, Y, W, H] for bottom-axes inset
 ConnectorLocation = {'south','south'};  % connector side: 'south','north','west','east'
 [fig4,max_ratio] = Fig_prediction_quality(fig4_dir,iX,data_type,Cases,[],insetYLims,insetPos,MainYLims,ConnectorLocation);
 max_ratio
