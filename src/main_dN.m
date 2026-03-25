@@ -13,6 +13,8 @@ opts = init_opts(Re=1e-2,sys=6);
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
+rng default;
+
 % ------------------------- add relevant paths ----------------------------
 add_paths(opts);
 

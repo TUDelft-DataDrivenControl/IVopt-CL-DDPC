@@ -31,6 +31,8 @@ end
 %    Used for plotting if opts.plot = true. Obtained from
 %    https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
 
+rng default;
+
 % ------------------------- add relevant paths ----------------------------
 add_paths(opts);
 
