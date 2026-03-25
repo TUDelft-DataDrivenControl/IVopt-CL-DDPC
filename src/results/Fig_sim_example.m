@@ -4,11 +4,7 @@ FS_Tick   = 8;
 FS_Label  = 9;
 Fs_Legend = 7;
 
-%% Choose settings for which to show simulation results
 %% navigate to subdir1
-if isempty(subdir1)
-    [subdir1,~] = get_subdir1(data_type);
-end
 pwd1 = pwd;
 cd(subdir1);
 
