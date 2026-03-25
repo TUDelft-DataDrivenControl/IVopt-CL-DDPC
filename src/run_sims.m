@@ -1,6 +1,6 @@
 function [opts, u0, y0, xcl0, ...
-          Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, u_iv, y_iv, ...
-          cost_u1, cost_u2, cost_u, cost_y, cost_tot, FroIDerror] ... 
+          Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, ...
+          cost_u1, cost_u2, cost_u, cost_y, cost_tot] ... 
           = run_sims(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1)
 %% This function will run all necessary simulations given input parameters
 [A,~,~,D,~] = plant2ABCDK(plant);
@@ -43,9 +43,6 @@ nCz = numel(Cases);
 
 % ============================ create IVs =================================
 [Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,Cases,Descr,opts); % Z is IV_4_DDPC object containing IVs
-
-% ============= calc. mean & std. dev. of IV trajectories =================
-[u_iv,y_iv] = get_uy_iv(Z,nlcf,yr0,opts);
 
 %% Get Subspace Predictive Controllers
 % ---------------------- get (CL-)SPC controllers -------------------------
@@ -102,21 +99,6 @@ for kCz = 1:nCz
     cost_y.(Czn)  = cost_fun_yk( y_cl.(Czn))/Ncl;
     cost_u.(Czn)  = cost_u1.(Czn) + cost_u2.(Czn);
     cost_tot.(Czn)= cost_u.(Czn)  + cost_y.(Czn);  % total cost
-end
-
-% ===================== Identification error analysis =====================
-fprintf('Calculate identification errors...\n');
-
-for kCz = 1:nCz
-    Czn = Cases{kCz};
-
-    IDerror = Lf.(Czn)-Lf.actLf;
-    cols = 1:p*nu;
-    FroIDerror.(Czn).Up = norm(IDerror(:,cols),'fro'); % part affecting Up
-    cols = p*nu+(1:p*ny);
-    FroIDerror.(Czn).Yp = norm(IDerror(:,cols),'fro'); % part affecting Yp
-    cols = p*(nu+ny)+(1:f*nu);
-    FroIDerror.(Czn).Uf = norm(IDerror(:,cols),'fro'); % part affecting Uf
 end
 
 end

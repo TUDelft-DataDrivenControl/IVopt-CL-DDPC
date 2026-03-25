@@ -1,6 +1,6 @@
-function [m0_UYf_iX,m1_UYf_iX, m2_data_iX,mLf_data_iX, m3_data_iX,...
+function [m1_UYf_iX, mLf_data_iX, m3_data_iX,...
     m4_data_iX] ...
-    = process_m_all(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars)
+    = process_m_all(Uf_ivs,Yf_ivs,Cases,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,OutVars)
 %% ======================== initialize data containers ======================
 
 num_OutVars = numel(OutVars);
@@ -8,13 +8,10 @@ num_OutVars = numel(OutVars);
 num_Uf_ivs       = numel(Uf_ivs); 
 num_Yf_ivs       = numel(Yf_ivs);
 num_Cases        = numel(Cases);
-num_IDerrorTypes = numel(IDerrorTypes);
 num_cost_types   = numel(cost_types);
 num_IVs          = num_Uf_ivs + num_Yf_ivs;
 
-m0_UYf_data   = cell(spX, num_IVs);
 m1_UYf_iX     = zeros(num_IVs, spX);
-m2_data_iX    = zeros(num_IDerrorTypes,num_Cases,spX);
 m3_data_iX    = zeros(num_cost_types,  num_Cases,spX);
 cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
@@ -48,26 +45,18 @@ fprintf('%s',txt_iters);
 parfor ks = 1:spX
     seed = seeds(ks,iX);
     fndata = sprintf('seed_%d.mat',seed);
-    [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata,OutVars);
+    [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata,OutVars);
 
     % iterating over output variables to calculate
     for kOutVar = 1:num_OutVars
         OutVar = OutVars{kOutVar};
     switch OutVar
     % =================================================================
-    % m0) statistics of Uf & Yf per IV
-        case 'm0'
-            m0_UYf_data(ks, :) = process_m0_seed(Z, Uf_ivs, Yf_ivs, nu, ny, f);
-    % =================================================================
     % m1) how well IV approximates optimal one
         case 'm1'
             m1_UYf_iX(:, ks) = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f);
 
     % =================================================================
-    % m2) identification error (frobenius norm)
-        case 'm2'
-            m2_data_iX(:,:,ks) = process_m2_seed(FroIDerror, Cases, IDerrorTypes);
-
     % mLf) average identified Lf
         case 'mLf'
             mLf_data_iX(:,ks,:,:) = process_mLf_seed(Cases,ny,f,cols_Lf,Lf,ks);
@@ -80,7 +69,7 @@ parfor ks = 1:spX
     % =================================================================
     % m4) prediction error
         case 'm4'
-            m4_data_iX(:,:,ks,:) = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,effEpMat,Hf,Cases,p,f);
+            m4_data_iX(:,:,ks,:) = process_m4_seed(e0,e1,u0,y0,u_cl,y_cl,Lf,Hf,Cases,p,f);
     end
     end
 
@@ -89,13 +78,6 @@ parfor ks = 1:spX
 end % of parfor
 
 %% processing of seeds
-if ismember('m0',OutVars)
-    % calculate statistics for m0 data from all seeds
-    m0_UYf_iX = calc_stats_seeds_m0(m0_UYf_data, num_Uf_ivs, nu, ny, f, N, spX, pctiles);
-else
-    m0_UYf_iX = cell(num_IVs,3);
-end
-
 % reformat data for m4
 if ismember('m4',OutVars)
     % mean over seeds (3rd dim) -> squeeze to ny*f x num_Cases x 4 x 2
@@ -111,16 +93,14 @@ fprintf('\tFinished in %.2f seconds\n', m123_time);
 end
 
 %% Helper functions
-function [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath,OutVars)
-    [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = deal([]); % will be filled as needed
+function [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath,OutVars)
+    [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = deal([]); % will be filled as needed
     % Only load necessary variables to improve memory usage and performance
     loadVars = {};
     for kOutVar = 1:numel(OutVars)
         switch OutVars{kOutVar}
-            case {'m0','m1'}
+            case 'm1'
                 loadVars = [loadVars, 'Z'];
-            case 'm2'
-                loadVars = [loadVars, 'FroIDerror'];
             case 'm3'
                 loadVars = [loadVars, 'cost_tot', 'cost_u', 'cost_y'];
             case 'm4'
@@ -134,8 +114,6 @@ function [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_s
     for kVar = 1:numel(loadVars)
         varName = loadVars{kVar};
         switch varName
-            case 'FroIDerror'
-                FroIDerror = s.FroIDerror;
             case 'Z'
                 Z = s.Z;
             case 'cost_tot'
@@ -163,21 +141,21 @@ function [FroIDerror,Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_s
 end
 
 function parforWaitbar(waitbarHandle,iterations)
-    persistent count h N
+    persistent count h Nit
     
     if nargin == 2
         % Initialize
         
         count = 0;
         h = waitbarHandle;
-        N = iterations;
+        Nit = iterations;
     else
         % Update the waitbar
         
         % Check whether the handle is a reference to a deleted object
         if isvalid(h)
             count = count + 1;
-            waitbar(count / N,h,sprintf('Progress: (%d/%d) -> %.1f%%',count,N,count/N*100));
+            waitbar(count / Nit,h,sprintf('Progress: (%d/%d) -> %.1f%%',count,Nit,count/Nit*100));
         end
     end
 end

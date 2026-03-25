@@ -1,6 +1,6 @@
 clear; 
 close all;
-data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
 overwrite = false;
 plotting = false;
 
@@ -38,7 +38,7 @@ nX = numel(X_all);
 
 % get data structures - load or by processing data
 if isfile('processed_data.mat')
-    expectedVars = {'m0','m1','m2','mLf','m3','m4'};
+    expectedVars = {'m1','mLf','m3','m4'};
     availVars = {whos('-file','processed_data.mat').name};
     missingVars = setdiff(expectedVars, availVars);
 
@@ -50,12 +50,12 @@ if isfile('processed_data.mat')
     elseif ~isempty(missingVars) && overwrite
         % overwrite existing processed data
         fprintf('Not all necessary processed data found, overwriting file\n')
-        [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
+        [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
         
     else
         % add only missing processed data
         fprintf('Not all necessary processed data found, adding missing data to file\n')
-        [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,missingVars); % available variables will be empty
+        [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,missingVars); % available variables will be empty
         clear(availVars{:}); % clear empty available variables before loading them
         load("processed_data.mat",availVars{:}); % load existing variables
     end
@@ -63,7 +63,7 @@ if isfile('processed_data.mat')
 else
     fprintf('Processed data file not found\n')
     fprintf('Processing data in directory\n');
-    [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
+    [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
 end
 
 %% remove data path again

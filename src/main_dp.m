@@ -16,7 +16,7 @@ opts = init_opts(N=1e3,f=20,sys=6);
 rng default;
 
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+add_paths;
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');

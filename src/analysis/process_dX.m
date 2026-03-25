@@ -1,11 +1,11 @@
-function [m0,m1,m2,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,OutVars)
+function [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,OutVars)
 arguments
     data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
     seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
     X_all (1,:) double {mustBePositive}
     opts (1,1) struct
     plant ss
-    OutVars (1,:) string {mustBeMember(OutVars,{'m0','m1','m2','mLf','m3','m4'})} = {'m0','m1','m2','mLf','m3','m4'};
+    OutVars (1,:) string {mustBeMember(OutVars,{'m1','mLf','m3','m4'})} = {'m1','mLf','m3','m4'};
 end
 spX = size(seeds,1);
 [f,nu,ny] = deal(opts.f,opts.nu,opts.ny);
@@ -20,12 +20,6 @@ end
 [A,BK,C,~] = ssdata(plant);
 K = BK(:,nu+1:end);
 Hf = make_blk_tril_toeplitz(A,K,C,eye(ny),f);
-if ~strcmp(data_type,'p')
-    Gamma_f = make_ext_obsv(A,C,f);
-    Gamma_p = make_ext_obsv(A,C,p);
-    Hp = make_blk_tril_toeplitz(A,K,C,eye(ny),p);
-    effEpMat = -Gamma_f*(A-K*C)^p*pinv(Gamma_p)*Hp;
-end
 
 %% iterate over Re \ N values - initial data processing
 subdir1 = pwd; % should be data/sys#/raw/dX/<subdir1>
@@ -34,7 +28,7 @@ subdir1 = pwd; % should be data/sys#/raw/dX/<subdir1>
 subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
-subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
+subdir2s = subdir2s(~ismember(subdir2s,{'.','..'}));
 subdir2s = subdir2s(~cellfun(@isempty, regexp(subdir2s, '^[0-9]+_')));
 
 % iterate over all Re \ N \ p values
@@ -48,27 +42,13 @@ Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'Cases').Cases;
 num_Cases = numel(Cases);
 
 %% initializing measures
-% ======================== initialize measure 0 (m0) ======================
-% -> statistics of Uf & Yf values
-% -> structure: m0.<Uf/Yf>.<IVname>.(iX1/2/3...).(mean/median/pctiles)
-%     example: m0.Uf.iv1.iX1.mean         (nu, ndiags)
-%              m0.Yf.iv2b.iX3.pctiles     (ny, ndiags, num_pctiles)
-% -> sliceable cell array containers:
-%    m0_Uf_mean     (num_Uf_ivs, nX)  cells of size (nu, ndiags)
-%    m0_Yf_mean     (num_Yf_ivs, nX)                (ny, ndiags)
-%    m0_Uf_median   (num_Uf_ivs, nX)                (nu, ndiags)
-%    m0_Yf_median   (num_Yf_ivs, nX)                (ny, ndiags)
-%    m0_Uf_pctiles  (num_Uf_ivs, nX)                (nu, ndiags, num_pctiles)
-%    m0_Yf_pctiles  (num_Yf_ivs, nX)                (ny, ndiags, num_pctiles)
+pctiles = 0:5:100;
 
 % --- IV definitions
 Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'}; Uf_ivs = intersect(Uf_ivs,Cases);
 Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};                            Yf_ivs = intersect(Yf_ivs,Cases);
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
-
-% initialize cell arrays: combine mean/median/pctiles into 3rd dim
-m0_UYf = cell(num_Uf_ivs + num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median, (:,:,3)=pctiles
 
 % ======================== initialize measure 1 (m1) ======================
 % -> how well IV approximates optimal IV
@@ -81,28 +61,9 @@ m0_UYf = cell(num_Uf_ivs + num_Yf_ivs, nX, 3);    % (:,:,1)=mean, (:,:,2)=median
 %    m1_Uf_data(num_Uf_ivs, nX, spX)
 %    m1_Yf_data(num_Yf_ivs, nX, spX)
 
-pctiles = 0:5:100;
-
 % --- Preallocate "sliced" containers ---
 % Combine Uf and Yf into a single array for easier handling: (num_Uf_ivs+num_Yf_ivs) x nX x spX
 m1_UYf = zeros(num_Uf_ivs + num_Yf_ivs, nX, spX);
-
-% ======================== initialize measure 2 (m2) ======================
-% -> identification error (frobenius norm)
-% -> structure: m2.<IDerrorType>.<caseName>.data    (nX, spX)
-%                                          .mean    (nX, 1)
-%                                          .median  (nX, 1)
-%                                          .pctiles (nX, num_pctiles)
-%      example: m2.Up.iv1.data(iX,ks)
-% -> sliceable containers:
-%    m2_data(num_IDerrorTypes, num_Cases, nX, spX)
-
-% --- types of identification error
-IDerrorTypes = {'Up','Yp','Uf'};
-num_IDerrorTypes = numel(IDerrorTypes);
-
-% --- Preallocate sliceable containers ---
-m2_data  = zeros(num_IDerrorTypes, num_Cases, nX, spX); % main data
 mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,size(Lf,1),size(Lf,2)
 
 % ======================== initialize measure 3 (m3) ======================
@@ -136,14 +97,16 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],15,ntasks=nworkers,cpt=1,GB=3.8);
     parpool(myCluster,nworkers);
 else
+    cluster = parcluster('local');
+    max_workers = cluster.NumWorkers;
     if ~isempty(gcp('nocreate'))
         curr_pool = gcp('nocreate');
-        if curr_pool.NumWorkers < feature('numcores')
+        if curr_pool.NumWorkers < max_workers
             delete(curr_pool);
-            parpool('local',feature('numcores'));
+            parpool('local',max_workers);
         end
     else
-        parpool('local', feature('numcores'));
+        parpool('local', max_workers);
     end
 end
 
@@ -155,12 +118,6 @@ for iX = 1:nX
                 N = X_all(iX); X = N;
             else % -> 'p'
                 p = X_all(iX); X = p;
-                
-                % also calculate matrix describing effect of past noise for m4:
-                Gamma_f = make_ext_obsv(A,C,f);
-                Gamma_p = make_ext_obsv(A,C,p);
-                Hp = make_blk_tril_toeplitz(A,K,C,eye(ny),p);
-                effEpMat = -Gamma_f*(A-K*C)^p*pinv(Gamma_p)*Hp;
             end
             % choose subdir2 corresponding with N value
             subdir2 = choose_subdir_by_number(subdir2s, X);
@@ -177,12 +134,12 @@ for iX = 1:nX
             cd(subdir2); % navigate into <subdir2>
     end
     
-    % ======================== processing m0, m1, m2, m3 ==================
+    % ======================== processing m1, m3 ==================
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % iterates over noise realizations
-    [m0_UYf(:,iX,:),m1_UYf(:, iX, :), m2_data(:, :, iX, :), mLf_data{iX},m3_data(:, :, iX, :), m4_data(iX,:,:,:,:)] ...
-     = process_m_all(Uf_ivs,Yf_ivs,Cases,IDerrorTypes,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,effEpMat,N,pctiles,OutVars);
+    [m1_UYf(:, iX, :), mLf_data{iX},m3_data(:, :, iX, :), m4_data(iX,:,:,:,:)] ...
+     = process_m_all(Uf_ivs,Yf_ivs,Cases,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,OutVars);
 
     cd(subdir1);
 end
@@ -191,24 +148,15 @@ if ismember('SlurmProfile1',parallel.clusterProfiles)
 end
 
 %% ============= Data processing and transforming to structures ============
-[m0,m1,m2,mLf,m3,m4] = deal([]); % overwritten if in OutVars
+[m1,mLf,m3,m4] = deal([]); % overwritten if in OutVars
 for k = 1:numel(OutVars)
     OutVar = OutVars{k};
     switch OutVar
-        % ----- m0 (IV statistics) ------------------------------------------
-        case 'm0'
-            m0 = m0_data2struct(m0_UYf, Uf_ivs, Yf_ivs, nX);
-            clear m0_UYf
         
         % ----- m1 (quality of the approximation of the optimal IV) ---------
         case 'm1'
             m1 = m1_data2struct(m1_UYf, Uf_ivs, Yf_ivs,pctiles);
-            clear m1_UYf
-        
-        % ----- m2 (identification error, frobenius norm) -------------------
-        case 'm2'
-            m2 = m2_data2struct(m2_data, Cases, IDerrorTypes, pctiles);
-            clear m2_data;
+            clear m1_UYf;
         
         % ----- mLf (Lf values) ---------------------------------------------
         case 'mLf'

@@ -16,7 +16,7 @@ opts = init_opts(Re=1e-2,sys=6);
 rng default;
 
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+add_paths;
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
@@ -60,9 +60,6 @@ subdir1 = name_subdir1(Nmin,Nmax,nN,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dN',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\ref0_<>\dN\<subdir1>\mfiles
-copy_dependencies(src_dir,subdir1,'main_dN.m');
-
 % save overall settings to data\raw\sys#\ref0_<>\dN\<subdir1>\dN_settings.mat
 save(fullfile(subdir1,'dN_settings.mat'),'Nmin','Nmax','nN','N_all','spN','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
@@ -76,7 +73,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=50,nMins=30);
 
 else
-    fprintf('using the local profile');
+    fprintf('using the local profile\n');
     if isempty(gcp('nocreate'))
         myCluster = parcluster('local');
         nworker = myCluster.NumWorkers; % (max.) workers per node
@@ -109,7 +106,6 @@ end
 function opts = init_opts(opts)
 arguments
 opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
-opts.plot       logical = false;
 opts.p    (1,1) double  = 20;       % window lengths
 opts.f    (1,1) double  = 20;
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC

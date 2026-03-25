@@ -5,7 +5,6 @@ function main(opts)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 arguments (Input)
     opts.Re   (1,1) double  = 4.81e-2;  % innovation noise variance
-    opts.plot       logical = false;
     opts.p    (1,1) double  = 20;       % window lengths
     opts.f    (1,1) double  = 20;
     opts.N    (1,1) double  = 1e4;      % number of data matrix columns
@@ -34,7 +33,7 @@ end
 rng default;
 
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+add_paths;
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
@@ -98,9 +97,6 @@ if opts.save
     if ~isfolder(data_dir)
         % make data folder to store data for different seeds
         mkdir(data_dir);
-
-        % copy dependent .m files to data_dir\mfiles
-        copy_dependencies(src_dir,data_dir,'main.m');
     end
     
     %----------------------- add path to data directory -------------------
@@ -117,117 +113,6 @@ if opts.save
         'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
         'FroIDerror');
     fprintf('File saved successfully!\n');
-end
-
-%% Plotting
-if opts.plot
-    close all;
-    nCz = numel(Cases);
-% ============================= IV trajectories ===========================
-    plot_IV_trajectories(u_iv,y_iv,opts,plant,u0,y0,e0,"useBounds",false)
-    
-% ======================= closed-loop simulation data =====================
-    % Load a Crameri colormap (e.g., 'batlow')
-    colors = crameri('batlow', nCz);  % nCz colors for controllers
-    
-    % Define line and marker styles
-    lineStyles = {'-','--',':','-.'};    % line styles
-    markerStyles = {'o','s','^','d','none'};    % include 'none' to skip markers
-    
-    figure(2);
-    tiledlayout(2,1,'TileSpacing','compact');
-    
-    ax2_1 = nexttile;
-    stairs(yr1, 'k-','LineWidth',2,'DisplayName','ref'); hold on;
-    
-    for kCz = 1:nCz
-        Czn = Cases{kCz}; % controller name
-        ls = lineStyles{mod(kCz-1,length(lineStyles))+1};
-        ms = markerStyles{mod(kCz-1,length(markerStyles))+1};
-        switch Czn
-            case 'CLSPC'
-                stairs(y_cl.(Czn), 'Color','b','LineWidth',2,'DisplayName',Czn);
-            otherwise
-                stairs(y_cl.(Czn), 'Color', colors(kCz,:), 'LineStyle', ls, ...
-                     'Marker', ms, 'LineWidth',1.5, 'DisplayName', Czn);
-        end
-    end
-    
-    ylim([-15 15]); grid on;
-    ylabel('$y_k$','Interpreter','latex');
-    legend show
-    
-    ax2_2 = nexttile;
-    stairs(ur1, 'k-','LineWidth',2,'DisplayName','ref'); hold on;
-    
-    for kCz = 1:nCz
-        Czn = Cases{kCz}; % controller name
-        ls = lineStyles{mod(kCz-1,length(lineStyles))+1};
-        ms = markerStyles{mod(kCz-1,length(markerStyles))+1};
-        switch Czn
-            case 'CLSPC'
-                stairs(u_cl.(Czn), 'Color','b','LineWidth',2,'DisplayName',Czn);
-            otherwise
-                stairs(u_cl.(Czn), 'Color', colors(kCz,:), 'LineStyle', ls, ...
-                     'Marker', ms, 'LineWidth',1.5, 'DisplayName', Czn);
-        end
-    end
-    
-    ylim([-30 30]); grid on;
-    ylabel('$u_k$','Interpreter','latex');
-    xlabel('Time', 'Interpreter','latex');
-    legend show
-    
-    linkaxes([ax2_1 ax2_2], 'x');
-
-    
-% ======================= visualize identification results ================
-    cabsmax = 0;
-    for kCz = 1:nCz
-        Czn = Cases{kCz}; % controller name
-        cabsmax = max(max(abs(Lf.(Czn)),[],"all"),cabsmax);
-    end
-    
-    figure(3);
-    tiledlayout(nCz,1,'TileSpacing','compact');
-    for kCz = 1:nCz
-        Czn = Cases{kCz}; % controller name
-        nexttile;
-        imagesc_vik(Lf.(Czn),cmax=cabsmax);
-    end
-    
-% ======================= visualize identification error ==================
-    figure(4);
-    xleg = categorical(Cases);
-    xleg = reordercats(xleg,Cases);
-    FroIDerror2 = zeros(nCz,3);
-    for kCz = 1:nCz
-        nCz = Cases{kCz};
-        FroIDerror2(kCz,1) = FroIDerror.(nCz).Up;
-        FroIDerror2(kCz,2) = FroIDerror.(nCz).Yp;
-        FroIDerror2(kCz,3) = FroIDerror.(nCz).Uf;
-    end
-    subplot(1,3,1);
-    bar(xleg,FroIDerror2(:,1)); grid on;
-    title('Up');
-    subplot(1,3,2);
-    bar(xleg,FroIDerror2(:,2)); grid on;
-    title('Yp');
-    subplot(1,3,3);
-    bar(xleg,FroIDerror2(:,3)); grid on;
-    title('Uf');
-
-% ======================= visualize average stage costs ===================
-    cost_u_array = struct2array(cost_u).';
-    cost_y_array = struct2array(cost_y).';
-    cost_tot_array = struct2array(cost_tot).';
-    figure(5);
-    bar(xleg,[cost_u_array cost_y_array],'stacked');
-    legend({'$\mathcal{J}_u$','$\mathcal{J}_y$'},'interpreter','latex');
-    ax_bar = gca;
-    ax_bar.TickLabelInterpreter = 'latex';
-    max_y = max(cost_tot_array(~isoutlier(cost_tot_array)),[],'all');
-    ylim(ax_bar,[0 1.05*max_y]);
 end
 end
 

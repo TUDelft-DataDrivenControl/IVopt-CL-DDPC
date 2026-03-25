@@ -102,7 +102,6 @@ Each dimension runs multiple Monte Carlo replications (default: ~50–100 per pa
 - **Crameri colormaps** (optional) — Perceptually uniform scientific color schemes for visualization (v1.09 from Zenodo)
 
 ### **Included External Code**
-- **plotboxpos-pkg-master/** — Subfolder positioning in MATLAB figures
 - **crameri_colours/** — Color palette utilities (if already present)
 
 ## Output Artifacts

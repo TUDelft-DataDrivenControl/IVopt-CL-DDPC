@@ -14,7 +14,7 @@ load(sprintf('d%s_settings.mat',data_type));
 subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
-subdir2s = subdir2s(~ismember(subdir2s,{'.','..','mfiles'}));
+subdir2s = subdir2s(~ismember(subdir2s,{'.','..'}));
 switch data_type
     case {'N','p'}
         if strcmp(data_type,'N')
