@@ -47,7 +47,7 @@ sE.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 %% run simulations
 [sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl, sE.Cases, ...
  sE.cost_u1, sE.cost_u2, sE.cost_u, sE.cost_y, sE.cost_tot] ...
-    = run_sims(sE.opts,sigs,plant,Cz0,Tcl0,sN.yr0,sE.e0,sN.yr1,sN.ur1,sE.e1);
+    = main_MC(sE.opts,sigs,plant,Cz0,Tcl0,sN.yr0,sE.e0,sN.yr1,sN.ur1,sE.e1);
 
 %% save data
 fn = sprintf('seed_%d.mat',seed);

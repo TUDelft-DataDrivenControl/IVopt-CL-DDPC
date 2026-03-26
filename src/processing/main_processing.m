@@ -1,14 +1,7 @@
 clear; 
 close all;
-data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 overwrite = false;
-plotting = false;
-
-if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
-    onCluster = true;
-else
-    onCluster = false;
-end
 
 %% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
 [subdir1,src_dir] = get_subdir1(data_type);
@@ -37,33 +30,31 @@ end
 nX = numel(X_all);
 
 % get data structures - load or by processing data
-if isfile('processed_data.mat')
+if isfile('processed_data.mat') && ~overwrite
     expectedVars = {'m1','mLf','m3','m4'};
     availVars = {whos('-file','processed_data.mat').name};
     missingVars = setdiff(expectedVars, availVars);
-
+    
     if isempty(missingVars)
-        % all processed data available, load it
-        fprintf('All necessary processed data found, loading file\n')
-        load("processed_data.mat");
+        % do noting, all expected processed data is available
+        fprintf('All expected processed data is available\n');
 
-    elseif ~isempty(missingVars) && overwrite
-        % overwrite existing processed data
-        fprintf('Not all necessary processed data found, overwriting file\n')
-        [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
-        
     else
-        % add only missing processed data
+        % add missing processed data
         fprintf('Not all necessary processed data found, adding missing data to file\n')
-        [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,missingVars); % available variables will be empty
-        clear(availVars{:}); % clear empty available variables before loading them
-        load("processed_data.mat",availVars{:}); % load existing variables
+        process_dX(data_type,seeds,X_all,opts,plant,missingVars); % available variables will be emptyd
     end
 
 else
-    fprintf('Processed data file not found\n')
-    fprintf('Processing data in directory\n');
-    [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant);
+    if ~isfile('processed_data.mat')
+        % file not found -> create it
+        fprintf("Processed data file 'processed_data.mat' not found\n");
+        fprintf('Processing data in directory\n');
+    else
+        % file found, but needs to be overwritten
+        fprintf('Overwriting processed_data.mat\n');
+    end
+    process_dX(data_type,seeds,X_all,opts,plant);
 end
 
 %% remove data path again

@@ -1,4 +1,4 @@
-function [m1,mLf,m3,m4] = process_dX(data_type,seeds,X_all,opts,plant,OutVars)
+function process_dX(data_type,seeds,X_all,opts,plant,OutVars)
 arguments
     data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
     seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
@@ -148,7 +148,6 @@ if ismember('SlurmProfile1',parallel.clusterProfiles)
 end
 
 %% ============= Data processing and transforming to structures ============
-[m1,mLf,m3,m4] = deal([]); % overwritten if in OutVars
 for k = 1:numel(OutVars)
     OutVar = OutVars{k};
     switch OutVar

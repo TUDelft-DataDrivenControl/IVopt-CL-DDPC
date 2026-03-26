@@ -66,7 +66,7 @@ e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 %% run simulations
 [opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, u_iv, y_iv, ...
  cost_u1, cost_u2, cost_u, cost_y, cost_tot, FroIDerror] ...
-    = run_sims(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1);
+    = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1);
 
 %% Saving data
 if opts.save
