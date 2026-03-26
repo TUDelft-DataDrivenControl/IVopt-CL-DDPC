@@ -2,7 +2,7 @@ function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 %% initializes closed-loop simulations by getting necessary variables
 
 %% get system information: plant & initial controller
-[plant,sys_subdir,fn_Cz0,Cz0] = get_sys_info(opts); % Cz0 is only nonempty for opts.sys = 4
+[plant,sys_subdir,fn_Cz0] = get_sys_info(opts); % Cz0 is only nonempty for opts.sys = 4
 [~,B,C,~,~] = plant2ABCDK(plant);
 [ny,nx] = size(C); nu = size(B,2);
 

@@ -1,5 +1,5 @@
 close all;
-opts.sys = 1;
+opts.sys = 8;
 [plant,sys_subdir,fn_Cz0] = get_sys_info(opts);
 [~,B,C,~,~] = plant2ABCDK(plant);
 [ny,nx] = size(C); nu = size(B,2);
@@ -28,11 +28,11 @@ G = plant(:,1);
 if opts.sys ~= 9
     % if opts.sys = 9 -> use initial controller Cz0 provided by Wang et al. (2023)
     % otherwise, overwrite empty Cz0
-    [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
+    [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3);
 end
 
 switch opts.sys
-    case {1,5} %{1,5,6,7,8}
+    case {1,5}
         Cz0 = minreal(Cz0);
         Cz0 = employ_integrator(Cz0);
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
@@ -210,7 +210,7 @@ function Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3)
     T = feedback(G*Cz1,1);     % complementary sensitivity
     
     CL = [ W1*S ; W3*T ];
-    opt = hinfstructOptions('Display','iter');
+    opt = hinfstructOptions('Display','final');
     [CLopt,gamma] = hinfstruct(CL,opt);
 
     Cz0 = getBlockValue(CLopt,'K2');
