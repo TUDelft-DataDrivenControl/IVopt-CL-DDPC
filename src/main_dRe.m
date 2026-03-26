@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=2e2,sys=6);
+opts = init_opts(sys=6);
 [N, p, f, Ncl] = deal(opts.N, opts.p, opts.f, opts.Ncl);
 
 % Requirements:
@@ -126,13 +126,13 @@ function opts = init_opts(opts)
 arguments
 opts.p    (1,1) double  = 20;       % window lengths
 opts.f    (1,1) double  = 20;
-opts.N    (1,1) double  = 1e4;      % number of data matrix columns
+opts.N    (1,1) double  = 1e3;      % number of data matrix columns
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
 opts.dRk  (1,1) double  = 1;        % weights
 opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 1;         % flag for model selection
+opts.sys  (1,1) double = 6;         % flag for model selection
 opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
 end
 end

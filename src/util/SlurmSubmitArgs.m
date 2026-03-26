@@ -1,16 +1,16 @@
 function SubmitTxt = SlurmSubmitArgs(jn,Time,opts)
 arguments
-    jn (1,:) char
-    Time (1,1) double {mustBeFinite,mustBeReal,mustBePositive} = 15; % minutes
-    opts.part (1,:) char = 'compute-p1,compute-p2';
-    opts.accnt (1,:) char = 'research-me-dcsc';
-    opts.nodes  = [] %(1,1) double {mustBeFinite,mustBeReal,mustBeInteger,mustBePositive} = 1;                % number of nodes used
-    opts.tpn    = [] %(1,1) double {mustBeFinite,mustBeReal,mustBeInteger,mustBeGreaterThan(opts.tpn,1)} = 2; % tasks per node (leave one for submitting script/function)
-    opts.ntasks = []
-    opts.cpt (1,1)   double {mustBeFinite,mustBeReal,mustBeInteger,mustBePositive} = 1;                % CPUs per task
-    opts.GB  (1,1)   double {mustBeFinite,mustBeReal,mustBePositive} = 3.9;                            % GB per CPU
-    opts.out char = '';
-    opts.err char = '';
+    jn (1,:) char % job name
+    Time (1,1) double {mustBeFinite,mustBeReal,mustBePositive} = 15; % max. runtime in minutes
+    opts.part char  = ''; % partition
+    opts.accnt char = ''; % account
+    opts.nodes  = [] % number of nodes used
+    opts.tpn    = [] % tasks per node
+    opts.ntasks = [] % number of tasks (single node)
+    opts.cpt (1,1)   double {mustBeFinite,mustBeReal,mustBeInteger,mustBePositive} = 1; % CPUs per task
+    opts.GB  (1,1)   double {mustBeFinite,mustBeReal,mustBePositive} = 3.9;             % GB per CPU
+    opts.out char = ''; % output file for stdout
+    opts.err char = ''; % error file for stderr
 end
 %% futher parsing
 if (isempty(opts.tpn) && isempty(opts.ntasks)) || ~isempty(opts.tpn) && ~isempty(opts.ntasks)
@@ -21,8 +21,19 @@ if isempty(opts.ntasks) && isempty(opts.nodes)
 end
 if ~isempty(opts.ntasks)
     check_FinRealPosInt(opts.ntasks);
-else %if ~isempty(opts.tpn)
+else
     check_FinRealPosInt(opts.tpn);
+end
+if isempty(opts.part) || isempty(opts.accnt)
+    % load default settings saved to SlurmSettings.mat
+    [src_util_dir, ~  , ~] = fileparts(which(mfilename)); % find src/util directory
+    SlurmSettings = load(fullfile(src_util_dir,'..','SlurmSettings.mat'));
+    if isempty(opts.part)
+        opts.part = SlurmSettings.partition;
+    end
+    if isempty(opts.accnt)
+        opts.accnt = SlurmSettings.account;
+    end
 end
 
 % remove empty fields

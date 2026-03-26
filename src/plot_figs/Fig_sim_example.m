@@ -94,7 +94,7 @@ lgd.Layout.Tile = 'north';
 ax11r = nexttile(2*nColsPerTile+1,[1 nColsPerTile]);
 AxCopy1 = copyobj(allchild(ax11), ax11r);
 grid on; box on;
-xInset = [2210 2370]; yInsetTop = ylim_y1{2};%[1210 1370]
+xInset = [2210 2370] + (opts.N-1e3 + opts.p-20 + opts.f-20); yInsetTop = ylim_y1{2};
 xlim(ax11r, xInset); ylim(ax11r, yInsetTop);
 ax11r.YAxisLocation = 'right';
 trim_copied_objects(AxCopy1, xInset, yInsetTop);

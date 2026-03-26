@@ -7,7 +7,7 @@ arguments (Input)
     opts.Re   (1,1) double  = 4.81e-2;  % innovation noise variance
     opts.p    (1,1) double  = 20;       % window lengths
     opts.f    (1,1) double  = 20;
-    opts.N    (1,1) double  = 1e4;      % number of data matrix columns
+    opts.N    (1,1) double  = 1e3;      % number of data matrix columns
     opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
     opts.dRk  (1,1) double  = 1;        % weights
     opts.Rk   (1,1) double  = 1;

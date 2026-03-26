@@ -6,9 +6,10 @@ close all;
 
 save_figs = false;
 
-pdir = load('pdir.mat').pdir;
-cd(pdir);
-addpath(genpath(pwd));
+[src_plot_figs_dir, ~  , ~] = fileparts(which(mfilename)); % find src/util directory
+cd(fullfile(src_plot_figs_dir,'..','..')); pdir = pwd; % go to project directory and save the path
+addpath(genpath(fullfile(pdir,'src')));          % add src & subdirectories to path
+addpath(fullfile(pdir,'bin','crameri_colours')); % add path to Crameri colour maps for plotting
 
 %% Figure: example of Monte-Carlo simulation
 % settings for plot_run

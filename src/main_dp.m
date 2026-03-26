@@ -62,9 +62,6 @@ subdir1 = name_subdir1(pmin,pmax,nP,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dp',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\ref0_<>\dp\<subdir1>\mfiles
-copy_dependencies(src_dir,subdir1,'main_dp.m');
-
 % save overall settings to data\raw\sys#\ref0_<>\dp\<subdir1>\dp_settings.mat
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
@@ -118,7 +115,7 @@ opts.dRk  (1,1) double  = 1;        % weights
 opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 1;         % flag for model selection
+opts.sys  (1,1) double = 6;         % flag for model selection
 opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
 end
 end
