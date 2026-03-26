@@ -31,7 +31,7 @@ nX = numel(X_all);
 
 % get data structures - load or by processing data
 if isfile('processed_data.mat') && ~overwrite
-    expectedVars = {'m1','mLf','m3','m4'};
+    expectedVars = {'m1','mLf','m4'};
     availVars = {whos('-file','processed_data.mat').name};
     missingVars = setdiff(expectedVars, availVars);
     

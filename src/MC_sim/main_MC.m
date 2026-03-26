@@ -1,6 +1,4 @@
-function [opts, u0, y0, xcl0, ...
-          Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, ...
-          cost_u1, cost_u2, cost_u, cost_y, cost_tot] ... 
+function [opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases] ... 
           = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1)
 %% This function will run all necessary simulations given input parameters
 [A,~,~,D,~] = plant2ABCDK(plant);
@@ -75,30 +73,5 @@ for kCz = 1:nCz
     y_cl.(Czn) = uy_cl(nu+1:end,:);
 end
 fprintf('Closed-loop simulations finished!\n');
-
-%% Analysis 
-% =================== Calculate average stage costs =======================
-fprintf('Calculate average stage costs...\n');
-
-% -------------------------- create functions -----------------------------
-% average of (u_k-ur_k).' * Rk * (u_k-ur_k) over Ncl steps
-cost_fun_uk = @(u) reshape(ur1(:,1:Ncl)-u,[],1).'*kron(speye(Ncl),Rk)*reshape(ur1(:,1:Ncl)-u,[],1);
-
-% average of du_k.' * dRk * du_k over Ncl steps
-cost_fun_duk = @(u) reshape(u-[u0(:,end) u(:,2:end)],[],1).'*kron(speye(Ncl),dRk)*reshape(u-[u0(:,end) u(:,2:end)],[],1);
-
-% average of (y_k-yr_k).' * Rk * (y_k-yr_k) over Ncl steps
-cost_fun_yk = @(y) reshape(yr1(:,1:Ncl)-y,[],1).'*kron(speye(Ncl),Qk)*reshape(yr1(:,1:Ncl)-y,[],1);
-
-% -------------------------- perform calculations -------------------------
-for kCz = 1:nCz
-    Czn = Cases{kCz};
-    
-    cost_u1.(Czn) = cost_fun_uk( u_cl.(Czn))/Ncl;
-    cost_u2.(Czn) = cost_fun_duk(u_cl.(Czn))/Ncl;
-    cost_y.(Czn)  = cost_fun_yk( y_cl.(Czn))/Ncl;
-    cost_u.(Czn)  = cost_u1.(Czn) + cost_u2.(Czn);
-    cost_tot.(Czn)= cost_u.(Czn)  + cost_y.(Czn);  % total cost
-end
 
 end

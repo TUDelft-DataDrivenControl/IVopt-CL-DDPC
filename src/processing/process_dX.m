@@ -5,7 +5,7 @@ arguments
     X_all (1,:) double {mustBePositive}
     opts (1,1) struct
     plant ss
-    OutVars (1,:) string {mustBeMember(OutVars,{'m1','mLf','m3','m4'})} = {'m1','mLf','m3','m4'};
+    OutVars (1,:) string {mustBeMember(OutVars,{'m1','mLf','m4'})} = {'m1','mLf','m4'};
 end
 spX = size(seeds,1);
 [f,nu,ny] = deal(opts.f,opts.nu,opts.ny);
@@ -66,22 +66,6 @@ num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 m1_UYf = zeros(num_Uf_ivs + num_Yf_ivs, nX, spX);
 mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,size(Lf,1),size(Lf,2)
 
-% ======================== initialize measure 3 (m3) ======================
-% -> DDPC performance
-% -> structure: m3.<costType>.<caseName>.data    (nX, spX)
-%                                       .mean    (nX, 1)
-%                                       .median  (nX, 1)
-%                                       .pctiles (nX, num_pctiles)
-%      example: m3.cost_u.iv1.data(iX,ks)
-% -> sliceable containers:
-%    m3_data(num_cost_types, num_Cases, nX, spX)
-
-% --- cost types and cases
-cost_types = {'cost_u','cost_y','cost_tot'};
-
-% --- Preallocate sliceable containers ---
-m3_data = zeros(numel(cost_types), numel(Cases), nX, spX);
-
 % ======================== measure 4 (prediction error) ===================
 % -> prediction error
 m4_data = zeros(nX,ny*f,num_Cases,3);
@@ -134,12 +118,12 @@ for iX = 1:nX
             cd(subdir2); % navigate into <subdir2>
     end
     
-    % ======================== processing m1, m3 ==================
+    % ======================== processing m1, m4, mLf ==================
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % iterates over noise realizations
-    [m1_UYf(:, iX, :), mLf_data{iX},m3_data(:, :, iX, :), m4_data(iX,:,:,:,:)] ...
-     = process_m_all(Uf_ivs,Yf_ivs,Cases,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,OutVars);
+    [m1_UYf(:, iX, :), mLf_data{iX}, m4_data(iX,:,:,:,:)] ...
+     = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars);
 
     cd(subdir1);
 end
@@ -161,11 +145,6 @@ for k = 1:numel(OutVars)
         case 'mLf'
             mLf = mLf_data2struct(mLf_data, Cases, nX, pctiles);
             clear mLf_data;
-        
-        % ----- m3 (DDPC performance) ---------------------------------------
-        case 'm3'
-            m3 = m3_data2struct(m3_data,cost_types,Cases,pctiles);
-            clear m3_data;
         
         % ----- m4 (yf prediction errors) -----------------------------------
         case 'm4'

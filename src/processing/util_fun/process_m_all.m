@@ -1,6 +1,5 @@
-function [m1_UYf_iX, mLf_data_iX, m3_data_iX,...
-    m4_data_iX] ...
-    = process_m_all(Uf_ivs,Yf_ivs,Cases,cost_types,iX,nu,ny,p,f,seeds,spX,Hf,OutVars)
+function [m1_UYf_iX, mLf_data_iX, m4_data_iX] ...
+    = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars)
 %% ======================== initialize data containers ======================
 
 num_OutVars = numel(OutVars);
@@ -8,11 +7,9 @@ num_OutVars = numel(OutVars);
 num_Uf_ivs       = numel(Uf_ivs); 
 num_Yf_ivs       = numel(Yf_ivs);
 num_Cases        = numel(Cases);
-num_cost_types   = numel(cost_types);
 num_IVs          = num_Uf_ivs + num_Yf_ivs;
 
 m1_UYf_iX     = zeros(num_IVs, spX);
-m3_data_iX    = zeros(num_cost_types,  num_Cases,spX);
 cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
@@ -39,13 +36,13 @@ else
 end
 
 %% ---------------- Parallel iteration over seeds -------------------------
-m123_tictoc = tic;
+m_tictoc = tic;
 txt_iters = sprintf('\tIterating over seeds to calculate measures.');
 fprintf('%s',txt_iters);
 parfor ks = 1:spX
     seed = seeds(ks,iX);
     fndata = sprintf('seed_%d.mat',seed);
-    [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata,OutVars);
+    [Z,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fndata,OutVars);
 
     % iterating over output variables to calculate
     for kOutVar = 1:num_OutVars
@@ -60,11 +57,6 @@ parfor ks = 1:spX
     % mLf) average identified Lf
         case 'mLf'
             mLf_data_iX(:,ks,:,:) = process_mLf_seed(Cases,ny,f,cols_Lf,Lf,ks);
-
-    % =================================================================
-    % m3) DDPC performance
-        case 'm3'
-            m3_data_iX(:,:,ks) = process_m3_seed(cost_tot,cost_u,cost_y,Cases,cost_types);
 
     % =================================================================
     % m4) prediction error
@@ -86,23 +78,21 @@ else
     m4_data_iX = zeros(ny*f, num_Cases, 3);
 end
 
-m123_time = toc(m123_tictoc);
+m_time = toc(m_tictoc);
 if ~onCluster; close(w); end
-fprintf('\tFinished in %.2f seconds\n', m123_time);
+fprintf('\tFinished in %.2f seconds\n', m_time);
 
 end
 
 %% Helper functions
-function [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath,OutVars)
-    [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = deal([]); % will be filled as needed
+function [Z,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath,OutVars)
+    [Z,u0,y0,e0,e1,u_cl,y_cl,Lf] = deal([]); % will be filled as needed
     % Only load necessary variables to improve memory usage and performance
     loadVars = {};
     for kOutVar = 1:numel(OutVars)
         switch OutVars{kOutVar}
             case 'm1'
                 loadVars = [loadVars, 'Z'];
-            case 'm3'
-                loadVars = [loadVars, 'cost_tot', 'cost_u', 'cost_y'];
             case 'm4'
                 loadVars = [loadVars, 'u0', 'y0', 'e0', 'e1', 'u_cl', 'y_cl', 'Lf'];
             case 'mLf'
@@ -116,12 +106,6 @@ function [Z,cost_tot,cost_u,cost_y,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpa
         switch varName
             case 'Z'
                 Z = s.Z;
-            case 'cost_tot'
-                cost_tot = s.cost_tot;
-            case 'cost_u'
-                cost_u = s.cost_u;
-            case 'cost_y'
-                cost_y = s.cost_y;
             case 'u0'
                 u0 = s.u0;
             case 'y0'
