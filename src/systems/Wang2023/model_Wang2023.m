@@ -1,4 +1,4 @@
-function [plant,nx,nu,ny,A,B,C,D,K,Cz0] = model_Wang2023(options)
+function plant = model_Wang2023(options)
 %% System from Wang et al. (2023):
 %
 % [1] Y. Wang, Y. Qiu, M. Sader, D. Huang, and C. Shang, “Data-Driven
@@ -25,18 +25,23 @@ if any(isnan(K))
     K = place(A.',C.',options.At_poles).';
 end
 
-nx = 3;
 nu = 1;
 ny = 1;
 
-%% controller <- acts on error: e_k = r_k - y_k
-Ac = [ 1.0257  0.1540;...
-      -0.0043  0.9743];
-Bc = [-0.2046; -0.0963];
-Cc = [-0.4604 -1.5539];
-Dc = -0.03;
+%% create plant
+plant = ss(A,[B K], C, [D eye(ny,nu)],1); % time step unspecified so set to 1s
 
-%% create systems
-plant = ss(A,[B K], C, [D eye(ny,nu)],[]);
-Cz0 = ss(Ac,Bc,Cc,Dc,[]);
+%% controller <- acts on error: e_k = r_k - y_k
+[Wang2023_dir, ~  , ~] = fileparts(which(mfilename)); % get path of src/systems/Wang2023 directory
+fn = fullfile(Wang2023_dir,'Cz0_Wang2023_provided.mat');
+if ~isfile(fn)
+    Ac = [ 1.0257  0.1540;...
+        -0.0043  0.9743];
+    Bc = [-0.2046; -0.0963];
+    Cc = [-0.4604 -1.5539];
+    Dc = -0.03;
+    Cz0 = ss(Ac,Bc,Cc,Dc,plant.Ts);
+    save(fn,'Cz0');
+end
+
 end

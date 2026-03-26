@@ -1,4 +1,4 @@
-function [plant,nx,nu,ny,A,B,C,D,K] = model_Landau1995()
+function plant = model_Landau1995()
 % nominal model from [1], noise properties from [2]
 % [1] I. D. Landau, D. Rey, A. Karimi, A. Voda, and A. Franco, “A Flexible
 %     Transmission System as a Benchmark for Robust Digital Control,”
@@ -17,7 +17,6 @@ function [plant,nx,nu,ny,A,B,C,D,K] = model_Landau1995()
 K = 1.9*[0.0939; -0.3433; 0.1063; 1.2058]; % <- not in [1], so from [2]
 % Re = 4.81*1e-3 % <- from [2], but unused since it will be set by user
 
-nx = size(A,1);
 nu = size(B,2);
 ny = size(C,1);
 

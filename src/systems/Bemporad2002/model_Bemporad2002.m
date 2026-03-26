@@ -1,4 +1,4 @@
-function [plant,nx,nu,ny,A,B,C,D,K] = model_Bemporad2002(options)
+function plant = model_Bemporad2002(options)
 %% System from Bemporad et al. (2002):
 % Nominal plant model from [1], K is determined by pole placement of A-KC or by 
 % solving a discrete-time algebraic Riccati equation based user-specified noise properties
@@ -22,7 +22,6 @@ C = [0 1.4142];
 D = 0;
 K = zeros(2,1);
 
-nx = size(A,1); % nx = 2
 nu = size(B,2); % nu = 1
 ny = size(C,1); % ny = 1
 

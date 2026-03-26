@@ -1,130 +1,61 @@
 close all;
-opts.sys = 8;
+opts.sys = 1;
+[plant,sys_subdir,fn_Cz0] = get_sys_info(opts);
+[~,B,C,~,~] = plant2ABCDK(plant);
+[ny,nx] = size(C); nu = size(B,2);
+
 switch opts.sys
-    case {1,5,6,7,8}
-        [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
+    case {1,5,6,7,8} % for plant from Landau1995
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
-        if opts.sys == 5
-            % change system such that it has no input-output delay
-            [b,a] = ss2tf(A,B(:,1),C,D(:,1));
-            b2 = circshift(b,-3);
-            plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
-            A = plant.A;
-            B = plant.B(:,1);
-            C = plant.C;
-            D = plant.D(:,1);
-        end
-    case 2
-        [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
-        plant.Ts = 1;
+    case 2 % for plant from Bemporad2002
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
         W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
         W2 = ss(1e-1);
-    case 3
-        % system from Favoreel 1999; SPC: Subspace Predictive Control
-        A = [ 4.40 1 0 0 0;
-             -8.09 0 1 0 0;
-              7.83 0 0 1 0;
-             -4.00 0 0 0 1;
-              0.86 0 0 0 0];
-        B = [0.00098 0.01299 0.01859 0.0033 -0.00002].';
-        C = eye(1,5);
-        D = 0;
-        K = [2.3 -6.64 7.515 -4.0146 0.86336].';
-        
-        nx = size(A,1); nu = size(B,2); ny = size(C,1);
-        
-        plant = ss(A,[B K], C, [D eye(ny,nu)],1);
+    case 3 % for plant from Favoreel1999
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
         W2 = ss(1e-1);
-    case 4
-        [plant,Cz0,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023();
-        plant.Ts = 1;
+    case 4 % for plant from Wang2023
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        W2 = [];%ss(1e-1);
+        W2 = [];
 end
+
 %% mixed-sensitivity analysis
 G = plant(:,1);
-[Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
+if opts.sys ~= 9
+    % if opts.sys = 9 -> use initial controller Cz0 provided by Wang et al. (2023)
+    % otherwise, overwrite empty Cz0
+    [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3); gamma
+end
 
 switch opts.sys
-    case {1,5,6,7,8}
+    case {1,5} %{1,5,6,7,8}
         Cz0 = minreal(Cz0);
-        if opts.sys == 6 %-------------------- using hinfstruct -----------
-            nK = 5;
-            Cz1 = tunableSS('K',nK,1,1,plant.Ts,'companion');
-            % ------- force Cz1.D = 0 -------
-            Cz1.D.Value = 0;
-            Cz1.D.Free  = false;   % forces Cz1.D = 0
-            % ------- initialize rest w/ mixsyn result -----------
-            [Cz1.A.Value,Cz1.B.Value,Cz1.C.Value,~] = ssdata(Cz0);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
 
-            S = feedback(1,G*Cz1);     % sensitivity
-            T = feedback(G*Cz1,1);     % complementary sensitivity
-            
-            CL = [ W1*S ; W3*T ];
-            opt = hinfstructOptions('Display','final');
-            [CLopt,gamma] = hinfstruct(CL,opt);
+    case 6
+        Cz0 = minreal(Cz0);
+        nK = 5;
+        Cz0 = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
 
-            Cz0 = getBlockValue(CLopt,'K'); gamma
-        elseif opts.sys == 7 || opts.sys == 8 %-------------------- using hinfstruct with companion form -----------
-            [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
-            nx = size(Cz0.A,1);
-            if opts.sys == 7
-                nK = 20;        
-            else
-                nK = 50;
-            end
-            Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
-            Cz1.A.Free(1:nK-1,:) = false;
-            Cz1.A.Free(end,:) = true;
-            Cz1.A.Value(1:nK-1,:) = [zeros(nK-1,1) eye(nK-1)];
-            Cz1.B.Free(:) = false; Cz1.B.Value(:,1) = [zeros(nK-1,1); 1];
-            Cz1.D.Value = 0; Cz1.D.Free(:) = false;
-            % ------- initialize rest w/ mixsyn result -----------
-            Cz1.C.Value(1,1:nx) = fliplr(num(1,2:end));
-            Cz1.A.Value(end,1:nx) = -fliplr(den(1,2:end));
+    case 7
+        Cz0 = minreal(Cz0);
+        nK = 20;
+        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
+        
+    case 8
+        Cz0 = minreal(Cz0);
+        nK = 50;
+        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
 
-            S = feedback(1,G*Cz1);     % sensitivity
-            T = feedback(G*Cz1,1);     % complementary sensitivity
-            
-            CL = [ W1*S ; W3*T ];
-            opt = hinfstructOptions('Display','iter');
-            [CLopt,gamma] = hinfstruct(CL,opt);
-
-            Cz0 = getBlockValue(CLopt,'K2'); gamma
-            Cz0 = ss(real(Cz0.A),real(Cz0.B),real(Cz0.C),real(Cz0.D),plant.Ts); % forces real-valued controller
-
-            % insert an integrator (to complement H-inf design)
-            Poles = eig(Cz0.A);
-            % Extract only real poles (exclude those with nonzero imaginary part)
-            isRealPole = abs(imag(Poles)) == 0 ;%< 1e-10;
-            realPoles = Poles(isRealPole);
-            [~, idxMax] = max(abs(real(realPoles)));  % Find pole with largest real part
-            idxInOriginal = find(isRealPole);
-            Poles(idxInOriginal(idxMax)) = 1;    % Set largest real pole to z=1
-            denP = poly(diag(Poles));
-            [num,den] = tfdata(tf(Cz0));
-            Cz0 = ss(tf(num{1},denP,plant.Ts));
-
-        end %--------------------------------------------------------------
-        if opts.sys ~= 7 && opts.sys ~= 8
-            % force use of an integrator (to complement H-inf design)
-            [tz,po,kg] = zpkdata(Cz0);
-            [~,idx] = sort(abs(po{1}));
-            po{1}(idx(end)) = 1;            % change largest stable to z=1
-            Cz0 = zpk(tz,po,kg,Cz0.Ts);
-            Cz0 = ss(tf(Cz0));
-        end
-
-        S = feedback(1,G*Cz0);
-        KS = Cz0*S;
-        T = 1-S;
-        Ms = [W1*S;W3*T];
     otherwise
         S = feedback(1,G*Cz0);
         KS = Cz0*S;
@@ -233,3 +164,74 @@ linkaxes([ax4 ax5],'y');
 
 figure;
 step(T)
+
+%% Helper functions
+% introduce integrator
+function Cz0 = employ_integrator(Cz0)
+    [tz,po,kg] = zpkdata(Cz0);
+    [~,idx] = sort(abs(po{1}));
+    po{1}(idx(end)) = 1;            % change largest stable to z=1
+    Cz0 = zpk(tz,po,kg,Cz0.Ts);
+    Cz0 = ss(tf(Cz0));
+end
+
+function Cz0 = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3)
+    Cz1 = tunableSS('K',nK,1,1,plant.Ts,'companion');
+    % ------- force Cz1.D = 0 -------
+    Cz1.D.Value = 0;
+    Cz1.D.Free  = false;   % forces Cz1.D = 0
+    % ------- initialize rest w/ mixsyn result -----------
+    [Cz1.A.Value,Cz1.B.Value,Cz1.C.Value,~] = ssdata(Cz0);
+
+    S = feedback(1,G*Cz1);     % sensitivity
+    T = feedback(G*Cz1,1);     % complementary sensitivity
+    
+    CL = [ W1*S ; W3*T ];
+    opt = hinfstructOptions('Display','final');
+    [CLopt,gamma] = hinfstruct(CL,opt);
+
+    Cz0 = getBlockValue(CLopt,'K');
+end
+
+function Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3)
+    [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
+    nx = size(Cz0.A,1);
+    Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
+    Cz1.A.Free(1:nK-1,:) = false;
+    Cz1.A.Free(end,:) = true;
+    Cz1.A.Value(1:nK-1,:) = [zeros(nK-1,1) eye(nK-1)];
+    Cz1.B.Free(:) = false; Cz1.B.Value(:,1) = [zeros(nK-1,1); 1];
+    Cz1.D.Value = 0; Cz1.D.Free(:) = false;
+    % ------- initialize rest w/ mixsyn result -----------
+    Cz1.C.Value(1,1:nx) = fliplr(num(1,2:end));
+    Cz1.A.Value(end,1:nx) = -fliplr(den(1,2:end));
+
+    S = feedback(1,G*Cz1);     % sensitivity
+    T = feedback(G*Cz1,1);     % complementary sensitivity
+    
+    CL = [ W1*S ; W3*T ];
+    opt = hinfstructOptions('Display','iter');
+    [CLopt,gamma] = hinfstruct(CL,opt);
+
+    Cz0 = getBlockValue(CLopt,'K2');
+    Cz0 = ss(real(Cz0.A),real(Cz0.B),real(Cz0.C),real(Cz0.D),plant.Ts); % forces real-valued controller
+
+    % insert an integrator (to complement H-inf design)
+    Poles = eig(Cz0.A);
+    % Extract only real poles (exclude those with nonzero imaginary part)
+    isRealPole = abs(imag(Poles)) == 0 ;%< 1e-10;
+    realPoles = Poles(isRealPole);
+    [~, idxMax] = max(abs(real(realPoles)));  % Find pole with largest real part
+    idxInOriginal = find(isRealPole);
+    Poles(idxInOriginal(idxMax)) = 1;    % Set largest real pole to z=1
+    denP = poly(diag(Poles));
+    [num,den] = tfdata(tf(Cz0));
+    Cz0 = ss(tf(num{1},denP,plant.Ts));
+end
+
+function [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3)
+    S = feedback(1,G*Cz0);
+    KS = Cz0*S;
+    T = 1-S;
+    Ms = [W1*S;W3*T];
+end

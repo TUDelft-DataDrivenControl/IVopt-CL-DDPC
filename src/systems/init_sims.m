@@ -1,56 +1,10 @@
 function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 %% initializes closed-loop simulations by getting necessary variables
 
-%% choose a  plant model
-switch opts.sys
-    case {1,5,6,7,8}
-        sys_subdir = 'Landau1995';
-        [plant,nx,nu,ny,A,B,C,D,K] = model_Landau1995();
-        W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
-        W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
-        
-        switch opts.sys
-            case 1
-                fn_Cz0 = 'Cz0_Landau1995.mat';
-            case 5
-                fn_Cz0 = 'Cz0_Landau1995.mat'; % still tuned for opts.sys = 1
-                % modify system such that it has no input-output delay
-                [b,a] = ss2tf(A,B(:,1),C,D(:,1));
-                b2 = circshift(b,-3);
-                plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
-                A = plant.A;
-                B = plant.B(:,1);
-                C = plant.C;
-                D = plant.D(:,1);
-            case 6
-                fn_Cz0 = 'Cz0_Landau1995_D0.mat';
-            case 7
-                fn_Cz0 = 'Cz0_Landau1995_D0_n20.mat';
-            case 8
-                fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
-        end
-    case 2
-        sys_subdir = 'Bemporad2002';
-        [plant,nx,nu,ny,A,B,C,D,K] = model_Bemporad2002(At_poles=[0.95, 0.9]);
-        plant.Ts = 1;
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
-        W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
-        fn_Cz0 = 'Cz0_Bemporad2002.mat';
-    case 3
-        sys_subdir = 'Favoreel1999';
-        [plant,nx,nu,ny,A,B,C,D,K] = model_Favoreel1999();
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
-        W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        fn_Cz0 = 'Cz0_Favoreel1999.mat';
-    case 4
-        sys_subdir = 'Wang2023';
-        [plant,nx,nu,ny,A,B,C,D,K,Cz0] = model_Wang2023();
-        fn_Cz0 = 'Cz0_Wang2023.mat';
-        plant.Ts = 1;
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
-        W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        W2 = [];
-end
+%% get system information: plant & initial controller
+[plant,sys_subdir,fn_Cz0,Cz0] = get_sys_info(opts); % Cz0 is only nonempty for opts.sys = 4
+[~,B,C,~,~] = plant2ABCDK(plant);
+[ny,nx] = size(C); nu = size(B,2);
 
 % naming signals
 sigs.uk = arrayfun(@(j) sprintf('u0_%d', j), 1:nu, 'UniformOutput', false);
@@ -64,14 +18,15 @@ plant.y = sigs.yk;
 [opts.ny,opts.nu,opts.nx] = deal(ny,nu,nx);
 
 %% =============== for initial closed-loop simulation =====================
-% ----------------- make/load initial controller (Cz0) --------------------
+% ----------------- load initial controller (Cz0) -------------------------
 fn_Cz0 = fullfile('systems',sys_subdir,fn_Cz0);
 if isfile(fn_Cz0)
+    % overwrite empty initial controller Cz0
     Cz0 = load(fn_Cz0).Cz0;
 else
-    [Cz0,~,~,~] = mixsyn(plant(:,1:nu),W1,[],W3);
-    save(fn_Cz0,"Cz0");
+    error('Initial controller Cz0 not found: %s\nRun the corresponding tune_Cz0_*.m script to generate it first.', fn_Cz0);
 end
+
 % naming signals
 Cz0.u = arrayfun(@(j) sprintf('er0_%d', j), 1:ny, 'UniformOutput', false);
 Cz0.y = plant.u(1:nu);

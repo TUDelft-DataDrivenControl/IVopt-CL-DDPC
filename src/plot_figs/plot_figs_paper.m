@@ -11,46 +11,34 @@ cd(fullfile(src_plot_figs_dir,'..','..')); pdir = pwd; % go to project directory
 addpath(genpath(fullfile(pdir,'src')));          % add src & subdirectories to path
 addpath(fullfile(pdir,'bin','crameri_colours')); % add path to Crameri colour maps for plotting
 
-%% Figure: example of Monte-Carlo simulation
-% settings for plot_run
+%% data to be plotted:
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
-iX = 14;          % index of data_type
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';             % name of subdir1 containing data for all figures
+top_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type]); % parent directory of subdir1
+iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
+
+%% Figure: example of Monte-Carlo simulation
 ks = 5;           % seed index
 marker_interval = 20;
 noPlotCases  = {'iv2a','iv3a','iv5a','TrPred',...
     'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
 
-% subdir1 = 'Re_1e-04_1e-01_20_p_20_N_1e03_f_20_20251028_1223';
-% subdir1 = fullfile(pdir,'data','raw','sys1','ref0_prbs','dRe',subdir1);
-
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260310_1250';
-% subdir1 = fullfile(pdir,'data','raw','sys7','ref0_prbs','dRe',subdir1);
-
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e02_f_20_20260303_1429';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_3e02_f_20_20260303_1453';
-subdir1 = fullfile(pdir,'data','raw','sys6','ref0_prbs','dRe',subdir1);
+subdir = fullfile(top_dir,subdir1);
 
 % Define y-axis limits: ylim_y1 = {[main_axis, zoomed_axis], ylim_y2 = {[main_axis], [zoomed_axis]}
 ylim_y1 = {[-14.4 15.2], [8.9 13.4]}; % outputs: general axes and inset zoom
 ylim_y2 = {[-16.0 14.5], [8.5 12.6]}; % inputs: general axes and inset zoom
 
-fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval,ylim_y1,ylim_y2);
+fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir,marker_interval,ylim_y1,ylim_y2);
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig1,pdir,'dinkl2.pdf'); %formerly fig1_exampleMC.pdf
 
 %% Figure: approximation of optimal IV
-clearvars -except pdir save_figs
+clearvars -except pdir save_figs data_type subdir1 top_dir iX
 cd(pdir); close all;
 % ------------------------- settings --------------------------------------
-data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260310_1250';
-% fig3_dir = fullfile(pdir,'data','raw','sys7','ref0_prbs',['d',data_type],subdir1);
-% subdir1 = 'Re_1e-05_1e-01_15_p_50_N_1e03_f_20_20260310_1423';
-% fig3_dir = fullfile(pdir,'data','raw','sys8','ref0_prbs',['d',data_type],subdir1);
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
-fig3_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
+fig3_dir = fullfile(top_dir,subdir1);
 
 legPosOnAx = {[0.38, 0.05], [0.53 0.05]};
 legendEntriesPerColumn = {[1 2 3],[2 2]};
@@ -61,37 +49,26 @@ axs3(1).YLim(1) = 4e-2;
 save_fig(save_figs,fig3,pdir,'dinkl3.pdf'); %formerly fig3_IVdiff_dRe.pdf
 
 %% Figure: Lf estimates
-clearvars -except pdir save_figs
+clearvars -except pdir save_figs data_type subdir1 top_dir iX
 cd(pdir); close all;
 
-% Cases = {'actLf','iv1','iv6a','iv5a','iv4a','iv3a','TrPred'};
 Cases = {'actLf','iv1','iv6a','iv4a','iv3c','iv3a','TrPred'};
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260310_1250';
-% subdir1 = fullfile(pdir,'data','raw','sys7','ref0_prbs','dRe',subdir1);
-% subdir1 = 'Re_1e-05_1e-01_15_p_50_N_1e03_f_20_20260310_1423';
-% subdir1 = fullfile(pdir,'data','raw','sys8','ref0_prbs','dRe',subdir1);
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';
-subdir1 = fullfile(pdir,'data','raw','sys6','ref0_prbs','dRe',subdir1);
-cd(subdir1);
+
+subdir1_path = fullfile(top_dir,subdir1);
+
+cd(subdir1_path);
 load("dRe_settings.mat")
 load("processed_data.mat");
-iX = 14;
+
 fig = Fig_Lf_estimates(Cases,mLf,iX,opts);
 save_fig(save_figs,fig,pdir,'dinkl4.pdf'); % formerly fig2_Lf_estimates.pdf
 
 %% Figure: yf prediction quality
-clearvars -except pdir save_figs
+clearvars -except pdir save_figs data_type subdir1 top_dir iX
 cd(pdir); close all;
 
 % ------------------------- settings --------------------------------------
-data_type = 'Re';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260310_1250';
-% fig4_dir = fullfile(pdir,'data','raw','sys7','ref0_prbs',['d',data_type],subdir1);
-% subdir1 = 'Re_1e-05_1e-01_15_p_50_N_1e03_f_20_20260310_1423';
-% fig4_dir = fullfile(pdir,'data','raw','sys8','ref0_prbs',['d',data_type],subdir1);
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826'; % <-- removed normalization in computation in m4. clearer figure!
-fig4_dir = fullfile(pdir,'data','raw','sys6','ref0_prbs',['d',data_type],subdir1);
-iX = 14;
+fig4_dir = fullfile(top_dir,subdir1);
 
 Cases = {'CLSPC','TrPred','actLf','iv4a','iv1','iv3c','iv3a','iv6a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector

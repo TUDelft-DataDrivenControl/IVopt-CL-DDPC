@@ -1,4 +1,4 @@
-function [plant,nx,nu,ny,A,B,C,D,K] = model_Favoreel1999()
+function plant = model_Favoreel1999()
 %% System from Favoreel et al. (1999):
 %
 % [1] W. Favoreel, B. De Moor, M. Gevers, and P. Van Overschee,
@@ -17,11 +17,10 @@ C = eye(1,5);
 D = 0;
 K = [2.3 -6.64 7.515 -4.0146 0.86336].';
 
-nx = size(A,1);
 nu = size(B,2);
 ny = size(C,1);
 
 %% create plant model
-plant = ss(A,[B K], C, [D eye(ny,nu)],1); % set time step to 1 since unspecified
+plant = ss(A,[B K], C, [D eye(ny,nu)],1); % set time step to 1s since unspecified
 end
 
