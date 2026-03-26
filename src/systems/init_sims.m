@@ -37,21 +37,8 @@ switch opts.sys
         W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
         fn_Cz0 = 'Cz0_Bemporad2002.mat';
     case 3
-        sys_subdir = 'Favoreel1995';
-        % system from Favoreel 1999; SPC: Subspace Predictive Control
-        A = [ 4.40 1 0 0 0;
-             -8.09 0 1 0 0;
-              7.83 0 0 1 0;
-             -4.00 0 0 0 1;
-              0.86 0 0 0 0];
-        B = [0.00098 0.01299 0.01859 0.0033 -0.00002].';
-        C = eye(1,5);
-        D = 0;
-        K = [2.3 -6.64 7.515 -4.0146 0.86336].';
-        
-        nx = size(A,1); nu = size(B,2); ny = size(C,1);
-        
-        plant = ss(A,[B K], C, [D eye(ny,nu)],1);
+        sys_subdir = 'Favoreel1999';
+        [plant,nx,nu,ny,A,B,C,D,K] = model_Favoreel1999();
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
         fn_Cz0 = 'Cz0_Favoreel1999.mat';

@@ -22,6 +22,6 @@ nu = size(B,2);
 ny = size(C,1);
 
 %% create plant model
-plant = ss(A,[B K], C, [D eye(ny,nu)],[]);
+plant = ss(A,[B K], C, [D eye(ny,nu)],1); % set time step to 1 since unspecified
 end
 

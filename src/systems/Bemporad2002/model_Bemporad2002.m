@@ -46,5 +46,5 @@ elseif all(~isnan(Qw)) && all(~isnan(Rv))
 end
 
 %% create plant model
-plant = ss(A,[B K], C, [D eye(ny,nu)],[]);
+plant = ss(A,[B K], C, [D eye(ny,nu)],0.1);
 end
