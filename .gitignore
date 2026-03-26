@@ -4,7 +4,7 @@ autosam.*
 data_old/
 data/raw/
 data/temp/
-bin/external/
+bin/
 docs/manuscript/feedback/
 docs/manuscript/unused/
 docs/review/
