@@ -1,13 +1,17 @@
-function [plant,Cz,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023(options)
-% models from
-% Wang, Y., Qiu, Y., Sader, M., Huang, D., & Shang, C. (2023).
-% Data-Driven Predictive Control Using Closed-Loop Data: An Instrumental Variable Approach.
-% IEEE Control Systems Letters, 7, 3639â€“3644.
+function [plant,nx,nu,ny,A,B,C,D,K,Cz0] = model_Wang2023(options)
+%% System from Wang et al. (2023):
+%
+% [1] Y. Wang, Y. Qiu, M. Sader, D. Huang, and C. Shang, “Data-Driven
+%     Predictive Control Using Closed-Loop Data: An Instrumental Variable
+%     Approach,” IEEE Control Systems Letters, vol. 7, pp. 3639–3644, 2023,
+%     doi: 10.1109/LCSYS.2023.3340444.
+%
+% The above authors of [1] also provide an initial controller Cz0, which is also provided below.
+% Since K is not specified, it is calculated by pole placement of A-KC, with poles specified by user
 
 arguments
-   options.K (3,1) double  = nan(3,1)   % <- not specified!
-   options.Re (1,1) double = 1          % <- varies in paper
-   options.At_poles (1,3) double = nan(1,3) % <- not mentioned in paper
+   options.K (3,1) double  = nan(3,1)               % <- not mentioned in [1]
+   options.At_poles (1,3) double = [0.95;0.89;0.88] % <- default to calculate K with
 end
 %% plant model
 A = [0.9261  0.0534  0.0382; ...
@@ -18,18 +22,14 @@ C = [-0.6995 0.91    -0.1381];
 D = 1;
 K = options.K;
 if any(isnan(K))
-    if any(isnan(options.At_poles))
-        options.At_poles = [0.95;0.89;0.88];
-    end
     K = place(A.',C.',options.At_poles).';
 end
-Re = options.Re;
 
 nx = 3;
 nu = 1;
 ny = 1;
 
-%% controller <- acts on error: e_k = r_k-y_k
+%% controller <- acts on error: e_k = r_k - y_k
 Ac = [ 1.0257  0.1540;...
       -0.0043  0.9743];
 Bc = [-0.2046; -0.0963];
@@ -38,5 +38,5 @@ Dc = -0.03;
 
 %% create systems
 plant = ss(A,[B K], C, [D eye(ny,nu)],[]);
-Cz = ss(Ac,Bc,Cc,Dc,[]);
+Cz0 = ss(Ac,Bc,Cc,Dc,[]);
 end

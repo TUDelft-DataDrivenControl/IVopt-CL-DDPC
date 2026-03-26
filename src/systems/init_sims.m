@@ -5,7 +5,7 @@ function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
 switch opts.sys
     case {1,5,6,7,8}
         sys_subdir = 'Landau1995';
-        [plant,nx,nu,ny,A,B,C,D,K,~] = model_Landau1995();
+        [plant,nx,nu,ny,A,B,C,D,K] = model_Landau1995();
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         
@@ -14,7 +14,7 @@ switch opts.sys
                 fn_Cz0 = 'Cz0_Landau1995.mat';
             case 5
                 fn_Cz0 = 'Cz0_Landau1995.mat'; % still tuned for opts.sys = 1
-                % change system such that it has no input-output delay
+                % modify system such that it has no input-output delay
                 [b,a] = ss2tf(A,B(:,1),C,D(:,1));
                 b2 = circshift(b,-3);
                 plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
@@ -31,7 +31,7 @@ switch opts.sys
         end
     case 2
         sys_subdir = 'Bemporad2002';
-        [plant,nx,nu,ny,A,B,C,D,K,~] = model_Bemporad2002(At_poles=[0.95, 0.9]);
+        [plant,nx,nu,ny,A,B,C,D,K] = model_Bemporad2002(At_poles=[0.95, 0.9]);
         plant.Ts = 1;
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
         W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
@@ -57,12 +57,12 @@ switch opts.sys
         fn_Cz0 = 'Cz0_Favoreel1999.mat';
     case 4
         sys_subdir = 'Wang2023';
-        [plant,Cz0,nx,nu,ny,A,B,C,D,K,Re] = model_Wang2023();
+        [plant,nx,nu,ny,A,B,C,D,K,Cz0] = model_Wang2023();
         fn_Cz0 = 'Cz0_Wang2023.mat';
         plant.Ts = 1;
         W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
         W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        W2 = [];%ss(1e-1);
+        W2 = [];
 end
 
 % naming signals

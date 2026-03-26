@@ -1,13 +1,12 @@
 function yr = make_reference(Nbar_ref,ny)
 % This function replicates a reference trajectory from
+%       https://github.com/marcofabris92/a-separation-principle-in-d3pc
+% which accompanies
 %
-% [1] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, ‚ÄúHarnessing
+% [1] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, ìHarnessing
 %     uncertainty for a separation principle in direct data-driven
-%     predictive control,‚Äù Automatica, vol. 173, p. 112070, Mar. 2025,
-%     doi: 10.1016/j.automatica.2024.112070.
-%
-% using code that acompanies [1] that can be found at
-%     https://github.com/marcofabris92/a-separation-principle-in-d3pc
+%     predictive control,î Automatica, vol. 173, p. 112070, Mar. 2025,
+%     doi: 10.1016/j.automatica.2024.112070.   
 
 arguments
    Nbar_ref (1,1) double

@@ -1,4 +1,12 @@
-%% defining system from Favoreel 1999; SPC: Subspace Predictive Control
+function [plant,nx,nu,ny,A,B,C,D,K] = model_Favoreel1999()
+%% System from Favoreel et al. (1999):
+%
+% [1] W. Favoreel, B. De Moor, M. Gevers, and P. Van Overschee,
+%     “Closed-Loop Model-Free Subspace-Based LQG-Design,” in
+%     Proceedings of the Mediterranean Conference on Control
+%     and Automation, Jan. 1999.
+
+%% system matrices
 A = [ 4.40 1 0 0 0;
      -8.09 0 1 0 0;
       7.83 0 0 1 0;
@@ -13,8 +21,7 @@ nx = size(A,1);
 nu = size(B,2);
 ny = size(C,1);
 
-%% create plant models
-
-% Kalman filter
+%% create plant model
 plant = ss(A,[B K], C, [D eye(ny,nu)],[]);
+end
 
