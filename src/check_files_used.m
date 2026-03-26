@@ -1,5 +1,5 @@
 clc;
-imp_files = {'results\plot_figs_paper.m','main.m','main_dRe.m','main_dp.m','main_dN.m','analysis\analyze_dX.m'};
+imp_files = {'plot_figs\plot_figs_paper.m','main.m','main_dRe.m','main_dp.m','main_dN.m','processing\main_processing.m'};
 cd('src');
 src_dir = pwd;
 cd('..');
@@ -10,10 +10,10 @@ fn = fullfile(pwd,imp_files{k});
 fList = matlab.codetools.requiredFilesAndProducts(fn);
 % exclude files from bin\external & files w/o .m extension
 if k==1
-    cd('..'); cd('bin'); cd('external'); binext_dir = pwd;
+    cd('..'); cd('bin'); bin_dir = pwd;
     cd(src_dir);
 end
-fList = fList(~startsWith(fList,binext_dir));
+fList = fList(~startsWith(fList,bin_dir));
 fList = fList(endsWith(fList,'.m'));
 [~,fList2,~] = arrayfun(@(x) fileparts(x),fList);
 fList3 = [fList3; fList2(:)];

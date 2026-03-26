@@ -16,7 +16,9 @@ opts = init_opts(Re=1e-2,sys=6);
 rng default;
 
 % ------------------------- add relevant paths ----------------------------
-add_paths;
+[src_dir, ~  , ~] = fileparts(which(mfilename)); % find src directory
+cd(src_dir); addpath(genpath(src_dir)); % go to, and add to path src + its subdirectories
+cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to CasADi
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');

@@ -26,14 +26,13 @@ end
 % 3) Robust Control Toolbox                     v24.2
 % 4) Statistics and Machine Learning Toolbox    v24.2
 % 5) System Identification Toolbox              v24.2
-% 6) crameri_colours                            v1.09
-%    Used for plotting if opts.plot = true. Obtained from
-%    https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
 
 rng default;
 
 % ------------------------- add relevant paths ----------------------------
-add_paths;
+[src_dir, ~  , ~] = fileparts(which(mfilename)); % find src directory
+cd(src_dir); addpath(genpath(src_dir)); % go to, and add to path src + its subdirectories
+cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to CasADi
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
@@ -64,8 +63,8 @@ e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
 e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 
 %% run simulations
-[opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, u_iv, y_iv, ...
- cost_u1, cost_u2, cost_u, cost_y, cost_tot, FroIDerror] ...
+[opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases, ...
+ cost_u1, cost_u2, cost_u, cost_y, cost_tot] ...
     = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1);
 
 %% Saving data
@@ -109,9 +108,8 @@ if opts.save
     fprintf('Saving data to file: \n\t%s \n',fn_short);
     save(fn,'opts',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e1','e0','u0','y0','xcl0',...
-        'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv','Cases',...
-        'cost_u1','cost_u2','cost_u','cost_y','cost_tot',...
-        'FroIDerror');
+        'Z','Lf','Cz','Tcl','u_cl','y_cl','Cases',...
+        'cost_u1','cost_u2','cost_u','cost_y','cost_tot');
     fprintf('File saved successfully!\n');
 end
 end

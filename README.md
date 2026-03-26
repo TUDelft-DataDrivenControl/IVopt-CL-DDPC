@@ -261,7 +261,7 @@ These are generated automatically by `init_sims.m` if missing (uses H∞ mixed-s
 ### External Open-Source
 - **CasADi** — GNU Lesser General Public License v3 (https://github.com/casadi/casadi)
 - **IPOPT** — Eclipse Public License v1.0 (bundled with CasADi)
-- **Crameri Colormaps** — MIT License (optional; https://zenodo.org/records/8409685)
+- **Crameri Colormaps** — https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps
 
 ### This Repository
 - **MIT License** — See [LICENSE.md](LICENSE.md)

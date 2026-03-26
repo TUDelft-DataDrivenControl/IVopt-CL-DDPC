@@ -72,8 +72,9 @@ plant.y = sigs.yk;
 % saving to opts structure
 [opts.ny,opts.nu,opts.nx] = deal(ny,nu,nx);
 
-%% =============== for initial closed-loop simulation ======================
+%% =============== for initial closed-loop simulation =====================
 % ----------------- make/load initial controller (Cz0) --------------------
+fn_Cz0 = fullfile('systems','Cz0',fn_Cz0);
 if isfile(fn_Cz0)
     Cz0 = load(fn_Cz0).Cz0;
 else
