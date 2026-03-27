@@ -164,7 +164,7 @@ end
 
 end
 
-%% Helper functions
+%% Local functions
 function chosenDir = choose_subdir_by_number(subdirs, targetNum)
 % CHOOSE_SUBDIR_BY_NUMBER selects the subdirectory whose trailing integer
 % matches targetNum.

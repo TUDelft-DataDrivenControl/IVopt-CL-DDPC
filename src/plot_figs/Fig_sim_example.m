@@ -166,7 +166,7 @@ lgd.Position(2) = lgd.Position(2)-0.07;
 
 cd(pwd1);
 end
-%% Helper functions
+%% Local functions
 function plot_uycl(Cases,legend_flag,line_styles,marker_styles,cCram,Tsteps1,y_cl,marker_interval)
     nCases = numel(Cases);
     for k = 1:nCases
@@ -222,7 +222,6 @@ function draw_zoom_connectors(fig, axSrc, axZoom, xInset, yInset)
 % zoom-box rectangle already drawn on axSrc.
 %
 % Both axes must already have their final Position set (call drawnow first).
-% Works correctly regardless of the TiledChartLayout PositionConstraint.
 
 % Retrieve the existing zoom-box rectangle on axSrc (last rectangle added)
 rects = findobj(axSrc, 'Type', 'rectangle');

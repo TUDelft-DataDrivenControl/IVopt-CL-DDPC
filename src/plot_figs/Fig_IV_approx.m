@@ -8,12 +8,7 @@ FS_Tick   = 9;
 FS_Label  = 12;
 Fs_Legend = 10;
 
-%% Inline make_fig_m1 function
-
 % Extract and set up optional arguments
-YScale = 'log';
-XScale = 'log';
-LegsLoc = ["northwest","west"];
 FigPos = [50 50 252 325];
 Units = 'points';
 CrameriColor = 'romaO'; % batlow
@@ -137,21 +132,13 @@ ax(k).XLabel.FontSize = FS_Label;
 leg1 = create_columnwise_legend(ax(1), u_plot_handles, u_labels, legPosOnAx{1},...
     legendEntriesPerColumn{1} , 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
 
-% create legend for Yf_ivs
-% leg2 = create_columnwise_legend(ax(2), y_plot_handles, y_labels, legPosOnAx{2},...
-%     legendEntriesPerColumn{2}, 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
-
 leg2 = make_leg2(ax(2), y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend, 2);
-% leg2.Title.String = '$\alpha=$';
-% leg2.Title.Interpreter = 'latex';
-% leg2.Title.FontSize = Fs_Legend+1;
-% leg2.TitleSeparator.Visible = 'off';
 vertices = [leg2.Position(1:2); leg2.Position(1) leg2.Position(2)+leg2.Position(4)];
 h_title = make_alpha_title_left(Fs_Legend+1,ax(2),vertices,'figure');
 
 end
 
-%% Helper functions
+%% Local functions
 function leg2 = make_leg2(ax, y_plot_handles, y_labels, leg2PosOnAx2, Fs_Legend, NumCol)
     leg2 = legend(ax, y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
     'NumColumns', NumCol,'Box', 'on','IconColumnWidth',15);

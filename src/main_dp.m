@@ -1,10 +1,14 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%           DDPC using an Optimal-IV
-%           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=1e3,f=20,sys=1);
-[Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
-
+%% Perform a batch of Monte Carlo simulations sweeping over p (past window length)
+% Executes spP Monte Carlo simulations for each p value in p_all, saving the data
+% for subsequent analysis.
+%
+% Important parameters to be set:
+% - pmin, pmax: range of p values to iterate over
+% - nP: number of p values to iterate over
+% - spP: number of seeds (& Monte Carlo simulations) per p value
+% - opts.sys: determines system for which to run simulations (see get_sys_info.m)
+% - other fields of opts struct (see local init_opts function)
+%
 % Requirements:
 % 1) Casadi                                     v3.6.7
 % 2) Control System Toolbox                     v24.2
@@ -12,6 +16,9 @@ opts = init_opts(N=1e3,f=20,sys=1);
 % 4) Statistics and Machine Learning Toolbox    v24.2
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
+
+opts = init_opts();
+[Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 rng default;
 
@@ -29,16 +36,16 @@ fprintf('Setting simulation settings...\n');
 
 % ============ set p values to iterate over & number of seeds per p =======
 % set p values to iterate over
-pmin = max(ss2lag(plant),ss2lag(Cz0)); % take max -> if rho > p approx_IV methods deliver shorter IVs
+pmin = max(ss2lag(plant),ss2lag(Cz0)); % take max -> if gamma > p approx_IV methods deliver IVs with fewer columns than N
 pmax = 50;
 nP   = 10; % number of p values to iterate over
 p_all = ceil(linspace(pmin,pmax,nP));
 
 % set seeds to use for iterations
-spP = 100;
-seeds = reshape(1:nP*spP,spP,nP);
+spP = 100;                          % number of seeds per p value
+seeds = reshape(1:nP*spP,spP,nP);   % matrix with seed indices for each MC simulation
 
-% ================== saving data and settings =============================
+%% ================== saving data and settings =============================
 % saving this data in data\raw\sys#\ref0_<>\dp\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
@@ -86,12 +93,12 @@ else
     end
 end
 
-%% Helper functions
+%% Local functions
 % set name of subdir 1
 function subdir1 = name_subdir1(pmin,pmax,nP,opts)
 [Re, N, f] = deal(opts.Re, opts.N, opts.f);
 
-% Helper function to trim to minimal digits in scientific notation
+% Function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
 % Also remove . if nothing follows
 trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
@@ -106,16 +113,14 @@ end
 
 function opts = init_opts(opts)
 arguments
-opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
-opts.plot       logical = false;
+opts.Re   (1,1) double  = 1e-2;     % innovation noise variance
 opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
-opts.f    (1,1) double  = 20;
+opts.f    (1,1) double  = 20;       % future window length
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-opts.dRk  (1,1) double  = 1;        % weights
-opts.Rk   (1,1) double  = 1;
-opts.Qk   (1,1) double  = 1e2;
-opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 1;         % flag for model selection
-opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
+opts.dRk  (1,1) double  = 1;        % weight penalizing u_k - u_{k-1}
+opts.Rk   (1,1) double  = 1;        % weight penalizing u_k - u_{r,k}
+opts.Qk   (1,1) double  = 1e2;      % weight penalizing y_k - y_{r,k}
+opts.sys  (1,1) double = 1;         % system selection (see get_sys_info.m)
+opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
 end
 end

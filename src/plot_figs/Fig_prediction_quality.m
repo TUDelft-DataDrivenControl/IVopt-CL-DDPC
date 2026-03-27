@@ -1,80 +1,24 @@
-function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,varargin)
-% fig = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
-%   insetYLims        : optional 2-element cell {yLim_top, yLim_bot} for zoom insets
-%   insetPos          : optional 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bot} inset position
+function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
+%   insetYLims        : 2-element cell {yLim_top, yLim_bottom} for zoom insets
+%   insetPos          : 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bottom} inset position
 %                       X,Y = bottom-left corner; W,H = size; all as fraction of parent axes
-%   MainYLims         : optional 2-element cell {yLim_top, yLim_bot} for main axes
+%   MainYLims         : 2-element cell {yLim_top, yLim_bottom} for main axes
 %                       each entry is either 'free' or a [ymin ymax] vector
-%   ConnectorLocation : optional 2-element cell {'loc_top','loc_bot'}, each one of:
+%   ConnectorLocation : 2-element cell {'loc_top','loc_bottom'}, each one of:
 %                       'south' - top    of rect  -> bottom of inset (inset above)
 %                       'north' - bottom of rect  -> top    of inset (inset below)
 %                       'west'  - right  of rect  -> left   of inset (inset right)
 %                       'east'  - left   of rect  -> right  of inset (inset left)
-narginchk(3,9); % at least 3, at most 9 arguments
+
 mean_std_ratio = 0; % max. value of abs(mean)/(std. dev.)
 
-nVararg = length(varargin);
-insetYLims        = {}; % default: use axis limits
-insetPos          = {}; % default: use hard-coded values
-MainYLims         = {}; % default: use axis limits
-ConnectorLocation = {'south','south'}; % default
-switch nVararg
-    case 1
-        Cases = varargin{1};
-        noPlotCases = {};
-    case 2
-        Cases = varargin{1};
-        noPlotCases = varargin{2};
-    case 3
-        Cases = varargin{1};
-        noPlotCases = varargin{2};
-        Cases = setdiff(Cases,noPlotCases);
-        insetYLims = varargin{3};
-    case 4
-        Cases = varargin{1};
-        noPlotCases = varargin{2};
-        insetYLims = varargin{3};
-        insetPos   = varargin{4};
-    case 5
-        Cases = varargin{1};
-        noPlotCases = varargin{2};
-        insetYLims = varargin{3};
-        insetPos   = varargin{4};
-        MainYLims  = varargin{5};
-    case 6
-        Cases = varargin{1};
-        noPlotCases = varargin{2};
-        insetYLims        = varargin{3};
-        insetPos          = varargin{4};
-        MainYLims         = varargin{5};
-        ConnectorLocation = varargin{6};
-end
 if ~isempty(noPlotCases); Cases = setdiff(Cases,noPlotCases); end
 
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
 load(fullfile(fig_dir,sprintf('d%s_settings.mat',data_type)));
-[p,f,nu,ny,N] = deal(opts.p,opts.f,opts.nu,opts.ny,opts.N);
-% iX = find(Re_all >= 5e-2,1,'first');
+f = opts.f;
 iX_str = sprintf('iX%d',iX);
-if isempty(Cases)
-    Cases = fieldnames(m4.yfhat);
-    ivAs = Cases(endsWith(Cases,'a') & startsWith(Cases,'iv'));
-    ivBs = Cases(endsWith(Cases,'b') & startsWith(Cases,'iv'));
-    ivCs = Cases(endsWith(Cases,'c') & startsWith(Cases,'iv'));
-    noPlotCases = {'actLf'};
-    % noPlotCases = [{'actLf'};ivBs;ivCs;{'iv1';'iv6a';'CLSPC';'TrPred'}];
-    % noPlotCases = [{'actLf'};ivCs; {'iv1';'CLSPC';'TrPred'}];
-    % noPlotCases = setdiff(noPlotCases,{'iv2a','iv2b','iv2c'});
-    % Cases = setdiff(Cases,noPlotCases);
-    % Cases = {'iv1'};
-    % Cases = {'iv2a','iv2b','iv2c'};
-    % Cases = {'iv3a',       'iv3c'};
-    % Cases = {'iv4a','iv4b','iv4c'};
-    % Cases = {'iv5a','iv5b','iv5c'};
-    % Cases = {'iv6a',       'iv6c'};
-    Cases = {'CLSPC','TrPred','iv1','iv2a','iv4a','iv3c','iv3a','iv6a','iv6c'};
-end
 
 % Get number of cases
 nCases = numel(Cases);
@@ -229,13 +173,6 @@ for k = 1:2
 
     % Drawing rectangle
     switch drawRectangle
-        % case 'inset'
-        %     % Draw rectangle on inset
-        %     zoomBox = rectangle(axInsets(k), ...
-        %         'Position', [xInset(1), MainYLims{k}(1), diff(xInset), diff(MainYLims{k})], ...
-        %         'EdgeColor', [0.2 0.2 0.2], ...
-        %         'LineStyle', '--', ...
-        %         'LineWidth', 1.0);
         case 'main'
             % Draw rectangle on main
             zoomBox = rectangle(ax4(k), ...
@@ -255,7 +192,7 @@ end
 
 end
 
-%% Helper functions
+%% Local functions
 
 function axInset = add_zoom_inset(axTop, fig1, insetTickFontSize, insetW, insetH, insetX, insetY, xInset, yInset)
 % Define inset size/position relative to plotted area (normalized figure units)

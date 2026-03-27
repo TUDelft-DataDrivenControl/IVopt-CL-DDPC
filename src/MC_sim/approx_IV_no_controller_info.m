@@ -1,4 +1,5 @@
 function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
+%% Approximates the optimal IVs Uf & Yf without controller information (Algorithm 1 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using no knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
@@ -7,13 +8,13 @@ function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
 %       u_k = C_{fb}(q) (w_k - y_k)
 %
 % The only knowledge that is assumed of C_{fb} is an accurate upper bound
-% of its lag: rho
+% of its lag: \gamma
 %
 % Resulting composition of data matrix D:
-%       D = [U_{\varrho}; Y_{\varrho}; W_{\rho}; W_f]
+%       D = [U_{\varrho}; Y_{\varrho}; W_{\nu}; W_f]
 
-[rho,p,f,nu,ny] = deal(opts.rho,opts.p,opts.f,opts.nu,opts.ny);
-varrho = max(rho,p);
+[gamma,p,f,nu,ny] = deal(opts.gamma,opts.p,opts.f,opts.nu,opts.ny);
+varrho = max(gamma,p);
 
 [~,Nbar] = size(u);
 validateattributes(u, {'double'},{'size',[nu Nbar]});
@@ -24,7 +25,7 @@ validateattributes(w, {'double'},{'size',[ny Nbar]});
 [~,Uv,Uf] = make_Hankel(u,varrho,f);
 [~,Yv,Yf] = make_Hankel(y,varrho,f);
 [~,Wr,Wf] = make_Hankel(w,varrho,f);
-Wr = Wr(end-rho+1:end,:); % select last rho block rows
+Wr = Wr(end-gamma+1:end,:); % select last gamma block rows
 D = [Uv;Yv;Wr;Wf];
 
 %% ------------------------- get closed-loop system ------------------------
@@ -57,18 +58,5 @@ L_cl = [L_clu; L_cly];
 UfYf_iv = L_cl*D;
 Uf_iv = UfYf_iv(1:nu*f,:);
 Yf_iv = UfYf_iv(nu*f+1:end,:);
-% [Rpf2,~,~] = make_Hankel([zeros(ny,s) ref],s,pf); % initialize by zero
-% 
-% % compute 'noiseless' u & y
-% UY_iv = L_cl*Rpf2;
-% U_iv = UY_iv(1:nu*pf,:);
-% Y_iv = UY_iv(nu*pf+1:end,:);
-% 
-% % average over found u & y
-% U_iv = flipud(blk_toeplitz_mean(flipud(U_iv),nu,1));
-% Y_iv = flipud(blk_toeplitz_mean(flipud(Y_iv),ny,1));
-% 
-% % select u & y from block-Hankel matrices as IVs
-% u_iv = U_iv(:,1); u_iv = [reshape(u_iv,nu,[]),U_iv(end-nu+1:end,2:end)];
-% y_iv = Y_iv(:,1); y_iv = [reshape(y_iv,ny,[]),Y_iv(end-ny+1:end,2:end)];
+
 end

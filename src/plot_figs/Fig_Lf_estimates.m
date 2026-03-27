@@ -95,7 +95,7 @@ wCB = 1 - xCB;
 hCB = sum(axs(1).Position([2,4]))-axs(end).Position(2);
 
 % Add colorbar manually to the right of the last subplot
-cb = colorbar(axs(end),'Location','manual','FontSize',FS_Tick,'Position',[xCB, yCB, wCB, hCB]);%axs(end),'Location','manual','Position',axCB.Position.*[1 1 0.5 1]);
+cb = colorbar(axs(end),'Location','manual','FontSize',FS_Tick,'Position',[xCB, yCB, wCB, hCB]);
 cb.Location = 'manual';
 cb.Position = [xCB, yCB, wCB, hCB];%axCB.Position;
 drawnow;
@@ -124,13 +124,9 @@ for ii = 1:10
     end
 end
 
-% create line to separate top subplot from subplots below it
-% annotation(fig,'line', [0.1-axs(1).TightInset(1), sum(axs(1).Position([1,3]))], (yPositions(1)-space4line/2)*ones(1,2), ...
-%                 'Color', 'black', 'LineWidth', 1.5);
-
 end
 
-%% Helper functions
+%% Local functions
 function cbOuterPos = getCBpos(cb)
 
     % Create temporary axes to measure colorbar position

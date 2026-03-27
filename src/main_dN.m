@@ -1,10 +1,14 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%           DDPC using an Optimal-IV
-%           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(Re=1e-2,sys=6);
-[Re, p, f, Ncl] = deal(opts.Re, opts.p, opts.f, opts.Ncl);
-
+%% Perform a batch of Monte Carlo simulations sweeping over N (number of Hankel matrix columns)
+% Executes spN Monte Carlo simulations for each N value in N_all, saving the data
+% for subsequent analysis.
+%
+% Important parameters to be set:
+% - Nmin, Nmax: range of N values to iterate over
+% - nN: number of N values to iterate over
+% - spN: number of seeds (& Monte Carlo simulations) per N value
+% - opts.sys: determines system for which to run simulations (see get_sys_info.m)
+% - other fields of opts struct (see local init_opts function)
+%
 % Requirements:
 % 1) Casadi                                     v3.6.7
 % 2) Control System Toolbox                     v24.2
@@ -12,6 +16,9 @@ opts = init_opts(Re=1e-2,sys=6);
 % 4) Statistics and Machine Learning Toolbox    v24.2
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
+
+opts = init_opts();
+[Re, p, f, Ncl] = deal(opts.Re, opts.p, opts.f, opts.Ncl);
 
 rng default;
 
@@ -31,14 +38,14 @@ nN   = 10;  % number of N values to iterate over
 N_all = floor(logspace(log10(Nmin),log10(Nmax),nN));
 
 % set seeds to use for iterations
-spN = 100;
-seeds = reshape(1:nN*spN,spN,nN);
+spN = 100;                          % number of seeds per N value
+seeds = reshape(1:nN*spN,spN,nN);   % matrix with seed indices for each MC simulation
 
-% ================== initialize simulations ===============================
+%% ================== initialize simulations ===============================
 % get plant, initial controller (Cz0), CL-system (Tcl0), signal names, etc.
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
 
-% ================== saving data and settings =============================
+%% ================== saving data and settings =============================
 % saving this data in data\raw\sys#\ref0_<>\dN\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
@@ -86,12 +93,12 @@ else
     end
 end
 
-%% Helper functions
+%% Local functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Nmin,Nmax,nN,opts)
 [Re, p, f] = deal(opts.Re, opts.p, opts.f);
 
-% Helper function to trim to minimal digits in scientific notation
+% Function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
 % Also remove . if nothing follows
 trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
@@ -107,15 +114,14 @@ end
 
 function opts = init_opts(opts)
 arguments
-opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
-opts.p    (1,1) double  = 20;       % window lengths
-opts.f    (1,1) double  = 20;
+opts.Re   (1,1) double  = 1e-2;     % innovation noise variance
+opts.p    (1,1) double  = 20;       % past window length
+opts.f    (1,1) double  = 20;       % future window length
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-opts.dRk  (1,1) double  = 1;        % weights
-opts.Rk   (1,1) double  = 1;
-opts.Qk   (1,1) double  = 1e2;
-opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 6;         % flag for model selection
-opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of reference: 'make' (default) or 'prbs'
+opts.dRk  (1,1) double  = 1;        % weight penalizing u_k - u_{k-1}
+opts.Rk   (1,1) double  = 1;        % weight penalizing u_k - u_{r,k}
+opts.Qk   (1,1) double  = 1e2;      % weight penalizing y_k - y_{r,k}
+opts.sys  (1,1) double = 1;         % system selection (see get_sys_info.m)
+opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
 end
 end

@@ -84,7 +84,7 @@ fprintf('\tFinished in %.2f seconds\n', m_time);
 
 end
 
-%% Helper functions
+%% Local functions
 function [Z,u0,y0,e0,e1,u_cl,y_cl,Lf] = load_seedmat(fnpath,OutVars)
     [Z,u0,y0,e0,e1,u_cl,y_cl,Lf] = deal([]); % will be filled as needed
     % Only load necessary variables to improve memory usage and performance

@@ -1,5 +1,6 @@
-%% This script plots all of the figures that feature in the publication
-% accompanying this repository
+%% This script plots all of the figures in the article
+% that this repository accompanies.
+
 clear;
 clc;
 close all;
@@ -80,7 +81,7 @@ ConnectorLocation = {'south','south'};  % connector side: 'south','north','west'
 % max_ratio reports the maximum ratio of (mean / std. dev.) of the prediction error for all k and selected cases
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig4,pdir,'dinkl5.pdf'); % formerly fig4_rel_yfpred_error.pdf
+save_fig(save_figs,fig4,pdir,'dinkl5.pdf'); % formerly fig4_rel_yfpred_error.pdf 
 
 %% helper function
 

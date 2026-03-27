@@ -44,7 +44,7 @@ addpath(genpath(subdir1));
 
 end
 
-%% Helper functions
+%% Local functions
 
 function subdirs = find_named_subdirs_dX(data_type,parentDir)
 % FIND_NAMED_SUBDIRS returns subdirectories in parentDir that match

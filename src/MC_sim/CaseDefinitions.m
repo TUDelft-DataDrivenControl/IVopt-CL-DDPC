@@ -1,4 +1,8 @@
 function [Cases,Descr] = CaseDefinitions(noSimCases)
+%% Returns all simulated controller cases and their descriptions
+% INPUT:
+%   noSimCases: cell array of case names to exclude from the simulation (e.g. {'iv2b','iv3a'})
+
 arguments
     noSimCases cell = {}
 end

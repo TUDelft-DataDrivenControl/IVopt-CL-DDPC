@@ -175,7 +175,7 @@ end
 figure;
 step(T)
 
-%% Helper functions
+%% Local functions
 function W = makeweight_dB_Hz(dc_mag_dB,wc_Hz,hf_mag_dB,Ts)
     dc_mag_abs = db2mag(dc_mag_dB);
     hf_mag_abs = db2mag(hf_mag_dB);

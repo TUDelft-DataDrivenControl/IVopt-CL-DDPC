@@ -1,6 +1,48 @@
 classdef IV_4_DDPC < dynamicprops
-    %IV_4_DDPC Summary of this class goes here
-    %   Detailed explanation goes here
+    %IV_4_DDPC Efficient instrumental variable (IV) matrix storage for data-driven predictive control
+    %
+    % OVERVIEW:
+    %   This class manages instrumental variable matrices for optimal IV-based estimation
+    %   in data-driven predictive control. It provides memory-efficient storage by avoiding
+    %   redundant replication of the non-varying components (Up, Yp) across multiple IVs.
+    %
+    % STORAGE STRATEGY:
+    %   All IV matrices have the structure: Z = [Up; Yp; Z0]
+    %   where:
+    %     - Up = past inputs (Hankel matrix of u)
+    %     - Yp = past outputs (Hankel matrix of y)
+    %     - Z0 = IV-specific component (varies per IV)
+    %
+    %   Rather than storing [Up; Yp; Z0] multiple times for each IV, this class:
+    %   1. Computes and caches Up and Yp as DEPENDENT (Dependent,Hidden) properties
+    %   2. Stores only Z0 as HIDDEN properties named <iv_name>_
+    %   3. Provides public properties <iv_name> with GetMethod that returns [Wp; <iv_name>_]
+    %
+    %   This avoids memory redundancy and ensures consistency across all IV definitions.
+    %
+    % PROPERTY NAMING CONVENTION:
+    %   - object.<iv_name>      : Full IV matrix [Up; Yp; Z0] (public, computed via GetMethod)
+    %   - object.<iv_name>_     : Hidden property storing only Z0 (private)
+    %   - object.Wp             : Cached [Up; Yp] component (all IVs share this)
+    %
+    % EXAMPLE:
+    %   Z = IV_4_DDPC(u, y, p, f);
+    %   Z.iv1   Returns [Z.Wp; Z.iv1_]
+    %   Z.iv1_  Returns only the Uf component (future inputs)
+    %
+    % DYNAMIC IV ADDITION:
+    %   Use add_IV() to dynamically create new IV matrices. The method automatically:
+    %   1. if opt.method=1, TSLS is applied to modify Z0
+    %   2. Creates a hidden property <new_iv>_ to store Z0
+    %   3. Sets up a GetMethod for <new_iv> to return [Wp; <new_iv>_]
+    %   4. Maintains IV_names and IV_descr cell arrays
+    %
+    % PROPERTIES:
+    %   Up, Yp:    Past inputs and outputs (dependent, hidden)
+    %   Uf, Yf:    Future inputs and outputs (dependent, hidden)
+    %   Wp:        Combined past data [Up; Yp] (dependent, hidden)
+    %   iv<k>:     Full k-th IV matrix [Wp; iv<k>_] (public, dynamically added)
+    %   iv<k>_:    Hidden component of k-th IV below Wp (hidden)
     
     properties
         p (1,1) double {mustBeInteger}

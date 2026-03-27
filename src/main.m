@@ -1,31 +1,31 @@
 function main(opts)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%           DDPC using an Optimal-IV
-%           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-arguments (Input)
-    opts.Re   (1,1) double  = 4.81e-2;  % innovation noise variance
-    opts.p    (1,1) double  = 20;       % window lengths
-    opts.f    (1,1) double  = 20;
-    opts.N    (1,1) double  = 1e3;      % number of data matrix columns
-    opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-    opts.dRk  (1,1) double  = 1;        % weights
-    opts.Rk   (1,1) double  = 1;
-    opts.Qk   (1,1) double  = 1e2;
-    opts.seed (1,1) double  = 1;
-    opts.save       logical = true;     % save data
-    opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
-    opts.sys  (1,1) double = 1;         % flag for model selection
-    opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
-end
-[Re, p, f, N, Ncl, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.seed);
-
+%% Single Monte Carlo simulation wrapper with configurable settings and seed
+% Executes a complete end-to-end DDPC session with specified parameters (N, p, Re, etc.)
+% and random seed, returning performance metrics for instrumental variable comparison.
+%
 % Requirements:
 % 1) Casadi                                     v3.6.7
 % 2) Control System Toolbox                     v24.2
 % 3) Robust Control Toolbox                     v24.2
 % 4) Statistics and Machine Learning Toolbox    v24.2
 % 5) System Identification Toolbox              v24.2
+
+arguments (Input)
+    opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
+    opts.p    (1,1) double  = 20;       % past window length
+    opts.f    (1,1) double  = 20;       % future window length
+    opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
+    opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
+    opts.dRk  (1,1) double  = 1;        % weight penalizing u_k - u_{k-1}
+    opts.Rk   (1,1) double  = 1;        % weight penalizing u_k - u_{r,k}
+    opts.Qk   (1,1) double  = 1e2;      % weight penalizing y_k - y_{r,k}
+    opts.seed (1,1) double  = 1;        % random seed for reproducibility
+    opts.save       logical = true;     % save data
+    opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
+    opts.sys  (1,1) double = 1;         % flag for model selection
+    opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
+end
+[Re, p, f, N, Ncl, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.seed);
 
 rng default;
 
@@ -112,11 +112,11 @@ if opts.save
 end
 end
 
-%% Helper functions
+%% Local functions
 function subdir = name_subdir_data(opts)
     [Re, p, N] = deal(opts.Re, opts.p, opts.N);
 
-    % Helper function to trim to minimal digits in scientific notation
+    % Function to trim to minimal digits in scientific notation
     trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
     % Also remove . if nothing follows
     trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
