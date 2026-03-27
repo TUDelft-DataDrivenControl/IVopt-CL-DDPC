@@ -1,6 +1,6 @@
 close all;
-opts.sys = 6;
-save_flag = true;
+opts.sys = 7;
+save_flag = false;
 rng default;
 
 [sys_dir,~,~] = fileparts(which(mfilename));
@@ -9,20 +9,20 @@ rng default;
 [~,B,C,~,~] = plant2ABCDK(plant);
 [ny,nx] = size(C); nu = size(B,2);
 
-switch opts.sys % 6, 8, 2, 3, 4
-    case {1,6,8} % for plant from Landau1995
+switch opts.sys
+    case {1,2,3} % for plant from Landau1995
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
-    case 2 % for plant from Bemporad2002
+    case 4 % for plant from Bemporad2002
         W1 = makeweight_dB_Hz(80,1,-20,plant.Ts);
         W2 = ss(1e-2);
         W3 = makeweight_dB_Hz(-5,2,20,plant.Ts);
-    case 3 % for plant from Favoreel1999
+    case 5 % for plant from Favoreel1999
         W1 = makeweight_dB_Hz(20,0.05,-5,plant.Ts);
         W2 = [];
         W3 = makeweight_dB_Hz(-20,0.2,20,plant.Ts);
-    case 4 % for plant from Wang2023
+    case 6 % for plant from Wang2023
         W1 = makeweight_dB_Hz(80,0.05,-5,plant.Ts);
         W2 = [];
         W3 = makeweight_dB_Hz(-30,0.2,5,plant.Ts);
@@ -30,22 +30,15 @@ end
 
 %% mixed-sensitivity analysis
 G = plant(:,1);
-if opts.sys ~= 9
-    % if opts.sys = 9 -> use initial controller Cz0 provided by Wang et al. (2023)
+if opts.sys ~= 7
+    % if opts.sys = 7 -> use initial controller Cz0 provided by Wang et al. (2023)
     % otherwise, overwrite empty Cz0
     [Cz0,Ms,gamma] = mixsyn(G,W1,W2,W3);
 end
 
 switch opts.sys
+    
     case 1
-        Cz0 = minreal(Cz0);
-        Cz0 = employ_integrator(Cz0);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
-        if save_flag
-            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995.mat'),'Cz0');
-        end
-
-    case 6
         Cz0 = minreal(Cz0);
         nK = 5;
         Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
@@ -55,7 +48,7 @@ switch opts.sys
             save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995_D0.mat'),'Cz0');
         end
         
-    case 8
+    case 2
         Cz0 = minreal(Cz0);
         nK = 50;
         [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
@@ -64,8 +57,16 @@ switch opts.sys
         if save_flag
             save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995_D0_n50.mat'),'Cz0');
         end
-    
-    case 2
+        
+    case 3
+        Cz0 = minreal(Cz0);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995.mat'),'Cz0');
+        end
+
+    case 4
         Cz0 = minreal(Cz0);
         nK = 4;
         [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
@@ -75,7 +76,7 @@ switch opts.sys
             save(fullfile(sys_dir,'Bemporad2002','Cz0_Bemporad2002.mat'),'Cz0');
         end
 
-    case 3
+    case 5
         Cz0 = minreal(Cz0);
         nK = 7;
         [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
@@ -85,7 +86,7 @@ switch opts.sys
             save(fullfile(sys_dir,'Favoreel1999','Cz0_Favoreel1999.mat'),'Cz0');
         end
     
-    case 4
+    case 6
         Cz0 = minreal(Cz0);
         nK = 5;
         [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
@@ -95,7 +96,8 @@ switch opts.sys
             save(fullfile(sys_dir,'Wang2023','Cz0_Wang2023.mat'),'Cz0');
         end
 
-    otherwise
+    case 7
+        Cz0 = load(fullfile(sys_dir,'Wang2023','Cz0_Wang2023_provided.mat'),'Cz0').Cz0;
         S = feedback(1,G*Cz0);
         KS = Cz0*S;
         T = 1-S;
@@ -123,50 +125,52 @@ conOpts = connectOptions("Simplify",false);
 Tcl0 = connect(Cz0,plant,fbsum{:},[sigs.rk(:).',sigs.ek(:).'],[sigs.uk(:).',sigs.yk(:).'],conOpts);
 
 %% plotting
-figure();
-tiledlayout(3,1,'TileSpacing','compact');
-
-ax4 = nexttile;
-if isempty(W2)
-    ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W3),'g-.');
-    legend('S','KS','T','\gamma/W1','\gamma/W3','Location','SouthWest')
-else
-    ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W2),'r-.',ss(gamma/W3),'g-.');
-    legend('S','KS','T','\gamma/W1','\gamma/W2','\gamma/W3','Location','SouthWest')
+if opts.sys ~= 7 % skip because Cz0 was loaded, not obtained by tuning
+    figure();
+    tiledlayout(3,1,'TileSpacing','compact');
+    
+    ax4 = nexttile;
+    if isempty(W2)
+        ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W3),'g-.');
+        legend('S','KS','T','\gamma/W1','\gamma/W3','Location','SouthWest')
+    else
+        ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W2),'r-.',ss(gamma/W3),'g-.');
+        legend('S','KS','T','\gamma/W1','\gamma/W2','\gamma/W3','Location','SouthWest')
+    end
+    ax41.FrequencyUnit = 'Hz';
+    grid on;
+    
+    ax5 = nexttile;
+    if isempty(W2)
+        ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms);
+        Ms_leg = {'$W_1 S_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
+    else
+        ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms(3,:),Ms);
+        Ms_leg = {'$W_1 S_{\infty}$','$W_2 KS_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
+    end
+    ax51.FrequencyUnit = 'Hz';
+    grid on;
+    leg = legend(Ms_leg);
+    leg.Interpreter = 'latex';
+    leg.String = Ms_leg;
+    
+    ax6 = nexttile;
+    bodeopts = bodeoptions;
+    bodeopts.PhaseVisible = 'off';
+    bodeopts.FreqUnits = 'Hz';
+    if isempty(W2)
+        ax61 = bodeplot(W1,W3,ss(1),'--',bodeopts);
+        legend('W1','W3','0 dB')
+    else
+        ax61 = bodeplot(W1,W2,W3,ss(1),'--',bodeopts);
+        legend('W1','W2','W3','0 dB')
+    end
+    grid on;
+    BodeLines = findall(ax6.Children,'type','line');
+    
+    linkaxes([ax4 ax5 ax6],'x');
+    linkaxes([ax4 ax5],'y');
 end
-ax41.FrequencyUnit = 'Hz';
-grid on;
-
-ax5 = nexttile;
-if isempty(W2)
-    ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms);
-    Ms_leg = {'$W_1 S_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
-else
-    ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms(3,:),Ms);
-    Ms_leg = {'$W_1 S_{\infty}$','$W_2 KS_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
-end
-ax51.FrequencyUnit = 'Hz';
-grid on;
-leg = legend(Ms_leg);
-leg.Interpreter = 'latex';
-leg.String = Ms_leg;
-
-ax6 = nexttile;
-bodeopts = bodeoptions;
-bodeopts.PhaseVisible = 'off';
-bodeopts.FreqUnits = 'Hz';
-if isempty(W2)
-    ax61 = bodeplot(W1,W3,ss(1),'--',bodeopts);
-    legend('W1','W3','0 dB')
-else
-    ax61 = bodeplot(W1,W2,W3,ss(1),'--',bodeopts);
-    legend('W1','W2','W3','0 dB')
-end
-grid on;
-BodeLines = findall(ax6.Children,'type','line');
-
-linkaxes([ax4 ax5 ax6],'x');
-linkaxes([ax4 ax5],'y');
 
 figure;
 step(T)
@@ -200,7 +204,7 @@ function Cz0 = employ_integrator(Cz0)
     Cz0 = ss(tf(Cz0));
 end
 
-function Cz0 = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3)
+function [Cz0,gamma] = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3)
     Cz1 = tunableSS('K',nK,1,1,plant.Ts,'companion');
     % ------- force Cz1.D = 0 -------
     Cz1.D.Value = 0;

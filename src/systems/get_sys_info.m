@@ -8,37 +8,37 @@ function [plant,sys_subdir,fn_Cz0] = get_sys_info(opts)
 % fn_Cz0:       filename of the initial controller (Cz0)
 
 switch opts.sys
-    case {1,6,8}
+    case {1,2,3}
         plant = model_Landau1995();
         sys_subdir = 'Landau1995';
         switch opts.sys
             case 1
-                % controller with direct feedthrough, 5 states
-                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apprarent
-                fn_Cz0 = 'Cz0_Landau1995.mat';
-            case 6
                 % controller without direct feedthrough, 5 states
                 % -> case shown in paper
                 fn_Cz0 = 'Cz0_Landau1995_D0.mat';
-            case 8
+            case 2
                 % controller without direct feedthrough, 50 states
                 % -> interesting to compare performance of IV4 & IV5 (with vs. without Cz0 knowledge)
                 fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
+            case 3
+                % controller with direct feedthrough, 5 states
+                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apprarent
+                fn_Cz0 = 'Cz0_Landau1995.mat';
         end
-    case 2
+    case 4
         plant = model_Bemporad2002(At_poles=[0.95, 0.9]);    
         sys_subdir = 'Bemporad2002';
         fn_Cz0 = 'Cz0_Bemporad2002.mat';
-    case 3
+    case 5
         plant = model_Favoreel1999();
         sys_subdir = 'Favoreel1999';
         fn_Cz0 = 'Cz0_Favoreel1999.mat';
-    case {4,9}
+    case {6,7}
         plant = model_Wang2023();
         sys_subdir = 'Wang2023';
-        if opts.sys == 4
+        if opts.sys == 6
             fn_Cz0 = 'Cz0_Wang2023.mat';
-        else % opts.sys = 9
+        else % opts.sys = 7
             fn_Cz0 = 'Cz0_Wang2023_provided.mat';
         end
 end
