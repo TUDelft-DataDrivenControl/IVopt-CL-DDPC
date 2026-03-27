@@ -1,4 +1,6 @@
 function run_p(ii,opts2,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+%% This function acts as a wrapper for main_MC.m for a single value of p
+
 sP = struct;
 sP.opts = opts2;
 

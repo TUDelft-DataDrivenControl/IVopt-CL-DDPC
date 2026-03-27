@@ -5,7 +5,9 @@ function [plant,sys_subdir,fn_Cz0] = get_sys_info(opts)
 %               y_k = C x_k + [D I] [u_k; e_k]      i.e. plant.D = [D I]
 % sys_subdir:   subdirectory name in src/systems/ where system and initial controller
 %               files are located
-% fn_Cz0:       filename of the initial controller (Cz0)
+% fn_Cz0:       filename of the .mat file containing the initial controller (Cz0)
+%
+% Feel free to add new systems by adding new cases to the switch statement below
 
 switch opts.sys
     case {1,2,3}

@@ -1,4 +1,6 @@
 function run_Re(ii,opts2,spRe,nRe,seeds,Re_all,Ncl,Nbar,ny,plant,subdir1,sigs,Cz0,Tcl0,yr0,yr1,ur1,proj_dir)
+%% This function acts as a wrapper for main_MC.m for a single value of Re
+
 opts = opts2;
 s = struct;
 

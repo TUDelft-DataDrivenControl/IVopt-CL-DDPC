@@ -1,3 +1,6 @@
+%% Script to tune initial controller Cz0 for each system
+% uses mixed-sensitivity H-infinity synthesis
+
 close all;
 opts.sys = 7;
 save_flag = false;

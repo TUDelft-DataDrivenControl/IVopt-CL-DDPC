@@ -1,5 +1,5 @@
 function [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts)
-%% initializes closed-loop simulations by getting necessary variables
+%% function that gets variables with which to initialize simulations
 
 %% get system information: plant & initial controller
 [plant,sys_subdir,fn_Cz0] = get_sys_info(opts);
