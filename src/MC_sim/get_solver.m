@@ -59,10 +59,6 @@ ct = get_ct(par,zeros(nu,f));
 uf_sol = -H\ct.';
 u_sol = uf_sol(1:nu,1);
 
-% get solver
-calc_u_v1 = casadi.Function('get_uk_analytic',{par},{u_sol});
-calc_u_v2 = @(up,yp,Lest,yrf,urf) full(calc_u_v1([up(:); yp(:); Lest(:); yrf(:); urf(:)]));
-
 % break down solver into contributions
 % -> contribution from up
 up2uk_ = jacobian(u_sol,up_(:));

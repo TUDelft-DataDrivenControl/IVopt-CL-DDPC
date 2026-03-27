@@ -1,7 +1,23 @@
-clear; 
-close all;
-data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
-overwrite = false;
+%% This script performs the processing of any raw data
+% The resulting obtained processed data is
+% - m1:  statistics regarding the difference between the optimal IV and
+%        the actual IV; i.e., how well IVs approximate optimal IV.
+% - mLf: statistics regarding the Lf matrix estimates for all cases
+% - m4:  statistics regarding the future output prediction quality for all cases
+%
+% This script leaves the actual data processing to process_dX.m, but handles
+% - handles navigation to the correct data directory
+% - loads relevant settings for the dX sweep (dX_settings.mat)
+% - determines which variables need to be processed or added to the processed_data.mat file
+%
+% Choose the data type to process below.
+
+clear; close all;
+
+%% processing settings
+
+data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+overwrite = false; % overwrite existing data in processed_data.mat? (if false, only missing variables will be added)
 
 %% navigate to data\sys#\ref0_<>\dX\<subdir1>
 [subdir1,src_dir] = get_subdir1(data_type);

@@ -1,15 +1,8 @@
-autosam.*
-!autosam.tex
-!autosam.bib
-data_old/
-data/
-data/temp/
-bin/
-docs/manuscript/feedback/
-docs/manuscript/unused/
-docs/review/
+data/*
+!data/.gitkeep
+bin/*
+!bin/.gitkeep
 results/
-results_old/
 src/SlurmSettings.mat
 *.asv
 *.err
@@ -17,5 +10,4 @@ src/SlurmSettings.mat
 *.e[0-9]*
 *.o[0-9]*
 Job[0-9]*
-src/pdir.mat
 .github/

@@ -1,4 +1,7 @@
 function process_dX(data_type,seeds,X_all,opts,plant,OutVars)
+%% This function handles the actual data processing for the dX sweeps, where X is either N, Re, or p.
+% it is called from main_processing.m
+
 arguments
     data_type (1,:) char {mustBeMember(data_type,{'N','Re','p'})}
     seeds double {mustBePositive,mustBeInteger,mustBeMatrix}
