@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=1e3,f=20,sys=6);
+opts = init_opts(N=1e3,f=20,sys=1);
 [Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
 
 % Requirements:
@@ -13,8 +13,12 @@ opts = init_opts(N=1e3,f=20,sys=6);
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
+rng default;
+
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+[src_dir, ~  , ~] = fileparts(which(mfilename)); % find src directory
+cd(src_dir); addpath(genpath(src_dir)); % go to, and add to path src + its subdirectories
+cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to CasADi
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
@@ -57,9 +61,6 @@ cd(src_dir);
 subdir1 = name_subdir1(pmin,pmax,nP,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dp',subdir1);  % subdir1 path
 mkdir(subdir1);
-
-% copy dependent .m files to data\raw\sys#\ref0_<>\dp\<subdir1>\mfiles
-copy_dependencies(src_dir,subdir1,'main_dp.m');
 
 % save overall settings to data\raw\sys#\ref0_<>\dp\<subdir1>\dp_settings.mat
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');

@@ -2,7 +2,7 @@
 %           DDPC using an Optimal-IV
 %           Authors: R. Dinkla, T. Oomen, J.W. van Wingerden
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = init_opts(N=2e2,sys=6);
+opts = init_opts(sys=1);
 [N, p, f, Ncl] = deal(opts.N, opts.p, opts.f, opts.Ncl);
 
 % Requirements:
@@ -13,14 +13,18 @@ opts = init_opts(N=2e2,sys=6);
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
+rng default;
+
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+[src_dir, ~  , ~] = fileparts(which(mfilename)); % find src directory
+cd(src_dir); addpath(genpath(src_dir)); % go to, and add to path src + its subdirectories
+cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to CasADi
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
 
 % ============ set Re values to iterate over & number of seeds per Re =====
-% set N values to iterate over
+% set Re values to iterate over
 Re_min = 1e-5;
 Re_max = 1e-1;
 nRe  = 15;  % number of Re values to iterate over
@@ -75,9 +79,6 @@ subdir1 = name_subdir1(Re_min,Re_max,nRe,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dRe',subdir1);      % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\ref0_<>\dRe\<subdir1>\mfiles
-copy_dependencies(src_dir,subdir1,'main_dRe.m');
-
 % save overall settings to data\raw\sys#\ref0_<>\dRe\<subdir1>\dRe_settings.mat
 save(fullfile(subdir1,'dRe_settings.mat'),'Re_min','Re_max','nRe','Re_all','spRe','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs','Nbar','yr0','yr1','ur1');
 
@@ -91,7 +92,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=20);
 
 else
-    fprintf('using the local profile');
+    fprintf('using the local profile\n');
     if isempty(gcp('nocreate'))
         myCluster = parcluster('local');
         nworker = myCluster.NumWorkers; % (max.) workers per node
@@ -123,10 +124,9 @@ end
 
 function opts = init_opts(opts)
 arguments
-opts.plot       logical = false;
 opts.p    (1,1) double  = 20;       % window lengths
 opts.f    (1,1) double  = 20;
-opts.N    (1,1) double  = 1e4;      % number of data matrix columns
+opts.N    (1,1) double  = 1e3;      % number of data matrix columns
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
 opts.dRk  (1,1) double  = 1;        % weights
 opts.Rk   (1,1) double  = 1;

@@ -45,9 +45,8 @@ sE.e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
 sE.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 
 %% run simulations
-[sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl, sE.Cases, sE.u_iv, sE.y_iv, ...
- sE.cost_u1, sE.cost_u2, sE.cost_u, sE.cost_y, sE.cost_tot, sE.FroIDerror] ...
-    = run_sims(sE.opts,sigs,plant,Cz0,Tcl0,sN.yr0,sE.e0,sN.yr1,sN.ur1,sE.e1);
+[sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl, sE.Cases] ...
+    = main_MC(sE.opts,sigs,plant,Cz0,Tcl0,sN.yr0,sE.e0,sN.yr1,sN.ur1,sE.e1);
 
 %% save data
 fn = sprintf('seed_%d.mat',seed);
@@ -56,8 +55,7 @@ fn_short = strrep(fn,proj_dir,'');
 fprintf('Saving data to file: \n\t%s \n',fn_short);
 save(fn,"-fromstruct",sE);
 %'opts','e0','e1','u0','y0','xcl0',...
-% 'Z','Lf','Cz','Tcl','u_cl','y_cl','u_iv','y_iv','Cases',...
-% 'cost_u1','cost_u2','cost_u','cost_y','cost_tot','FroIDerror'
+% 'Z','Lf','Cz','Tcl','u_cl','y_cl','Cases'
 fprintf('File saved successfully!\n');
 end
 

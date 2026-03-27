@@ -13,8 +13,12 @@ opts = init_opts(Re=1e-2,sys=6);
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
+rng default;
+
 % ------------------------- add relevant paths ----------------------------
-add_paths(opts);
+[src_dir, ~  , ~] = fileparts(which(mfilename)); % find src directory
+cd(src_dir); addpath(genpath(src_dir)); % go to, and add to path src + its subdirectories
+cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to CasADi
 
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
@@ -58,9 +62,6 @@ subdir1 = name_subdir1(Nmin,Nmax,nN,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dN',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% copy dependent .m files to data\raw\sys#\ref0_<>\dN\<subdir1>\mfiles
-copy_dependencies(src_dir,subdir1,'main_dN.m');
-
 % save overall settings to data\raw\sys#\ref0_<>\dN\<subdir1>\dN_settings.mat
 save(fullfile(subdir1,'dN_settings.mat'),'Nmin','Nmax','nN','N_all','spN','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
@@ -74,7 +75,7 @@ if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=50,nMins=30);
 
 else
-    fprintf('using the local profile');
+    fprintf('using the local profile\n');
     if isempty(gcp('nocreate'))
         myCluster = parcluster('local');
         nworker = myCluster.NumWorkers; % (max.) workers per node
@@ -107,7 +108,6 @@ end
 function opts = init_opts(opts)
 arguments
 opts.Re   (1,1) double  = 1e-2;  % innovation noise variance
-opts.plot       logical = false;
 opts.p    (1,1) double  = 20;       % window lengths
 opts.f    (1,1) double  = 20;
 opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
@@ -115,7 +115,7 @@ opts.dRk  (1,1) double  = 1;        % weights
 opts.Rk   (1,1) double  = 1;
 opts.Qk   (1,1) double  = 1e2;
 opts.save       logical = true;     % save data
-opts.sys  (1,1) double = 1;         % flag for model selection
+opts.sys  (1,1) double = 6;         % flag for model selection
 opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of reference: 'make' (default) or 'prbs'
 end
 end
