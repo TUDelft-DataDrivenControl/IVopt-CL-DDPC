@@ -33,6 +33,10 @@ toc
 
 %% Instrumental Variable Matrices
 opts.rho = ss2lag(Cz0); % determine lag of the initial controller
+if opts.rho > p
+    error(['The lag of the initial controller (rho = %d) is larger than p (%d). Increase p to at least rho.\n',...
+           'This ensures that all IVs have the same number of columns, facilitating comparisons.\n'], opts.rho, p);
+end
 
 % ============================ define cases ===============================
 noSimCases = {}; % cases not to simulate

@@ -8,24 +8,21 @@ function [plant,sys_subdir,fn_Cz0] = get_sys_info(opts)
 % fn_Cz0:       filename of the initial controller (Cz0)
 
 switch opts.sys
-    case {1,5,6,7,8}
+    case {1,6,8}
         plant = model_Landau1995();
         sys_subdir = 'Landau1995';
         switch opts.sys
             case 1
+                % controller with direct feedthrough, 5 states
+                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apprarent
                 fn_Cz0 = 'Cz0_Landau1995.mat';
-            case 5
-                fn_Cz0 = 'Cz0_Landau1995.mat';
-                % modify plant such that it has no input-output delay
-                [A,B,C,D,~] = plant2ABCDK(plant);
-                [b,a] = ss2tf(A,B(:,1),C,D(:,1));
-                b2 = circshift(b,-3);
-                plant = minreal([tf(b2,a,plant.Ts) plant(:,2)]);
             case 6
+                % controller without direct feedthrough, 5 states
+                % -> case shown in paper
                 fn_Cz0 = 'Cz0_Landau1995_D0.mat';
-            case 7
-                fn_Cz0 = 'Cz0_Landau1995_D0_n20.mat';
             case 8
+                % controller without direct feedthrough, 50 states
+                % -> interesting to compare performance of IV4 & IV5 (with vs. without Cz0 knowledge)
                 fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
         end
     case 2

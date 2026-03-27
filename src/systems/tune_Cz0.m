@@ -1,26 +1,31 @@
 close all;
-opts.sys = 8;
+opts.sys = 6;
+save_flag = true;
+rng default;
+
+[sys_dir,~,~] = fileparts(which(mfilename));
+
 [plant,sys_subdir,fn_Cz0] = get_sys_info(opts);
 [~,B,C,~,~] = plant2ABCDK(plant);
 [ny,nx] = size(C); nu = size(B,2);
 
-switch opts.sys
-    case {1,5,6,7,8} % for plant from Landau1995
+switch opts.sys % 6, 8, 2, 3, 4
+    case {1,6,8} % for plant from Landau1995
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
     case 2 % for plant from Bemporad2002
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.9 1],0.5,plant.Ts);
-        W3 = makeweight(0.5,[pi/plant.Ts*0.95 1],20,plant.Ts);
-        W2 = ss(1e-1);
+        W1 = makeweight_dB_Hz(80,1,-20,plant.Ts);
+        W2 = ss(1e-2);
+        W3 = makeweight_dB_Hz(-5,2,20,plant.Ts);
     case 3 % for plant from Favoreel1999
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
-        W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
-        W2 = ss(1e-1);
-    case 4 % for plant from Wang2023
-        W1 = makeweight(db2mag(80),[pi/plant.Ts*0.58 1],0.85,plant.Ts);
-        W3 = makeweight(0.85,[pi/plant.Ts*0.60 1],20,plant.Ts);
+        W1 = makeweight_dB_Hz(20,0.05,-5,plant.Ts);
         W2 = [];
+        W3 = makeweight_dB_Hz(-20,0.2,20,plant.Ts);
+    case 4 % for plant from Wang2023
+        W1 = makeweight_dB_Hz(80,0.05,-5,plant.Ts);
+        W2 = [];
+        W3 = makeweight_dB_Hz(-30,0.2,5,plant.Ts);
 end
 
 %% mixed-sensitivity analysis
@@ -32,29 +37,63 @@ if opts.sys ~= 9
 end
 
 switch opts.sys
-    case {1,5}
+    case 1
         Cz0 = minreal(Cz0);
         Cz0 = employ_integrator(Cz0);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995.mat'),'Cz0');
+        end
 
     case 6
         Cz0 = minreal(Cz0);
         nK = 5;
-        Cz0 = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3);
+        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
         Cz0 = employ_integrator(Cz0);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
-
-    case 7
-        Cz0 = minreal(Cz0);
-        nK = 20;
-        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995_D0.mat'),'Cz0');
+        end
         
     case 8
         Cz0 = minreal(Cz0);
         nK = 50;
-        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3);
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995_D0_n50.mat'),'Cz0');
+        end
+    
+    case 2
+        Cz0 = minreal(Cz0);
+        nK = 4;
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Bemporad2002','Cz0_Bemporad2002.mat'),'Cz0');
+        end
+
+    case 3
+        Cz0 = minreal(Cz0);
+        nK = 7;
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        % Cz0 = employ_integrator(Cz0); % plant already has an integrator
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Favoreel1999','Cz0_Favoreel1999.mat'),'Cz0');
+        end
+    
+    case 4
+        Cz0 = minreal(Cz0);
+        nK = 5;
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        Cz0 = employ_integrator(Cz0);
+        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
+        if save_flag
+            save(fullfile(sys_dir,'Wang2023','Cz0_Wang2023.mat'),'Cz0');
+        end
 
     otherwise
         S = feedback(1,G*Cz0);
@@ -85,44 +124,15 @@ Tcl0 = connect(Cz0,plant,fbsum{:},[sigs.rk(:).',sigs.ek(:).'],[sigs.uk(:).',sigs
 
 %% plotting
 figure();
-tiledlayout(2,3,'TileSpacing','compact');
-
-ax1 = nexttile;
-if isempty(W2)
-    ax11 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W3),'g-.');
-    legend('S','KS','T','1/W1','1/W3','Location','SouthWest')
-else
-    ax11 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W2),'r-.',ss(gamma/W3),'g-.');
-    legend('S','KS','T','1/W1','1/W2','1/W3','Location','SouthWest')
-end
-ax11.MagnitudeUnit = 'abs';
-ax11.MagnitudeScale = 'linear';
-ax11.FrequencyUnit = 'Hz';
-grid on;
-
-ax2 = nexttile;
-if isempty(W2)
-    ax21 = sigmaplot(Ms(1,:),Ms(2,:),Ms);
-    Ms_leg = {'$W_1 S_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
-else
-    ax21 = sigmaplot(Ms(1,:),Ms(2,:),Ms(3,:),Ms);
-    Ms_leg = {'$W_1 S_{\infty}$','$W_2 KS_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
-end
-ax21.MagnitudeUnit = 'abs';
-ax21.MagnitudeScale = 'linear';
-ax21.FrequencyUnit = 'Hz';
-leg = legend(Ms_leg);
-leg.Interpreter = 'latex';
-leg.String = Ms_leg;
-grid on;
-
-ax3 = nexttile;
+tiledlayout(3,1,'TileSpacing','compact');
 
 ax4 = nexttile;
 if isempty(W2)
     ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W3),'g-.');
+    legend('S','KS','T','\gamma/W1','\gamma/W3','Location','SouthWest')
 else
     ax41 = sigmaplot(S,'b',KS,'r',T,'g',ss(gamma/W1),'b-.',ss(gamma/W2),'r-.',ss(gamma/W3),'g-.');
+    legend('S','KS','T','\gamma/W1','\gamma/W2','\gamma/W3','Location','SouthWest')
 end
 ax41.FrequencyUnit = 'Hz';
 grid on;
@@ -130,11 +140,16 @@ grid on;
 ax5 = nexttile;
 if isempty(W2)
     ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms);
+    Ms_leg = {'$W_1 S_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
 else
     ax51 = sigmaplot(Ms(1,:),Ms(2,:),Ms(3,:),Ms);
+    Ms_leg = {'$W_1 S_{\infty}$','$W_2 KS_{\infty}$','$W_3 T_{\infty}$','$M_{\infty}$'};
 end
 ax51.FrequencyUnit = 'Hz';
 grid on;
+leg = legend(Ms_leg);
+leg.Interpreter = 'latex';
+leg.String = Ms_leg;
 
 ax6 = nexttile;
 bodeopts = bodeoptions;
@@ -150,27 +165,37 @@ end
 grid on;
 BodeLines = findall(ax6.Children,'type','line');
 
-axes(ax3);
-for k = 1:length(BodeLines)
-    Line = BodeLines(k);
-    semilogx(Line.XData,db2mag(Line.YData)); hold on;
-end
-grid on;
-xlim(ax3,ax6.XLim);
-
-linkaxes([ax1 ax2 ax3 ax4 ax5 ax6],'x');
-linkaxes([ax1 ax2],'y');
+linkaxes([ax4 ax5 ax6],'x');
 linkaxes([ax4 ax5],'y');
 
 figure;
 step(T)
 
 %% Helper functions
+function W = makeweight_dB_Hz(dc_mag_dB,wc_Hz,hf_mag_dB,Ts)
+    dc_mag_abs = db2mag(dc_mag_dB);
+    hf_mag_abs = db2mag(hf_mag_dB);
+    wc_rad = 2*pi*wc_Hz;
+    
+    W = makeweight(dc_mag_abs,wc_rad,hf_mag_abs,Ts);
+end
+
 % introduce integrator
 function Cz0 = employ_integrator(Cz0)
     [tz,po,kg] = zpkdata(Cz0);
-    [~,idx] = sort(abs(po{1}));
-    po{1}(idx(end)) = 1;            % change largest stable to z=1
+    RealPo = real(po{1});
+    ImagPo = imag(po{1});
+    idxReal = abs(ImagPo) == 0;
+    if ~any(idxReal)
+        idxReal = abs(ImagPo) < 1e-10;
+    end
+    if ~any(idxReal)
+        fprintf('No integrator introduced because no real poles were found\n');
+        return;
+    end
+    RealPo = RealPo.*idxReal;
+    [~,idx_max] = max(RealPo);
+    po{1}(idx_max) = 1;            % change largest stable to z=1
     Cz0 = zpk(tz,po,kg,Cz0.Ts);
     Cz0 = ss(tf(Cz0));
 end
@@ -193,7 +218,7 @@ function Cz0 = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3)
     Cz0 = getBlockValue(CLopt,'K');
 end
 
-function Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3)
+function [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3)
     [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
     nx = size(Cz0.A,1);
     Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
@@ -208,30 +233,27 @@ function Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W3)
 
     S = feedback(1,G*Cz1);     % sensitivity
     T = feedback(G*Cz1,1);     % complementary sensitivity
+    KS = Cz1*S;                % control sensitivity
     
-    CL = [ W1*S ; W3*T ];
+    if isempty(W2)
+        CL = [ W1*S ; W3*T ];
+    else
+        CL = [ W1*S ; W2*KS ; W3*T ];
+    end
     opt = hinfstructOptions('Display','final');
     [CLopt,gamma] = hinfstruct(CL,opt);
 
     Cz0 = getBlockValue(CLopt,'K2');
     Cz0 = ss(real(Cz0.A),real(Cz0.B),real(Cz0.C),real(Cz0.D),plant.Ts); % forces real-valued controller
-
-    % insert an integrator (to complement H-inf design)
-    Poles = eig(Cz0.A);
-    % Extract only real poles (exclude those with nonzero imaginary part)
-    isRealPole = abs(imag(Poles)) == 0 ;%< 1e-10;
-    realPoles = Poles(isRealPole);
-    [~, idxMax] = max(abs(real(realPoles)));  % Find pole with largest real part
-    idxInOriginal = find(isRealPole);
-    Poles(idxInOriginal(idxMax)) = 1;    % Set largest real pole to z=1
-    denP = poly(diag(Poles));
-    [num,den] = tfdata(tf(Cz0));
-    Cz0 = ss(tf(num{1},denP,plant.Ts));
 end
 
-function [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W3)
+function [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3)
     S = feedback(1,G*Cz0);
     KS = Cz0*S;
     T = 1-S;
-    Ms = [W1*S;W3*T];
+    if isempty(W2)
+        Ms = [W1*S;W3*T];
+    else
+        Ms = [W1*S;W2*KS;W3*T];
+    end
 end
