@@ -45,6 +45,17 @@ p_all = ceil(linspace(pmin,pmax,nP));
 spP = 100;                          % number of seeds per p value
 seeds = reshape(1:nP*spP,spP,nP);   % matrix with seed indices for each MC simulation
 
+% Generate yr0 once with maximum length to ensure consistency across runs
+Nbar_max = pmax + f + N - 1; % maximum simulation length
+switch opts.ref0
+    case 'make'
+        yr0_full = make_reference(Nbar_max,ny);
+    case 'prbs'
+        n_bits = ceil(log2(Nbar_max + 1));
+        yr0_full = idinput(2^n_bits-1,'prbs',[0 1],[-1 1]).';
+        yr0_full = repmat(yr0_full(:,1:Nbar_max),ny,1);
+end
+
 %% ================== saving data and settings =============================
 % saving this data in data\raw\sys#\ref0_<>\dp\<subdir1>
 src_dir = pwd;
@@ -72,24 +83,25 @@ mkdir(subdir1);
 % save overall settings to data\raw\sys#\ref0_<>\dp\<subdir1>\dp_settings.mat
 save(fullfile(subdir1,'dp_settings.mat'),'pmin','pmax','nP','p_all','spP','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
+
 %% ========================== iterate over p and seeds ====================
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     % packaging input variables for use in run_X_ParCluster
     vs = struct;
-    [ vs.spP, vs.nP, vs.seeds, vs.p_all, vs.f, vs.N, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir] = ...
-    deal(spP,    nP,    seeds,    p_all,    f,    N,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir);
+    [ vs.spP, vs.nP, vs.seeds, vs.p_all, vs.f, vs.N, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir, vs.yr0_full] = ...
+    deal(spP,    nP,    seeds,    p_all,    f,    N,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir,    yr0_full);
 
     run_X_ParCluster(opts,vs,'p',MaxTasksPerJob=30);
 
 else
-    fprintf('using the local profile');
+    fprintf('using the local profile\n');
     if isempty(gcp('nocreate'))
         myCluster = parcluster('local');
         nworker = myCluster.NumWorkers; % (max.) workers per node
         parpool(myCluster,nworker);
     end
     parfor iii = 1:nP*spP
-        run_p(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+        run_p(iii,opts,spP,nP,seeds,p_all,f,N,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir,yr0_full);
     end
 end
 

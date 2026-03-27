@@ -45,6 +45,17 @@ seeds = reshape(1:nN*spN,spN,nN);   % matrix with seed indices for each MC simul
 % get plant, initial controller (Cz0), CL-system (Tcl0), signal names, etc.
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
 
+% Generate yr0 once with maximum length to ensure consistency across runs
+Nbar_max = p + f + Nmax - 1; % maximum simulation length
+switch opts.ref0
+    case 'make'
+        yr0_full = make_reference(Nbar_max,ny);
+    case 'prbs'
+        n_bits = ceil(log2(Nbar_max + 1));
+        yr0_full = idinput(2^n_bits-1,'prbs',[0 1],[-1 1]).';
+        yr0_full = repmat(yr0_full(:,1:Nbar_max),ny,1);
+end
+
 %% ================== saving data and settings =============================
 % saving this data in data\raw\sys#\ref0_<>\dN\<subdir1>
 src_dir = pwd;
@@ -76,8 +87,8 @@ save(fullfile(subdir1,'dN_settings.mat'),'Nmin','Nmax','nN','N_all','spN','seeds
 if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
     % packaging input variables for use in run_X_ParCluster
     vs = struct;
-    [ vs.spN, vs.nN, vs.seeds, vs.N_all, vs.p, vs.f, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir] = ...
-    deal(spN,    nN,    seeds,    N_all,    p,    f,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir);
+    [ vs.spN, vs.nN, vs.seeds, vs.N_all, vs.p, vs.f, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir, vs.yr0_full] = ...
+    deal(spN,    nN,    seeds,    N_all,    p,    f,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir,    yr0_full);
 
     run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=50,nMins=30);
 
@@ -89,7 +100,7 @@ else
         parpool(myCluster,nworker);
     end
     parfor ii = 1:nN*spN
-        run_N(ii,opts,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir);
+        run_N(ii,opts,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir,yr0_full);
     end
 end
 

@@ -1,4 +1,4 @@
-function run_N(ii,opts2,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir)
+function run_N(ii,opts2,spN,nN,seeds,N_all,p,f,Ncl,ny,nu,Re,plant,subdir1,sigs,Cz0,Tcl0,proj_dir,yr0_full)
 %% This function acts as a wrapper for main_MC.m for a single value of N
 
 sN = struct;
@@ -9,17 +9,10 @@ sN.opts = opts2;
 N = N_all(iN);
 sN.opts.N = N;
 
-% ----------------- initial CL-sim length & reference ---------------------
+% ----- initial CL-sim length & reference -----------
 [Nbar, sN.Nbar] = deal(p + f + N -1); % sim. length of initial controller
-% create initial reference (yr0).
-switch opts2.ref0
-    case 'make'
-        sN.yr0 = make_reference(Nbar,ny); % reference of initial controller
-    case 'prbs'
-        n_bits = ceil(log2(Nbar + 1));
-        sN.yr0 = idinput(2^n_bits-1,'prbs',[0 1],[-1 1]).';
-        sN.yr0 = repmat(sN.yr0(:,1:Nbar),ny,1);
-end
+% select initial reference (yr0) from pre-generated full reference
+sN.yr0 = yr0_full(:,1:Nbar);
 
 % ---------- references for subsequent closed-loop simulations ------------
 sN.yr1 = make_reference(Ncl+f,ny); % y-ref

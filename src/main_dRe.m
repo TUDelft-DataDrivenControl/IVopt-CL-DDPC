@@ -17,7 +17,7 @@
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
-opts = init_opts(sys=1);
+opts = init_opts();
 [N, p, f, Ncl] = deal(opts.N, opts.p, opts.f, opts.Ncl);
 
 rng default;
