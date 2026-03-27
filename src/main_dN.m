@@ -57,10 +57,10 @@ switch opts.ref0
 end
 
 %% ================== saving data and settings =============================
-% saving this data in data\raw\sys#\ref0_<>\dN\<subdir1>
+% saving this data in data\sys#\ref0_<>\dN\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
-sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+sys_dir = fullfile(pwd,'data',sprintf('sys%d',opts.sys));  % -> data\sys#
 if ~isfolder(sys_dir)
     mkdir(sys_dir);
 end
@@ -69,7 +69,7 @@ ref_dir = fullfile(sys_dir,sprintf('ref0_%s',opts.ref0));
 if ~isfolder(ref_dir)
     mkdir(ref_dir);
 end
-% create data\raw\sys#\ref0_<>\dN if it doesn't exist yet
+% create data\sys#\ref0_<>\dN if it doesn't exist yet
 if ~isfolder(fullfile(ref_dir,'dN'))
     mkdir(fullfile(ref_dir,'dN'))
 end
@@ -80,15 +80,16 @@ subdir1 = name_subdir1(Nmin,Nmax,nN,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dN',subdir1);  % subdir1 path
 mkdir(subdir1);
 
-% save overall settings to data\raw\sys#\ref0_<>\dN\<subdir1>\dN_settings.mat
+% save overall settings to data\sys#\ref0_<>\dN\<subdir1>\dN_settings.mat
 save(fullfile(subdir1,'dN_settings.mat'),'Nmin','Nmax','nN','N_all','spN','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs');
 
 %% ========================== iterate over N and seeds ====================
-if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+load(fullfile(src_dir,'SlurmSettings.mat'),'ProfileName');
+if ismember(ProfileName,parallel.clusterProfiles) % on cluster?
     % packaging input variables for use in run_X_ParCluster
     vs = struct;
-    [ vs.spN, vs.nN, vs.seeds, vs.N_all, vs.p, vs.f, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir, vs.yr0_full] = ...
-    deal(spN,    nN,    seeds,    N_all,    p,    f,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir,    yr0_full);
+    [ vs.spN, vs.nN, vs.seeds, vs.N_all, vs.p, vs.f, vs.Ncl, vs.ny, vs.nu, vs.Re, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.proj_dir, vs.yr0_full, vs.ProfileName] = ...
+    deal(spN,    nN,    seeds,    N_all,    p,    f,    Ncl,    ny,    nu,    Re,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    proj_dir,    yr0_full,    ProfileName);
 
     run_X_ParCluster(opts,vs,'N',MaxTasksPerJob=50,nMins=30);
 

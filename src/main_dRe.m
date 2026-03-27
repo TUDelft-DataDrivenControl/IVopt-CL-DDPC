@@ -63,10 +63,10 @@ P0  = dcgain(plant(:,1:nu));    % DC gain
 ur1 = P0\yr1;                   % u-ref
 
 % ================== saving data and settings =============================
-% saving this data in data\raw\sys#\ref0_<>\dRe\<subdir1>
+% saving this data in data\sys#\ref0_<>\dRe\<subdir1>
 src_dir = pwd;
 cd('..'); proj_dir = pwd;
-sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+sys_dir = fullfile(pwd,'data',sprintf('sys%d',opts.sys));  % -> data\sys#
 if ~isfolder(sys_dir)
     mkdir(sys_dir);
 end
@@ -75,7 +75,7 @@ ref_dir = fullfile(sys_dir,sprintf('ref0_%s',opts.ref0));
 if ~isfolder(ref_dir)
     mkdir(ref_dir);
 end
-% create data\raw\sys#\ref0_<>\dRe if it doesn't exist yet
+% create data\sys#\ref0_<>\dRe if it doesn't exist yet
 if ~isfolder(fullfile(ref_dir,'dRe'))
     mkdir(fullfile(ref_dir,'dRe'))
 end
@@ -86,15 +86,16 @@ subdir1 = name_subdir1(Re_min,Re_max,nRe,opts); % subdir1 name
 subdir1 = fullfile(ref_dir,'dRe',subdir1);      % subdir1 path
 mkdir(subdir1);
 
-% save overall settings to data\raw\sys#\ref0_<>\dRe\<subdir1>\dRe_settings.mat
+% save overall settings to data\sys#\ref0_<>\dRe\<subdir1>\dRe_settings.mat
 save(fullfile(subdir1,'dRe_settings.mat'),'Re_min','Re_max','nRe','Re_all','spRe','seeds','plant','nu','ny','Cz0','Tcl0','opts','sigs','Nbar','yr0','yr1','ur1');
 
 %% ========================== iterate over Re & seeds =====================
-if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+load(fullfile(src_dir,'SlurmSettings.mat'),'ProfileName');
+if ismember(ProfileName,parallel.clusterProfiles) % on cluster?
     % packaging input variables for use in run_X_ParCluster
     vs = struct;
-    [ vs.spRe, vs.nRe, vs.seeds, vs.Re_all, vs.Ncl, vs.Nbar, vs.ny, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.yr0, vs.yr1, vs.ur1, vs.proj_dir] = ...
-    deal(spRe,    nRe,    seeds,    Re_all,    Ncl,    Nbar,    ny,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    yr0,    yr1,    ur1,    proj_dir);
+    [ vs.spRe, vs.nRe, vs.seeds, vs.Re_all, vs.Ncl, vs.Nbar, vs.ny, vs.plant, vs.subdir1, vs.sigs, vs.Cz0, vs.Tcl0, vs.yr0, vs.yr1, vs.ur1, vs.proj_dir, vs.ProfileName] = ...
+    deal(spRe,    nRe,    seeds,    Re_all,    Ncl,    Nbar,    ny,    plant,    subdir1,    sigs,    Cz0,    Tcl0,    yr0,    yr1,    ur1,    proj_dir,    ProfileName);
 
     run_X_ParCluster(opts,vs,'Re',MaxTasksPerJob=20);
 

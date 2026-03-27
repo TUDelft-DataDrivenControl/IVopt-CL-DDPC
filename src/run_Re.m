@@ -16,7 +16,7 @@ s.e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
 s.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 
 % create folder to store data in
-% -> to data\raw\sys#\ref0_<>\dRe\<subdir1>\<subdir2>\seed_<seed>.mat
+% -> to data\sys#\ref0_<>\dRe\<subdir1>\<subdir2>\seed_<seed>.mat
 str_iRe = iRe2str(iRe,nRe);
 subdir2 = sprintf('%s_Re_%.2e',str_iRe,Re);
 subdir2 = replace(subdir2,'.','p'); % replace . with p

@@ -1,10 +1,10 @@
 function [subdir1,src_dir] = get_subdir1(data_type)
 
-%% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
+%% navigate to data\sys#\ref0_<>\dX\<subdir1>
 [src_util_dir, ~  , ~] = fileparts(which(mfilename)); % find src/util directory
 old_pwd = cd(fullfile(src_util_dir,'..','..')); pdir = pwd;     % go project directory and save path
 src_dir = fullfile(pdir,'src');
-raw_dir = fullfile(pdir,'data','raw');
+raw_dir = fullfile(pdir,'data');
 cd(old_pwd);
 
 % choose system

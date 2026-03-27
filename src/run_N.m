@@ -20,7 +20,7 @@ P0  = dcgain(plant(:,1:nu));       % DC gain
 sN.ur1 = P0\sN.yr1;                % u-ref
 
 % ----------------------- save settings for run iN ------------------------
-% -> to data\raw\sys#\ref#\dN\<subdir1>\<subdir2>\<iN>_settings.mat
+% -> to data\sys#\ref#\dN\<subdir1>\<subdir2>\<iN>_settings.mat
 str_iN = iN2str(iN,nN); % zero-padded <iN> based on # of decimals for nN
 subdir2 = sprintf('%s_N_%d',str_iN,N); % subdir2 name
 subdir2 = fullfile(subdir1,subdir2);  % subdir2 path

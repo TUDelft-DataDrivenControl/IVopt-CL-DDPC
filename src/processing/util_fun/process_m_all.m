@@ -1,5 +1,5 @@
 function [m1_UYf_iX, mLf_data_iX, m4_data_iX] ...
-    = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars)
+    = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName)
 %% ======================== initialize data containers ======================
 
 num_OutVars = numel(OutVars);
@@ -18,7 +18,7 @@ mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 m4_data_iX = zeros(ny*f, num_Cases, spX, 3); % (:,:,:,i): i=1 -> std. dev, i=2 -> mean, i=3 -> rms
 
 % determine if running on cluster
-if ismember('SlurmProfile1',parallel.clusterProfiles) % running on cluster?
+if ismember(ProfileName,parallel.clusterProfiles) % running on cluster?
     onCluster = true;
 else
     onCluster = false;

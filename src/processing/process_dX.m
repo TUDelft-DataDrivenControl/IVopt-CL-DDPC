@@ -22,9 +22,9 @@ K = BK(:,nu+1:end);
 Hf = make_blk_tril_toeplitz(A,K,C,eye(ny),f);
 
 %% iterate over Re \ N values - initial data processing
-subdir1 = pwd; % should be data/sys#/raw/dX/<subdir1>
+subdir1 = pwd; % should be data/sys#/dX/<subdir1>
 
-% get all <subdir2> directories in data/raw/sys#/dX/<subdir1>
+% get all <subdir2> directories in data/sys#/dX/<subdir1>
 subdir2s = dir(subdir1);
 isub = [subdir2s(:).isdir]; 
 subdir2s = {subdir2s(isub).name};
@@ -71,12 +71,15 @@ mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,si
 m4_data = zeros(nX,ny*f,num_Cases,3);
 
 %% -------------------- loop over Re \ N \ p values -----------------------
+% Load cluster profile name from settings
+load(fullfile(subdir1,'..','..','..','..','..','src','SlurmSettings.mat'),'ProfileName');
+
 % Check and start parallel pool if needed
-if ismember('SlurmProfile1',parallel.clusterProfiles) % on cluster?
+if ismember(ProfileName,parallel.clusterProfiles) % on cluster?
     if ~isempty(gcp('nocreate'))
         delete(gcp('nocreate'));
     end
-    myCluster = parcluster('SlurmProfile1');
+    myCluster = parcluster(ProfileName);
     nworkers = 20;
     myCluster.SubmitArguments = SlurmSubmitArgs(['calc_',data_type],15,ntasks=nworkers,cpt=1,GB=3.8);
     parpool(myCluster,nworkers);
@@ -123,11 +126,11 @@ for iX = 1:nX
     
     % iterates over noise realizations
     [m1_UYf(:, iX, :), mLf_data{iX}, m4_data(iX,:,:,:,:)] ...
-     = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars);
+     = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName);
 
     cd(subdir1);
 end
-if ismember('SlurmProfile1',parallel.clusterProfiles)
+if ismember(ProfileName,parallel.clusterProfiles)
     delete(gcp('nocreate')); % close parallel pool
 end
 

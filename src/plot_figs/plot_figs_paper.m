@@ -1,12 +1,11 @@
 %% This script plots all of the figures in the article
 % that this repository accompanies.
 
-clear;
-clc;
-close all;
+clear; clc; close all;
 
 save_figs = false;
 
+% add relevant paths
 [src_plot_figs_dir, ~  , ~] = fileparts(which(mfilename)); % find src/util directory
 cd(fullfile(src_plot_figs_dir,'..','..')); pdir = pwd; % go to project directory and save the path
 addpath(genpath(fullfile(pdir,'src')));          % add src & subdirectories to path
@@ -33,7 +32,7 @@ ylim_y2 = {[-16.0 14.5], [8.5 12.6]}; % inputs: general axes and inset zoom
 fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir,marker_interval,ylim_y1,ylim_y2);
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig1,pdir,'dinkl2.pdf'); %formerly fig1_exampleMC.pdf
+save_fig(save_figs,fig1,pdir,'dinkl2.pdf');
 
 %% Figure: approximation of optimal IV
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
@@ -47,7 +46,7 @@ legendEntriesPerColumn = {[1 2 3],[2 2]};
 axs3(1).YLim(1) = 4e-2;
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig3,pdir,'dinkl3.pdf'); %formerly fig3_IVdiff_dRe.pdf
+save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
 
 %% Figure: Lf estimates
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
@@ -62,7 +61,7 @@ load("dRe_settings.mat")
 load("processed_data.mat");
 
 fig = Fig_Lf_estimates(Cases,mLf,iX,opts);
-save_fig(save_figs,fig,pdir,'dinkl4.pdf'); % formerly fig2_Lf_estimates.pdf
+save_fig(save_figs,fig,pdir,'dinkl4.pdf');
 
 %% Figure: yf prediction quality
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
@@ -81,9 +80,9 @@ ConnectorLocation = {'south','south'};  % connector side: 'south','north','west'
 % max_ratio reports the maximum ratio of (mean / std. dev.) of the prediction error for all k and selected cases
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig4,pdir,'dinkl5.pdf'); % formerly fig4_rel_yfpred_error.pdf 
+save_fig(save_figs,fig4,pdir,'dinkl5.pdf');
 
-%% helper function
+%% Local functions
 
 % conditional save of figure to results folder
 function save_fig(save_figs,fig,pdir,fig_name)

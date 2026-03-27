@@ -1,16 +1,16 @@
 clear; 
 close all;
-data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
+data_type = 'p'; % 'N', 'Re', or 'p' represented by X below
 overwrite = false;
 
-%% navigate to data\raw\sys#\ref0_<>\dX\<subdir1>
+%% navigate to data\sys#\ref0_<>\dX\<subdir1>
 [subdir1,src_dir] = get_subdir1(data_type);
 cd(subdir1); % move to subdir1
 fprintf('Analyzing data in %s\n',subdir1(length(src_dir)-3:end));
 
 %% load data for choice of dX trials (as specified by <subdir1>)
 
-% load dX settings from data\raw\sys#\ref0_<>\dX\<subdir1>\dX_settings.mat
+% load dX settings from data\sys#\ref0_<>\dX\<subdir1>\dX_settings.mat
 load(sprintf('d%s_settings.mat',data_type));
 
 switch data_type

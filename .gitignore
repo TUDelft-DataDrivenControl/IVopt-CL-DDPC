@@ -2,7 +2,7 @@ autosam.*
 !autosam.tex
 !autosam.bib
 data_old/
-data/raw/
+data/
 data/temp/
 bin/
 docs/manuscript/feedback/

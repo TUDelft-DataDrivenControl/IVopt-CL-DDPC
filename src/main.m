@@ -59,8 +59,8 @@ ur1 = P0\yr1;                   % u-ref
 
 % ==================== seed-dependent from here onwards ===================
 rng(seed);
-e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
-e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
+e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise for initial closed-loop simulation
+e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % subsequent innovation noise
 
 %% run simulations
 [opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases] ...
@@ -70,19 +70,19 @@ e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 if opts.save
 
     %----------------------- get destination path -------------------------
-    % destination: data\raw\<?>\
+    % destination: data\<?>\
     % <?> is a subdirectory defined by either [opts.raw_dir] or a naming convention
     src_dir = pwd;
     cd('..'); proj_dir = pwd;
-    sys_dir = fullfile(pwd,'data','raw',sprintf('sys%d',opts.sys));  % -> data\raw\sys#
+    sys_dir = fullfile(pwd,'data',sprintf('sys%d',opts.sys));  % -> data\sys#
     if ~isfolder(sys_dir)
         mkdir(sys_dir);
     end
     cd(src_dir);
 
-    % complete path of data directory: data\raw\<?>
+    % complete path of data directory: data\<?>
     if isfield(opts,'raw_dir')
-        % use data\raw\opts.raw_dir{:}
+        % use data\opts.raw_dir{:}
         subdir = fullfile(opts.raw_dir{:});
     else
         % use naming convention for new subdirectory
