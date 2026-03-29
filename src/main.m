@@ -41,6 +41,12 @@ fprintf('Setting simulation settings...\n');
 % get plant, initial controller (Cz0), CL-system (Tcl0), signal names, etc.
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
 
+p_lb = max(ss2lag(plant),ss2lag(Cz0));
+if p < p_lb
+    [opts.p, p] = deal(p_lb);
+    warning('p must be at least %d to accomodate the lag of the plant and initial controller. Setting p to %d.', p_lb, p_lb);
+end
+
 % ----------------- initial CL-sim length & reference ---------------------
 Nbar = p + f + N -1; % sim. length of initial controller
 switch opts.ref0
@@ -70,8 +76,8 @@ e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % subsequent innovation noise
 if opts.save
 
     %----------------------- get destination path -------------------------
-    % destination: data\<?>\
-    % <?> is a subdirectory defined by either [opts.raw_dir] or a naming convention
+    % destination: data\sys#\ref0_<type>\<params>\
+    % subdirectory structure includes ref0 type and parameter naming convention
     src_dir = pwd;
     cd('..'); proj_dir = pwd;
     sys_dir = fullfile(pwd,'data',sprintf('sys%d',opts.sys));  % -> data\sys#
@@ -80,15 +86,17 @@ if opts.save
     end
     cd(src_dir);
 
-    % complete path of data directory: data\<?>
+    % complete path of data directory: data\sys#\ref0_<type>\<params>\
     if isfield(opts,'raw_dir')
         % use data\opts.raw_dir{:}
         subdir = fullfile(opts.raw_dir{:});
+        data_dir = fullfile(sys_dir,subdir);
     else
-        % use naming convention for new subdirectory
-        subdir = name_subdir_data(opts);
+        % use naming convention: data\sys#\ref0_<type>\<params>\
+        ref0_dir = sprintf('ref0_%s',opts.ref0);  % ref0_make or ref0_prbs
+        param_subdir = name_subdir_data(opts);
+        data_dir = fullfile(sys_dir,ref0_dir,param_subdir);
     end
-    data_dir = fullfile(sys_dir,subdir);
 
     %----------------------- make destination folder ----------------------
     % if the folder does not exist, make it and store file dependencies in it
@@ -114,16 +122,20 @@ end
 
 %% Local functions
 function subdir = name_subdir_data(opts)
-    [Re, p, N] = deal(opts.Re, opts.p, opts.N);
+    [Re, N, p, f, Ncl, Qk, Rk, dRk] = deal(opts.Re, opts.N, opts.p, opts.f, opts.Ncl, opts.Qk, opts.Rk, opts.dRk);
 
     % Function to trim to minimal digits in scientific notation
     trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
     % Also remove . if nothing follows
     trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 
-    % Apply formatting
-    Re_str  = trimmed_exp(Re); N_str   = trimmed_exp(N);
-    subdir = sprintf('Re_%s_p_%d_N_%s',Re_str,p,N_str);
+    % Apply formatting for scientific notation parameters
+    Re_str = trimmed_exp(Re);
+    N_str = trimmed_exp(N);
+    
+    % Construct subdirectory name
+    subdir = sprintf('Re_%s_N_%s_p_%d_f_%d_Ncl_%d_Qk_%g_Rk_%g_dRk_%g', ...
+        Re_str, N_str, p, f, Ncl, Qk, Rk, dRk);
     subdir = replace(subdir,'.','p');
     subdir = replace(subdir,'+','');
 end
