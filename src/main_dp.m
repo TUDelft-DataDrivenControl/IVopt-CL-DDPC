@@ -1,13 +1,18 @@
-%% Perform a batch of Monte Carlo simulations sweeping over p (past window length)
+function main_dp(opts)
+% Perform a batch of Monte Carlo simulations sweeping over p (past window length)
 % Executes spP Monte Carlo simulations for each p value in p_all, saving the data
 % for subsequent analysis.
+%
+% Syntax:
+%   main_dp()
+%   main_dp(Name=Value)
 %
 % Important parameters to be set:
 % - pmin, pmax: range of p values to iterate over
 % - nP: number of p values to iterate over
 % - spP: number of seeds (& Monte Carlo simulations) per p value
-% - opts.sys: determines system for which to run simulations (see get_sys_info.m)
-% - other fields of opts struct (see local init_opts function)
+% - sys: determines system for which to run simulations (see get_sys_info.m, default: sys = 1)
+% - other fields of opts struct (see arguments block below)
 %
 % Requirements:
 % 1) Casadi                                     v3.6.7
@@ -17,8 +22,25 @@
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
-opts = init_opts();
-[Re, N, f, Ncl] = deal(opts.Re, opts.N, opts.f, opts.Ncl);
+arguments
+    opts.pmin   (1,1) double  = 1;     % minimum p value to iterate over (auto-computed if not set)
+    opts.pmax   (1,1) double  = 50;    % maximum p value to iterate over
+    opts.nP     (1,1) double  = 10;    % number of p values to iterate over
+    opts.spP    (1,1) double  = 100;   % number of seeds (& Monte Carlo simulations) per p value
+    opts.Re     (1,1) double  = 1e-2;  % innovation noise variance
+    opts.N      (1,1) double  = 1e3;   % number of Hankel data matrix columns
+    opts.f      (1,1) double  = 20;    % future window length
+    opts.Ncl    (1,1) double  = 1500;  % simulation length of SPC
+    opts.dRk    (1,1) double  = 1;     % weight penalizing u_k - u_{k-1}
+    opts.Rk     (1,1) double  = 1;     % weight penalizing u_k - u_{r,k}
+    opts.Qk     (1,1) double  = 1e2;   % weight penalizing y_k - y_{r,k}
+    opts.sys    (1,1) double = 1;      % system selection (see get_sys_info.m)
+    opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
+end
+if opts.pmin > opts.pmax % swap if pmin > pmax
+    [opts.pmin, opts.pmax] = deal(opts.pmax, opts.pmin);
+end
+[Re, N, f, Ncl, pmin, pmax, nP, spP] = deal(opts.Re, opts.N, opts.f, opts.Ncl, opts.pmin, opts.pmax, opts.nP, opts.spP);
 
 rng default;
 
@@ -30,19 +52,26 @@ cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to Cas
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
 
-% ================== initialize simulations ===============================
+% ------------------------ initialize simulations ---------------------------
 % get plant, initial controller (Cz0), CL-system (Tcl0), signal names, etc.
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
 
-% ============ set p values to iterate over & number of seeds per p =======
-% set p values to iterate over
-pmin = max(ss2lag(plant),ss2lag(Cz0)); % take max -> if gamma > p approx_IV methods deliver IVs with fewer columns than N
-pmax = 50;
-nP   = 10; % number of p values to iterate over
+% calculate p values to iterate over
+p_lb = max(ss2lag(plant),ss2lag(Cz0));
+if pmin < p_lb
+    [opts.pmin, pmin] = deal(p_lb);
+    warning('pmin must be at least %d to accomodate the lag of the plant and initial controller. Setting pmin to %d.', p_lb, p_lb);
+end
+if pmax < p_lb
+    [opts.pmax, pmax] = deal(p_lb);
+    warning('pmax must be at least %d to accomodate the lag of the plant and initial controller. Setting pmax to %d.', p_lb, p_lb);
+end
+if pmin == pmax
+    [opts.nP, nP] = deal(1);
+end
 p_all = ceil(linspace(pmin,pmax,nP));
 
 % set seeds to use for iterations
-spP = 100;                          % number of seeds per p value
 seeds = reshape(1:nP*spP,spP,nP);   % matrix with seed indices for each MC simulation
 
 % Generate yr0 once with maximum length to ensure consistency across runs
@@ -122,18 +151,5 @@ Re_s  = trimmed_exp(Re);
 subdir1 = sprintf('p_%d_%d_%d_Re_%s_N_%s_f_%d_%s',pmin,pmax,nP,Re_s,N_s,f,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
-end
-
-function opts = init_opts(opts)
-arguments
-opts.Re   (1,1) double  = 1e-2;     % innovation noise variance
-opts.N    (1,1) double  = 1e3;      % number of Hankel data matrix columns
-opts.f    (1,1) double  = 20;       % future window length
-opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-opts.dRk  (1,1) double  = 1;        % weight penalizing u_k - u_{k-1}
-opts.Rk   (1,1) double  = 1;        % weight penalizing u_k - u_{r,k}
-opts.Qk   (1,1) double  = 1e2;      % weight penalizing y_k - y_{r,k}
-opts.sys  (1,1) double = 1;         % system selection (see get_sys_info.m)
-opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
 end
 end

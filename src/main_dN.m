@@ -1,13 +1,18 @@
-%% Perform a batch of Monte Carlo simulations sweeping over N (number of Hankel matrix columns)
+function main_dN(opts)
+% Perform a batch of Monte Carlo simulations sweeping over N (number of Hankel matrix columns)
 % Executes spN Monte Carlo simulations for each N value in N_all, saving the data
 % for subsequent analysis.
+%
+% Syntax:
+%   main_dN()
+%   main_dN(Name=Value)
 %
 % Important parameters to be set:
 % - Nmin, Nmax: range of N values to iterate over
 % - nN: number of N values to iterate over
 % - spN: number of seeds (& Monte Carlo simulations) per N value
-% - opts.sys: determines system for which to run simulations (see get_sys_info.m)
-% - other fields of opts struct (see local init_opts function)
+% - sys: determines system for which to run simulations (see get_sys_info.m, default: sys = 1)
+% - other fields of opts struct (see arguments block below)
 %
 % Requirements:
 % 1) Casadi                                     v3.6.7
@@ -17,8 +22,27 @@
 % 5) System Identification Toolbox              v24.2
 % 6) Parallel Computing Toolbox                 v24.2
 
-opts = init_opts();
-[Re, p, f, Ncl] = deal(opts.Re, opts.p, opts.f, opts.Ncl);
+arguments
+    opts.Nmin   (1,1) double  = 100;    % minimum N value to iterate over
+    opts.Nmax   (1,1) double  = 1e4;    % maximum N value to iterate over
+    opts.nN     (1,1) double  = 10;     % number of N values to iterate over
+    opts.spN    (1,1) double  = 100;    % number of seeds (& Monte Carlo simulations) per N value
+    opts.Re     (1,1) double  = 1e-2;   % innovation noise variance
+    opts.p      (1,1) double  = 20;     % past window length
+    opts.f      (1,1) double  = 20;     % future window length
+    opts.Ncl    (1,1) double  = 1500;   % simulation length of SPC
+    opts.dRk    (1,1) double  = 1;      % weight penalizing u_k - u_{k-1}
+    opts.Rk     (1,1) double  = 1;      % weight penalizing u_k - u_{r,k}
+    opts.Qk     (1,1) double  = 1e2;    % weight penalizing y_k - y_{r,k}
+    opts.sys    (1,1) double = 1;       % system selection (see get_sys_info.m)
+    opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
+end
+if opts.Nmin > opts.Nmax % swap if Nmin > Nmax
+    [opts.Nmin, opts.Nmax] = deal(opts.Nmax, opts.Nmin);
+elseif opts.Nmin == opts.Nmax
+    opts.nN = 1;
+end
+[Re, p, f, Ncl, Nmin, Nmax, nN, spN] = deal(opts.Re, opts.p, opts.f, opts.Ncl, opts.Nmin, opts.Nmax, opts.nN, opts.spN);
 
 rng default;
 
@@ -30,20 +54,21 @@ cd('..'); addpath(fullfile('bin','casadi-v3.6.7')); cd('src'); % add path to Cas
 %% Simulation settings
 fprintf('Setting simulation settings...\n');
 
-% ============ set N values to iterate over & number of seeds per N =======
-% set N values to iterate over
-Nmin = 100;
-Nmax = 1e4;
-nN   = 10;  % number of N values to iterate over
+% calculate N values to iterate over
 N_all = floor(logspace(log10(Nmin),log10(Nmax),nN));
 
 % set seeds to use for iterations
-spN = 100;                          % number of seeds per N value
 seeds = reshape(1:nN*spN,spN,nN);   % matrix with seed indices for each MC simulation
 
 %% ================== initialize simulations ===============================
 % get plant, initial controller (Cz0), CL-system (Tcl0), signal names, etc.
 [plant,nu,ny,Cz0,Tcl0,opts,sigs] = init_sims(opts);
+
+p_lb = max(ss2lag(plant),ss2lag(Cz0));
+if p < p_lb
+    [opts.p, p] = deal(p_lb);
+    warning('p must be at least %d to accomodate the lag of the plant and initial controller. Setting p to %d.', p_lb, p_lb);
+end
 
 % Generate yr0 once with maximum length to ensure consistency across runs
 Nbar_max = p + f + Nmax - 1; % maximum simulation length
@@ -122,18 +147,5 @@ Re_s  = trimmed_exp(Re);
 subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d_f_%d_%s',Nmin_s,Nmax_s,nN,Re_s,p,f,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
-end
-
-function opts = init_opts(opts)
-arguments
-opts.Re   (1,1) double  = 1e-2;     % innovation noise variance
-opts.p    (1,1) double  = 20;       % past window length
-opts.f    (1,1) double  = 20;       % future window length
-opts.Ncl  (1,1) double  = 1500;     % simulation length of SPC
-opts.dRk  (1,1) double  = 1;        % weight penalizing u_k - u_{k-1}
-opts.Rk   (1,1) double  = 1;        % weight penalizing u_k - u_{r,k}
-opts.Qk   (1,1) double  = 1e2;      % weight penalizing y_k - y_{r,k}
-opts.sys  (1,1) double = 1;         % system selection (see get_sys_info.m)
-opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
 end
 end
