@@ -30,9 +30,9 @@ noPlotCases  = {'iv2a','iv3a','iv5a','TrPred',...
 
 subdir = fullfile(top_dir,subdir1);
 
-% Define y-axis limits: ylim_y1 = {[main_axis, zoomed_axis], ylim_y2 = {[main_axis], [zoomed_axis]}
+% Define y-axis limits: ylim_y = {[main_axis, zoomed_axis]}
 ylim_y1 = {[-14.4 15.2], [8.9 13.4]}; % outputs: general axes and inset zoom
-ylim_y2 = {[-16.0 14.5], [8.5 12.6]}; % inputs: general axes and inset zoom
+ylim_y2 = {[-16.0 14.5], [8.5 12.7]}; % inputs: general axes and inset zoom
 
 fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir,marker_interval,ylim_y1,ylim_y2);
 
@@ -41,23 +41,28 @@ save_fig(save_figs,fig1,pdir,'dinkl2.pdf');
 
 %% Figure: approximation of optimal IV
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
-cd(pdir); close all;
+cd(pdir); 
 % ------------------------- settings --------------------------------------
 fig3_dir = fullfile(top_dir,subdir1);
 
-legPosOnAx = {[0.38, 0.05], [0.53 0.05]};
-legendEntriesPerColumn = {[1 2 3],[2 2]};
-[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,legPosOnAx,legendEntriesPerColumn);
-axs3(1).YLim(1) = 4e-2;
+% determine IVs to show (iv2a and iv2b => 0, so excluded)
+Uf_ivs = {'iv1','iv3a','iv2c','iv3c','iv4a','iv5a','iv6c'}; % see fieldnames(m1.Uf), reflects visible 'groups': 3a, 3c, 1, 2c, {4a, 4c, 5a, 5c}, 6c
+Yf_ivs = {'iv3a','iv4b','iv6a'};                            % see fieldnames(m1.Yf)
+
+legPosOnAx = {[0.38, 0.05], [0.53 0.05]}; % {[x y]_top, [x y]_bottom}
+legendEntriesPerColumn = {[2 2 3],[2 2]};
+[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,legPosOnAx,legendEntriesPerColumn,Uf_ivs,Yf_ivs);
+axs3(1).YLim(1) = 2e-2;
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
 
 %% Figure: Lf estimates
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
-cd(pdir); close all;
+cd(pdir); 
 
 Cases = {'actLf','iv1','iv6a','iv4a','iv3c','iv3a','TrPred'};
+notScaledto = 'iv6a'; % <- do not scale colorbar to values hereof
 
 subdir1_path = fullfile(top_dir,subdir1);
 
@@ -65,19 +70,19 @@ cd(subdir1_path);
 load("dRe_settings.mat")
 load("processed_data.mat");
 
-fig = Fig_Lf_estimates(Cases,mLf,iX,opts);
+fig = Fig_Lf_estimates(Cases,mLf,iX,opts,notScaledto);
 save_fig(save_figs,fig,pdir,'dinkl4.pdf');
 
 %% Figure: yf prediction quality
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
-cd(pdir); close all;
+cd(pdir); 
 
 % ------------------------- settings --------------------------------------
 fig4_dir = fullfile(top_dir,subdir1);
 
 Cases = {'CLSPC','TrPred','actLf','iv4a','iv1','iv3c','iv3a','iv6a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
-insetYLims = {[-0.41 0.41], 'free'};    % yLim for top & bottom-axes insets
+insetYLims = {[-0.80 1], 'free'};    % yLim for top & bottom-axes insets
 insetPos   = {[0.11, 0.61, 0.52, 0.34], ... % [X, Y, W, H] for top-axes inset
               [0.11, 0.61, 0.52, 0.34]};  % [X, Y, W, H] for bottom-axes inset
 ConnectorLocation = {'south','south'};  % connector side: 'south','north','west','east'

@@ -48,7 +48,7 @@ num_Cases = numel(Cases);
 pctiles = 0:5:100;
 
 % --- IV definitions
-Uf_ivs = {'iv1','iv2a','iv2c','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'}; Uf_ivs = intersect(Uf_ivs,Cases);
+Uf_ivs = {'iv1','iv2a','iv2c','iv3a','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'}; Uf_ivs = intersect(Uf_ivs,Cases);
 Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};                            Yf_ivs = intersect(Yf_ivs,Cases);
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor

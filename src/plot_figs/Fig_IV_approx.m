@@ -1,4 +1,4 @@
-function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn)
+function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn,Uf_ivs,Yf_ivs)
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
 load(fullfile(fig_dir,sprintf('d%s_settings.mat',data_type)));
@@ -32,8 +32,6 @@ switch data_type
 end
 
 % Set colours and make figure
-Uf_ivs = {'iv1','iv2c','iv3c','iv4a','iv5a','iv6c'}; % visible 'groups': 3c, 1, 2c, {4a, 4c, 5a, 5c}, 6c
-Yf_ivs = fieldnames(m1.Yf);
 Colors = make_color_struct([Uf_ivs, Yf_ivs'], CrameriColor);
 
 set_xlabel   = @() xlabel(xlab,'interpreter','latex','FontSize',FS_Label);
@@ -69,6 +67,7 @@ for kIV = 1:num_Uf_ivs
         case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = ':';  Marker = 'none';
         case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = '^';
         case 'iv1',  label = '$U_{\mathrm{f}}\vphantom{\hat{\widetilde{U}}}$'; LineStyle = '-';  Marker = 'none';
+        case 'iv3a', label = '$\Xi_f\vphantom{\hat{\widetilde{Y}}}$'; LineStyle = '-'; Marker = 'none';
         otherwise,   label = iv_name;                                 LineStyle = '-';  Marker = 'none';
     end
     col = Colors.(iv_name);

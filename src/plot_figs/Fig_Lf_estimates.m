@@ -1,4 +1,4 @@
-function fig = Fig_Lf_estimates(Cases,mLf,iX,opts)
+function fig = Fig_Lf_estimates(Cases,mLf,iX,opts,notScaledto)
 FS_Tick  = 8;
 FS_Label = 9;
 
@@ -11,6 +11,8 @@ for k = 1:nCases
     switch Cases{k}
         case 'actLf'
             Lf_plt = Lf_act;
+        case notScaledto
+            continue; % do not scale clim to account for these IVs
         otherwise
             Lf_plt = mLf.(Cases{k}).(iXstr).mean - Lf_act;
     end
