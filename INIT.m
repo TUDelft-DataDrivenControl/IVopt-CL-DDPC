@@ -36,16 +36,16 @@ else
     BASE_URL       = sprintf('https://github.com/casadi/casadi/releases/download/%s/', CASADI_TAG);
 
     % --- 1. Detect MATLAB release --------------------------------------------
-    matlabRelease = version('-release')          % e.g. '2023b'     %2024b
-    matlabYear    = str2double(matlabRelease(1:end-1))
-    matlabLetter  = lower(matlabRelease(end))      % 'a' or 'b'
+    matlabRelease = version('-release');          % e.g. '2023b'     %2024b
+    matlabYear    = str2double(matlabRelease(1:end-1));
+    matlabLetter  = lower(matlabRelease(end));      % 'a' or 'b'
 
     % Convert release to a comparable scalar: year + 0.5 if letter is 'b'
     releaseNum = matlabYear + (0.5 * strcmp(matlabLetter, 'b'));
     MIN_RELEASE        = 2018.5;   % R2018b
     MIN_RELEASE_APPLE  = 2023.5;   % R2023b (Apple Silicon native)
 
-    fprintf('MATLAB release : %s (numeric: %.1f)\n', matlabRelease, releaseNum);
+    fprintf('MATLAB release : %s\n', matlabRelease);
 
     % --- 2. Detect OS and architecture ---------------------------------------
     if ispc
