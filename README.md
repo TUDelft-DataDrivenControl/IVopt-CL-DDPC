@@ -151,5 +151,4 @@ For execution on a SLURM cluster:
 ---
 
 ## References
-<a id="ref6"></a>[6] Y. Wang, Y. Qiu, M. Sader, D. Huang, and C. Shang, "Data-Driven Predictive Control Using Closed-Loop Data: An Instrumental Variable Approach," *IEEE Control Systems Letters*, vol. 7, pp. 3639–3644, 2023, doi: [10.1109/LCSYS.2023.3340444](https://doi.org/10.1109/LCSYS.2023.3340444).<br>
 <a id="ref25"></a>[25] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, "Harnessing uncertainty for a separation principle in direct data-driven predictive control," *Automatica*, vol. 173, p. 112070, Mar. 2025, doi: [10.1016/j.automatica.2024.112070](https://doi.org/10.1016/j.automatica.2024.112070).
