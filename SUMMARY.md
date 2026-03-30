@@ -27,7 +27,6 @@ The primary intent of the code is to facilitate reproduction of results presente
 - `main_dRe.m` — Batch experiments sweeping innovation noise variance (Re). Single MC runs performed by `run_Re.m`.
 - `main_dp.m` — Batch experiments sweeping past horizon length (p). Single MC runs performed by `run_p.m`.
 - `main_dN.m` — Batch experiments sweeping number of Hankel matrix columns (N). Single MC runs performed by `run_N.m`.
-- `INIT.m` — One-time setup: downloads CasADi and Crameri colormaps, configures paths and SLURM cluster settings.
 
 ### 3. **Plant Models & Controllers** (`src/systems/`)
 - `get_sys_info.m` — Route to the selected plant model & initial controller based on `sys` parameter

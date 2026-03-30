@@ -1,8 +1,7 @@
-# Optimal Instrumental Variables for Closed-Loop Data-Driven Predictive Control
+# Optimal Instrumental Variable Selection for Closed-loop Data-Driven Predictive Control
 
-This repository provides the code code that was employed to arrive at the results presented in the below work.<br>
-**Article**: *Optimal Instrumental Variable Selection for Closed-loop Data-Driven Predictive Control*  
-**Authors**: Rogier Dinkla<sup>1</sup>, Tom Oomen<sup>1,2</sup>, Sebastiaan P. Mulders<sup>1</sup>, and Jan-Willem van Wingerden<sup>1</sup><br>
+This repository provides the code code that was employed to arrive at the results presented in *Optimal Instrumental Variable Selection for Closed-loop Data-Driven Predictive Control* by Rogier Dinkla<sup>1</sup>, Tom Oomen<sup>1,2</sup>, Sebastiaan P. Mulders<sup>1</sup>, and Jan-Willem van Wingerden<sup>1</sup>.<br>
+
 *Affiliations*:<br>
 <sup>1</sup> Delft Center for Systems and Control, Faculty of Mechanical Engineering, Delft University of Technology, The Netherlands<br>
 <sup>2</sup> Control Systems Technology Group, Department of Mechanical Engineering, Eindhoven University of Technology, The Netherlands<br>
@@ -26,7 +25,7 @@ This repository provides the code code that was employed to arrive at the result
   - Purpose: Used for symbolic computations. Employed here to obtain a SPC-type of controllers.
 - **Crameri colormaps v7.0+**
   - License: MIT (open source, see [MATLAB file exchange](https://nl.mathworks.com/matlabcentral/fileexchange/68546-crameri-perceptually-uniform-scientific-colormaps/files/README.md) -> [Zenodo](https://doi.org/10.5281/zenodo.1243862))
-  - Purpose: Used for plotting with perceptually uniform colormaps.
+  - Purpose: Provides perceptually uniform colormaps.
 
 ---
 ## Installation
@@ -95,7 +94,7 @@ The code project uses **CasADi v3.6.7**:
    ```
 ---
 ## Running the code
-### Reproducing Results from the paper
+### Reproducing results from the article
 **Option A: Run Simulations -> Process Data -> Visualize results** <br>
 - step 1) Run `main_dRe()`
   - This generates a batch of Monte Carlo simulations for varying Re (innovation noise variance).
@@ -137,8 +136,8 @@ Each of the `main_d<X>` functions by default performs 100 Monte Carlo simulation
 1. Configure SLURM settings in `INIT.m` (or create `src/SlurmSettings.mat` manually, see installation section above)
 2. Running `main_dRe`, `main_dp`, or `main_dN` will automatically:
    - Detect SLURM settings from `SlurmSettings.mat`
-   - Submit jobs via `run_X_ParCluster.m`
-   - Manage job runtime and save results to an appropriately named data directory
+   - Submit and manage job runtime via `run_X_ParCluster.m`
+   - Save results to an appropriately named data directory
 ---
 
 ## Software Dependencies & Licenses
