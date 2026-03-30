@@ -1,5 +1,5 @@
 ## Project Overview
-The code in this project underlies the numerical experiments from the paper<br>
+The code in this project underlies the numerical experiments from the article<br>
 **"Optimal Instrumental Variable Selection for Closed-loop Data-Driven Predictive Control"** by <br>
 Rogier Dinkla<sup>1</sup>, Tom Oomen<sup>1,2</sup>, Sebastiaan P. Mulders<sup>1</sup>, and Jan-Willem van Wingerden<sup>1</sup>.<br>
 
@@ -33,15 +33,16 @@ The primary intent of the code is to facilitate reproduction of results presente
 - `get_sys_info.m` — Route to the selected plant model & initial controller based on `sys` parameter
 - `init_sims.m` — Initialize simulation: select plant model and initial controller using `get_sys_info.m` and construct initial closed-loop system.
 - `tune_Cz0.m` — Tune initial controller `Cz0` via H-infinity mixed-sensitivity design
-- `Landau1995/` — 4th-order system with input-output delay [<a href="#ref24">24</a>] (noise properties from [<a href="#ref25">25</a>])<br>
-  - `sys=1`: 5th order initial controller without direct feedthrough (`Cz0_Landau1995_D0.mat`) **<-- Results presented in paper**
-  - `sys=2`: 50th order initial controller without direct feedthrough (`Cz0_Landau1995_D0_n50.mat`)
-  - `sys=3`: 5th order initial controller with direct feedthrough (`Cz0_Landau1995.mat`)
-- `Bemporad2002/` — `sys=4`: 2nd-order system [<a href="#ref30">30</a>] with 4th order initial controller (`Cz0_Bemporad2002.mat`)
-- `Favoreel1999/` — `sys=5`: marginally stable 5th-order system [<a href="#ref31">31</a>] with 7th order initial controller (`Cz0_Favoreel1999.mat`)
-- `Wang2023/` — unstable 3rd-order system [<a href="#ref6">6</a>]<br>
-  - `sys=6`: 5th order controller (`Cz0_Wang2023.mat`, tuned via `tune_Cz0.m`)
-  - `sys=7`: 2nd order controller provided by authors (`Cz0_Wang2023_provided.mat`, generated from `model_Wang2023.m`)
+- Details of the system configurations are available in directories that are named after the used plant model:
+  | sys | Plant/Directory | Initial Controller (`Cz0`) | Notes |
+  |-----|-------|------------|-------|
+  | 1 | Landau1995 [<a href="#ref24">24</a>,<a href="#ref25">25</a>] | `Cz0_Landau1995_D0.mat` | **Results presented in paper.**<br> 4th-order system with input-output delay,<br> 5th order `Cz0` without direct feedthrough |
+  | 2 | Landau1995 [<a href="#ref24">24</a>,<a href="#ref25">25</a>] | `Cz0_Landau1995_D0_n50.mat` | 50th order `Cz0` without direct feedthrough |
+  | 3 | Landau1995 [<a href="#ref24">24</a>,<a href="#ref25">25</a>] | `Cz0_Landau1995.mat` | 5th order `Cz0` with direct feedthrough ($D_c$ ≠ 0) |
+  | 4 | Bemporad2002 [<a href="#ref30">30</a>] | `Cz0_Bemporad2002.mat` | 2nd-order unstable system, 4th order `Cz0`|
+  | 5 | Favoreel1999 [<a href="#ref31">31</a>] | `Cz0_Favoreel1999.mat` | Marginally stable 5th-order system, 7th order `Cz0` |
+  | 6 | Wang2023 [<a href="#ref6">6</a>] | `Cz0_Wang2023.mat` | Unstable 3rd-order plant, 5th order `Cz0` |
+  | 7 | Wang2023 [<a href="#ref6">6</a>] | `Cz0_Wang2023_provided.mat` | Unstable 3rd-order plant, `Cz0` of 2nd order provided by authors and `.mat` file generated from `model_Wang2023.m` |
 
 ### 4. **Data Processing** (`src/processing/`)
 - `main_processing.m` — Aggregates raw Monte Carlo batch results into summary statistics, saves these to `processed_data.mat` files.
@@ -63,10 +64,27 @@ The primary intent of the code is to facilitate reproduction of results presente
 - `plant2ABCDK.m` — Gets A, B, C, D, and K matrices from the specified plant.
 - `ss2lag.m` — Computes the lag of a state-space system.
 
-# License
+## Simulated Controllers (17 cases)
+
+| ID | Type | Description |
+|----|------|-------------|
+| `iv1` | Baseline | Open-loop IV |
+| `iv2a`, `iv2b`, `iv2c` | Optimal (exact) | Optimal IV with 0, 1, 2 refinement iterations |
+| `iv3a`, `iv3c` | LCF-IV [<a href="#ref6">6</a>] | IV based on the left coprime factorization  |
+| `iv4a`, `iv4b`, `iv4c` | Approx. (no `Cz0` info) | Approximated optimal IV without controller knowledge |
+| `iv5a`, `iv5b`, `iv5c` | Approx. (with `Cz0` info) | Approximated optimal IV with controller knowledge |
+| `iv6a`, `iv6c` | Reference-based | Future reference as IV |
+| `CLSPC` | Benchmark | Standard closed-loop SPC |
+| `actLf` | Oracle | True transfer matrix (upper bound) |
+| `TrPred` | Transient | Transient predictor |
+
+IVs with "b" suffix incorporate (approximations of) future denoised outputs $\tilde{Y}_{\mathrm{f}}$<br>
+IVs with "c" suffix are variants that apply 2SLS (two-stage least squares) to the IV preceding it in the table.
+
+## License
 This code is released under the **MIT License** (see [LICENSE.md](LICENSE.md)).
 
-# References
+## References
 <a id="ref6"></a>[6] Y. Wang, Y. Qiu, M. Sader, D. Huang, and C. Shang, "Data-Driven Predictive Control Using Closed-Loop Data: An Instrumental Variable Approach," *IEEE Control Systems Letters*, vol. 7, pp. 3639–3644, 2023, doi: [10.1109/LCSYS.2023.3340444](https://doi.org/10.1109/LCSYS.2023.3340444).<br>
 <a id="ref24"></a>[24] I. D. Landau, D. Rey, A. Karimi, A. Voda, and A. Franco, "A Flexible Transmission System as a Benchmark for Robust Digital Control," *European Journal of Control*, vol. 1, no. 2, pp. 77–96, Jan. 1995, doi: [10.1016/S0947-3580(95)70011-5](https://doi.org/10.1016/S0947-3580(95)70011-5).<br>
 <a id="ref25"></a>[25] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, "Harnessing uncertainty for a separation principle in direct data-driven predictive control," *Automatica*, vol. 173, p. 112070, Mar. 2025, doi: [10.1016/j.automatica.2024.112070](https://doi.org/10.1016/j.automatica.2024.112070).<br>
