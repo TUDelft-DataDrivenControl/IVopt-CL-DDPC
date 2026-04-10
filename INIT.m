@@ -29,8 +29,9 @@ save(fullfile('src','SlurmSettings.mat'),'account','partition','ProfileName');
 CASADI_VERSION = '3.6.7';
 destDir = fullfile(pwd, 'bin', sprintf('casadi-v%s', CASADI_VERSION));
 
+fprintf('================= CasADi v%s ==================\n', CASADI_VERSION);
 if exist(destDir, 'dir') && ~isempty(dir(fullfile(destDir, '**')))
-    fprintf('CasADi already installed, skipping download:\n  %s\n', destDir);
+    fprintf('  >> Already installed, skipping download\n');
 else
     CASADI_TAG     = '3.6.7';          % GitHub release tag
     BASE_URL       = sprintf('https://github.com/casadi/casadi/releases/download/%s/', CASADI_TAG);
@@ -45,7 +46,8 @@ else
     MIN_RELEASE        = 2018.5;   % R2018b
     MIN_RELEASE_APPLE  = 2023.5;   % R2023b (Apple Silicon native)
 
-    fprintf('MATLAB release : %s\n', matlabRelease);
+    fprintf('  -------------- SYSTEM DETECTION ---------------\n');
+    fprintf('  MATLAB release : %s\n', matlabRelease);
 
     % --- 2. Detect OS and architecture ---------------------------------------
     if ispc
@@ -55,36 +57,40 @@ else
         platform = 'mac';
         [status, arch] = system('uname -m');
         if status ~= 0
-            error('Failed to query Mac architecture via ''uname -m''.');
+            error('  Failed to query Mac architecture via ''uname -m''.');
         end
         macArch = strtrim(arch);   % 'arm64' = Apple Silicon, 'x86_64' = Intel
-        fprintf('Mac architecture: %s\n', macArch);
+        if strcmp(macArch, 'arm64')
+            archDesc = 'arm64 (Apple Silicon)';
+        else
+            archDesc = 'x86_64 (Intel)';
+        end
+        fprintf('  Mac architecture: %s\n', archDesc);
 
     elseif isunix
         platform = 'linux';
-
+    
     else
         error('Unrecognised operating system.');
     end
 
-    fprintf('Platform       : %s\n', platform);
+    fprintf('  Platform       : %s\n', platform);
 
     % --- 3. Select URL -------------------------------------------------------
+    fprintf('\n  ------------ SELECTING DEPENDENCIES -----------\n');
+    if releaseNum < MIN_RELEASE
+        error('  CasADi %s for MATLAB requires R2018b or later. Detected: %s.', ...
+                CASADI_VERSION, matlabRelease);
+    end
     switch platform
 
         case 'windows'
-            if releaseNum < MIN_RELEASE
-                error('CasADi %s for MATLAB on Windows requires R2018b or later. Detected: %s.', ...
-                      CASADI_VERSION, matlabRelease);
-            end
             filename = sprintf('casadi-%s-windows64-matlab2018b.zip', CASADI_VERSION);
+            fprintf('  CasADi: Selected Windows 64-bit binary\n');
 
         case 'linux'
-            if releaseNum < MIN_RELEASE
-                error('CasADi %s for MATLAB on Linux requires R2018b or later. Detected: %s.', ...
-                      CASADI_VERSION, matlabRelease);
-            end
             filename = sprintf('casadi-%s-linux64-matlab2018b.zip', CASADI_VERSION);
+            fprintf('  CasADi: Selected Linux 64-bit binary\n');
 
         case 'mac'
             if strcmp(macArch, 'arm64')
@@ -92,84 +98,85 @@ else
                 % fall back to Rosetta binary (R2018b+)
                 if releaseNum >= MIN_RELEASE_APPLE
                     filename = sprintf('casadi-%s-osx_arm64-matlab2018b.zip', CASADI_VERSION);
-                    fprintf('Mac Apple Silicon: using native R2023b binary.\n');
-                elseif releaseNum >= MIN_RELEASE
+                    fprintf('  CasADi: Apple Silicon detected with MATLAB R2023b+\n');
+                    fprintf('    >> Selecting native arm64 binary for optimal performance\n');
+                else %if releaseNum >= MIN_RELEASE
                     filename = sprintf('casadi-%s-osx64-matlab2018b.zip', CASADI_VERSION);
-                    fprintf('Mac Apple Silicon: R2023b not met, falling back to Rosetta binary.\n');
-                else
-                    error('CasADi %s for MATLAB on Mac requires R2018b or later. Detected: %s.', ...
-                          CASADI_VERSION, matlabRelease);
+                    fprintf('  CasADi: Apple Silicon detected with MATLAB R%s (pre-R2023b)\n', matlabRelease);
+                    fprintf('    >> MATLAB version does not support arm64 binary\n');
+                    fprintf('    >> Falling back to Intel x86_64 binary\n');
                 end
             else
                 % Intel Mac (x86_64)
-                if releaseNum < MIN_RELEASE
-                    error('CasADi %s for MATLAB on Mac (Intel) requires R2018b or later. Detected: %s.', ...
-                          CASADI_VERSION, matlabRelease);
-                end
                 filename = sprintf('casadi-%s-osx64-matlab2018b.zip', CASADI_VERSION);
-                fprintf('Mac Intel: using classic binary.\n');
+                fprintf('  CasADi: Intel Mac detected\n');
+                fprintf('    >> Selecting x86_64 binary\n');
             end
     end
 
     casadiUrl = [BASE_URL filename];
-    fprintf('Download URL   : %s\n', casadiUrl);
+    fprintf('\n  ----------- INSTALLING DEPENDENCIES -----------\n');
 
     % --- 4. Download and unzip -----------------------------------------------
     destFile = fullfile(pwd, 'bin', filename);
-    downloadAndUnzip(casadiUrl, destFile, destDir, 'CasADi');
+    downloadAndUnzip(casadiUrl, destFile, destDir);
 end
 
 % --- 5. Add to path and verify -------------------------------------------
 addpath(destDir);
-fprintf('CasADi added to MATLAB path.\n');
 
 % Quick sanity check
+fprintf('  >> Verifying installation...\t\t')
 try
     x = casadi.SX.sym('x');
-    fprintf('CasADi %s loaded successfully.\n', CASADI_VERSION);
+    fprintf('Done\n');
 catch
-    warning('CasADi was downloaded but could not be initialised. Check the path.');
+    warning('test failed. Check the path.');
 end
 
 %% Download Crameri colour binaries
 % Crameri, Fabio. Scientific Colour Maps. Zenodo, 2019, doi:10.5281/ZENODO.1243862.
 
+fprintf('\n============== Crameri colour maps ===============\n');
+
 % --- 1. Download and unzip binaries -------------------------------------------
 crameriUrl = 'https://nl.mathworks.com/matlabcentral/mlc-downloads/downloads/988c00c0-6131-42e7-8246-e1efbf8825a2/1da1cc21-d678-4dfc-9ab7-667916cc48ed/packages/zip';
 destFile = fullfile(pwd, 'bin', 'crameri_colours.zip');
 destDir  = fullfile(pwd, 'bin', 'crameri_colours');
-downloadAndUnzip(crameriUrl, destFile, destDir, 'Crameri colour binaries');
+downloadAndUnzip(crameriUrl, destFile, destDir);
 
 % --- 2. Add to path and verify -------------------------------------------
 addpath(destDir);
-fprintf('Crameri colour binaries added to MATLAB path.\n');
 
+fprintf('  >> Verifying installation...\t\t')
 try
     RGB = crameri('buda',5); % test if Crameri function is available
-    fprintf('Crameri colour binaries loaded successfully.\n');
+    fprintf('Done\n');
 catch
-    warning('Crameri colour binaries were downloaded but could not be initialised. Check the path.');
+    warning('test failed. Check the path.');
 end
+fprintf('\n');
 
 %% Local functions
-function downloadAndUnzip(url, zipFile, extractDir, name)
+function downloadAndUnzip(url, zipFile, extractDir)
     % Download, unzip, and clean up a zip file
     % Skips download if extractDir already exists.
 
     if exist(extractDir, 'dir') && ~isempty(dir(fullfile(extractDir, '**')))
-        fprintf('Nonempty %s already exists, skipping download:\n  %s\n', name, extractDir);
+        fprintf('  >> Already installed, skipping download\n');
         return
     end
 
-    fprintf('Downloading %s ...\n', name);
+    fprintf('  >> Downloading from GitHub...\t\t');
     try
         websave(zipFile, url);
+        fprintf('Done\n');
     catch ME
-        error('Download failed: %s\nURL: %s', ME.message, url);
+        error('\nDownload failed: %s\nURL: %s', ME.message, url);
     end
 
-    fprintf('Extracting to  : %s\n', extractDir);
+    fprintf('  >> Extracting files...\t\t');
     unzip(zipFile, extractDir);
+    fprintf('Done\n');
     delete(zipFile);
-    fprintf('Done.\n');
 end

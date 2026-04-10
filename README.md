@@ -42,19 +42,24 @@ Rogier Dinkla<sup>1</sup>, Tom Oomen<sup>1,2</sup>, Sebastiaan P. Mulders<sup>1<
 - Edit SLURM cluster configuration settings in `INIT.m` before running (optional — only needed if using a SLURM cluster)
 - Run the `INIT.m` file from the project directory. The output should resemble (using Windows here)
 ```matlab
-MATLAB release : 2024b
-Platform       : windows
-Download URL   : https://github.com/casadi/casadi/releases/download/3.6.7/casadi-3.6.7-windows64-matlab2018b.zip
-Downloading CasADi ...
-Extracting to  : <project directory>\bin\casadi-v3.6.7
-Done.
-CasADi added to MATLAB path.
-CasADi 3.6.7 loaded successfully.
-Downloading Crameri colour binaries ...
-Extracting to  : <project directory>\bin\crameri_colours
-Done.
-Crameri colour binaries added to MATLAB path.
-Crameri colour binaries loaded successfully.
+================= CasADi v3.6.7 ==================
+  -------------- SYSTEM DETECTION ---------------
+  MATLAB release : 2024b
+  Platform       : windows
+
+  ------------ SELECTING DEPENDENCIES -----------
+  CasADi: Selected Windows 64-bit binary
+
+  ----------- INSTALLING DEPENDENCIES -----------
+  >> Downloading from GitHub...         Done
+  >> Extracting files...                Done
+  >> Verifying installation...          Done
+
+============== Crameri colour maps ===============
+  >> Downloading from GitHub...         Done
+  >> Extracting files...                Done
+  >> Verifying installation...          Done
+
 ```
 
 ### Manual installation:
