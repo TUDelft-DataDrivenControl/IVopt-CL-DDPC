@@ -32,7 +32,7 @@ switch data_type
 end
 
 % Set colours and make figure
-Colors = make_color_struct([Uf_ivs, Yf_ivs'], CrameriColor);
+Colors = make_color_struct([Uf_ivs, Yf_ivs], CrameriColor);
 
 set_xlabel   = @() xlabel(xlab,'interpreter','latex','FontSize',FS_Label);
 set_ylabel = @(UorY) ylabel(['$\big\| \widetilde{',UorY,'}_{\mathrm{f}}-\alpha\big\|_\mathrm{F}$'],...
