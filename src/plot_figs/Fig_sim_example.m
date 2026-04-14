@@ -56,6 +56,7 @@ nCases = numel(Cases);
 
 % determine colours to use
 cCram = crameri('batlow', nCases); % colors
+cCram(end,:) = cCram(end,:)/2;     % to improve visibility
 
 % time steps
 Tsteps0 = 0:Nbar-1;

@@ -12,10 +12,6 @@ addpath(genpath(fullfile(pdir,'src')));          % add src & subdirectories to p
 addpath(fullfile(pdir,'bin','crameri_colours')); % add path to Crameri colour maps for plotting
 
 %% data to be plotted:
-% data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260302_1826';             % name of subdir1 containing data for all figures
-% top_dir = fullfile(pdir,'data','raw','sys6_old','ref0_prbs',['d',data_type]); % parent directory of subdir1
-% iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
 
 % data from main_dRe(sys=1, Re_min=1e-5, Re_max=1e-1, nRe=15) (default settings)
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
