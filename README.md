@@ -7,6 +7,7 @@ Rogier Dinkla<sup>1</sup>, Tom Oomen<sup>1,2</sup>, Sebastiaan P. Mulders<sup>1<
 <sup>1</sup> Delft Center for Systems and Control, Faculty of Mechanical Engineering, Delft University of Technology, The Netherlands<br>
 <sup>2</sup> Control Systems Technology Group, Department of Mechanical Engineering, Eindhoven University of Technology, The Netherlands<br>
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19594625.svg)](https://doi.org/10.5281/zenodo.19594625)
 ---
 ## Prerequisites
 ### Required Software:
