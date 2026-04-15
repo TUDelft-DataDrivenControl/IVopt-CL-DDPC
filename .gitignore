@@ -1,0 +1,13 @@
+data/*
+!data/.gitkeep
+bin/*
+!bin/.gitkeep
+results/
+src/SlurmSettings.mat
+*.asv
+*.err
+*.out
+*.e[0-9]*
+*.o[0-9]*
+Job[0-9]*
+.github/
