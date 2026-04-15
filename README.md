@@ -121,8 +121,9 @@ The code project uses **CasADi v3.6.7**:
   - This will produce all of the plots from the paper.
 
 **Option B: Download (Processed) Data -> Visualize results**
-- step 1) Download raw & processed data from Zenodo.
-- step 2) Run `plot_figs_paper`
+- step 1) Download raw & processed data from Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19595055.svg)](https://doi.org/10.5281/zenodo.19595055)
+- step 2) Create the folder data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260327_1942 and extract the contents of the zipfile thereto.
+- step 3) Run `plot_figs_paper`
 
 ### Generating other results
 Important parameters that the user can change for different data sets are
