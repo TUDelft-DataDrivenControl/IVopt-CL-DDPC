@@ -1,4 +1,4 @@
-function [ax, fig] = Fig_IV_approx(data_type,fig_dir,legPosOnAx,legendEntriesPerColumn,Uf_ivs,Yf_ivs)
+function [ax1, fig] = Fig_IV_approx(data_type,fig_dir,Uf_ivs)
 fig_file = fullfile(fig_dir,'processed_data.mat');
 load(fig_file);
 load(fullfile(fig_dir,sprintf('d%s_settings.mat',data_type)));
@@ -9,7 +9,7 @@ FS_Label  = 12;
 Fs_Legend = 10;
 
 % Extract and set up optional arguments
-FigPos = [50 50 252 325];
+FigPos = [50 50 252 325/2];
 Units = 'points';
 CrameriColor = 'romaO'; % batlow
 LineWidth = 2;
@@ -32,18 +32,20 @@ switch data_type
 end
 
 % Set colours and make figure
-Colors = make_color_struct([Uf_ivs, Yf_ivs], CrameriColor);
+Colors = make_color_struct(Uf_ivs, CrameriColor);
 
 set_xlabel   = @() xlabel(xlab,'interpreter','latex','FontSize',FS_Label);
 set_ylabel = @(UorY) ylabel(['$\big\| \widetilde{',UorY,'}_{\mathrm{f}}-\alpha\big\|_\mathrm{F}$'],...
     'Interpreter','latex','FontSize',FS_Label*1.25);%,'Rotation',0
 
 fig = figure('Units',Units,'Position',FigPos);
-TL0 = tiledlayout(2,1,"TileSpacing",'tight','Padding','tight');
+% TL0 = tiledlayout(2,1,"TileSpacing",'tight','Padding','tight');
 fig.Units = 'pixels';
-ax(1) = nexttile(TL0);
+ax1 = axes;
+% ax1 = nexttile(TL0);
 
 % --------------------- plotting for Uf_ivs -------------------------------
+Uf_ivs = intersect(fieldnames(m1.Uf).',Uf_ivs);
 Uf_av_fs = replace(Uf_ivs,'iv','m');
 num_Uf_ivs = numel(Uf_ivs);
 
@@ -59,15 +61,16 @@ for kIV = 1:num_Uf_ivs
 
     % determine color
     switch iv_name
-        case 'iv6c', label = '$\hat{\widetilde{U}}_{\mathrm{f,6c}}$'; LineStyle = '-.';  Marker = 'none';
-        case 'iv2c', label = '$\hat{\widetilde{U}}_{\mathrm{f,2c}}$'; LineStyle = '-.'; Marker = 'none';
-        case 'iv3c', label = '$\hat{\widetilde{U}}_{\mathrm{f,3c}}$'; LineStyle = '-';  Marker = 'none';
         case 'iv4a', label = '$\hat{\widetilde{U}}_{\mathrm{f,4a}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = ':';  Marker = 'o';
+        case 'iv4b', label = '$\hat{\widetilde{U}}_{\mathrm{f,4b}}$'; LineStyle = '-';  Marker = 'none';
+        case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = '-';  Marker = 'o';
+        case 'iv4d', label = '$\hat{\widetilde{U}}_{\mathrm{f,4d}}$'; LineStyle = '-';  Marker = '^';
         case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = ':';  Marker = 'none';
+        case 'iv5b', label = '$\hat{\widetilde{U}}_{\mathrm{f,5b}}$'; LineStyle = '-.'; Marker = 'none';
         case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = '^';
+        case 'iv5d', label = '$\hat{\widetilde{U}}_{\mathrm{f,5d}}$'; LineStyle = ':';  Marker = 'o';
         case 'iv1',  label = '$U_{\mathrm{f}}\vphantom{\hat{\widetilde{U}}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv3a', label = '$\Xi_f\vphantom{\hat{\widetilde{Y}}}$'; LineStyle = '-'; Marker = 'none';
+        case 'iv6',  label = '$W_{\mathrm{f}}$';                      LineStyle = '-';  Marker = 'none';
         otherwise,   label = iv_name;                                 LineStyle = '-';  Marker = 'none';
     end
     col = Colors.(iv_name);
@@ -80,60 +83,28 @@ end
 set_ylabel('U');
 grid on;
 
-% --------------------- plotting for Yf_ivs -------------------------------
-ax(2) = nexttile(TL0);
-
-Yf_ivs = setdiff(Yf_ivs,{'iv2b'}); % exclude case that is logically zero
-Yf_av_fs = replace(Yf_ivs,'iv','m');
-num_Yf_ivs = numel(Yf_ivs);
-
-y_iv = struct;
-y_plot_handles = [];
-y_labels = {};
-for kIV = 1:num_Yf_ivs
-    av_name = Yf_av_fs{kIV};
-    iv_name = Yf_ivs{kIV};
-    
-    y_iv.(av_name) = m1.Yf.(iv_name).median;
-
-    % determine color
-    switch iv_name
-        case 'iv4b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,4b}}$'; LineStyle = '-'; Marker = 'none';
-        case 'iv5b', label = '$\hat{\widetilde{Y}}_{\mathrm{f,5b}}$'; LineStyle = ':'; Marker = 'none';
-        case 'iv3a', label = '$\Xi_f\vphantom{\hat{\widetilde{Y}}}$'; LineStyle = '-'; Marker = 'none';
-        case 'iv6a', label = '$W_f$';                                 LineStyle = '-.'; Marker = 'none';
-        otherwise,   label = iv_name;                                 LineStyle = '-'; Marker = 'none';
-    end
-    col = Colors.(iv_name);
-
-    h = loglog(X_all, y_iv.(av_name), 'Marker', Marker, 'MarkerSize', MarkerSize, 'Color', col, 'LineStyle', LineStyle, 'LineWidth', LineWidth);
-    y_plot_handles = [y_plot_handles, h];
-    y_labels{kIV} = label;
-    hold on;
-end
-set_ylabel('Y');
-set_xlabel();
-grid on;
-linkaxes(ax,'x');
-xlim([Re_all(1) Re_all(end)]);
-
-% fig.Units = 'points';
-
-for k=1:2
-    ax(k).FontSize = FS_Tick;
-    ax(k).YLabel.FontSize = FS_Label;
-end
-ax(k).XLabel.FontSize = FS_Label;
+ax1.FontSize = FS_Tick;
+ax1.YLabel.FontSize = FS_Label;
+ax1.XLabel.FontSize = FS_Label;
 
 %% create legends
+leg = legend(ax1, u_plot_handles, u_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
+    'NumColumns', 2, 'Box', 'on', 'IconColumnWidth', 15,'Location','north');
 
+% Position the legend where you want it (e.g., bottom right)
+% leg.Position = [x_pos, y_pos, leg.Position(3), leg.Position(4)];
+
+% Create alpha title to the left of the legend
+% vertices: [bottom-left corner; top-left corner] of the legend
+vertices = [leg.Position(1:2); leg.Position(1), leg.Position(2) + leg.Position(4)];
+h_title = make_alpha_title_left(Fs_Legend + 1, ax1, vertices, 'figure');
 % create 'staircase' legend for Uf_ivs
-leg1 = create_columnwise_legend(ax(1), u_plot_handles, u_labels, legPosOnAx{1},...
-    legendEntriesPerColumn{1} , 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
+% leg1 = create_columnwise_legend(ax1, u_plot_handles, u_labels, legPosOnAx{1},...
+%     legendEntriesPerColumn{1} , 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
 
-leg2 = make_leg2(ax(2), y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend, 2);
-vertices = [leg2.Position(1:2); leg2.Position(1) leg2.Position(2)+leg2.Position(4)];
-h_title = make_alpha_title_left(Fs_Legend+1,ax(2),vertices,'figure');
+% leg2 = make_leg2(ax(2), y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend, 2);
+% vertices = [leg2.Position(1:2); leg2.Position(1) leg2.Position(2)+leg2.Position(4)];
+% h_title = make_alpha_title_left(Fs_Legend+1,ax(2),vertices,'figure');
 
 end
 
@@ -153,24 +124,16 @@ function color_struct = make_color_struct(IV_names,CrameriColor)
         switch IV_name(3:end)
             case '1'
                 col = 1;
-            case {'2a','2b'}
+            case '2'
                 col = 2;
-            case '2c'
-                col = 3;
             case '3a'
+                col = 3;
+            case {'4a','4b','4c','4d'}
                 col = 4;
-            case '3c'
+            case {'5a','5b','5c','5d'}
                 col = 5;
-            case {'4a','4b'}
+            case '6'
                 col = 6;
-            case '4c'
-                col = 7;
-            case {'5a','5b'}
-                col = 8;
-            case '5c'
-                col = 9;
-            case {'6a','6c'}
-                col = 10;
             otherwise
                 continue
         end

@@ -34,8 +34,8 @@ toc
 opts.gamma = ss2lag(Cz0); % determine lag of the initial controller
 
 % ============================ define cases ===============================
-noSimCases = {}; % cases not to simulate
-[Cases,Descr] = CaseDefinitions(noSimCases);
+noSimCases = {'iv4b','iv4c','iv4d','iv5b','iv5c','iv5d'}; % cases not to simulate
+[Cases,Descr,~] = CaseDefinitions(noSimCases);
 nCz = numel(Cases);
 
 % ============================ create IVs =================================

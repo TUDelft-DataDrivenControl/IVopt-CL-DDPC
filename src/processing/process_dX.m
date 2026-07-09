@@ -38,8 +38,8 @@ subdir2s = subdir2s(~cellfun(@isempty, regexp(subdir2s, '^[0-9]+_')));
 nX = numel(X_all);
 
 % find Cases used
-%  -> expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
-%                          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
+%  -> expect selection of {'iv1','iv2','iv2b','iv2c','iv3','iv3c','iv4a','iv4b','iv4c','iv4d',...
+%                          'iv5b','iv5c','iv6a','CLSPC','actLf','TrPred'};
 seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
 Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'Cases').Cases;
 num_Cases = numel(Cases);
@@ -48,7 +48,7 @@ num_Cases = numel(Cases);
 pctiles = 0:5:100;
 
 % --- IV definitions
-Uf_ivs = {'iv1','iv2a','iv2c','iv3a','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c','iv7'}; Uf_ivs = intersect(Uf_ivs,Cases);
+[~,~,Uf_ivs] = CaseDefinitions({}); Uf_ivs = intersect(Uf_ivs,Cases);
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 
 % ======================== initialize measure 1 (m1) ======================

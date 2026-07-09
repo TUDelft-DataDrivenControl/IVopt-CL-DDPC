@@ -72,27 +72,36 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
 end
 
 function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny,DMCS)
-    Zpf = make_Page([u1;y1],p+f,DMCS); Zp = Zpf(1:(nu+ny)*p,:); Zf = Zpf((nu+ny)*p+1:end,:);
+    % slightly altered to also estimate direct feedthrough
+    Zpf = make_Page([u1;y1],p+f,DMCS);
 
-    [~,R] = qr([Zp;Zf].','econ'); R = R.';
+    [~,R] = qr(Zpf.','econ'); R = R.';
+    
     tLest = zeros(ny*f,(p+f)*(nu+ny));
+    Rinv = inv(R); % only need to invert once this way
+    
+    colsend = p*(nu+ny)+nu;
+    rows1 = 1:ny; rows1 = rows1 + p*(nu+ny)+nu;
+    rows2 = 1:ny;
     for kf = 1:f
-        % get R11 & R21
-        Rzp_idx = 1:(p+kf-1)*(nu+ny)+nu;
-        Ryk_idx = Rzp_idx(end)+(1:ny);
-        R11 = R(Rzp_idx,Rzp_idx);
-        R21 = R(Ryk_idx,Rzp_idx);
-
-        % compute relevant part of tLest matrix
-        rows = (kf-1)*ny+1:kf*ny;
-        cols = 1:p*(nu+ny)+kf*nu+(kf-1)*ny;
-        tLest(rows,cols) =  R21*pinv(R11);
+        theta = R(rows1,1:colsend)*Rinv(1:colsend,1:colsend);
+        tLest(rows2,1:colsend) = theta;
+        rows1 = rows1 + ny + nu;
+        rows2 = rows2 + ny;
+        colsend = colsend + nu + ny;
     end
-    ucols = mod(1:size(tLest,2),nu+ny); ucols(ucols == 0) = nu+ny;
-    msk_u = ucols < nu+1;
-    msk_y = ~msk_u;
-    tLest_u = tLest(:,msk_u);
-    tLest_y = tLest(:,msk_y);
-    tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
-    Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
+    % column indices
+    cols = 1:(p+f)*(nu+ny); cols = reshape(cols,nu+ny,p+f);
+    idx_up = cols(1:nu,1:p);         % multiply up
+    idx_uf = cols(1:nu,p+1:end);     % multiply uf
+    idx_yp = cols(nu+1:end,1:p);     % multiply yp
+    idx_yf = cols(nu+1:end,p+1:end); % multiply yf
+    
+    % components of tLest
+    tLest_up = tLest(:,idx_up(:));
+    tLest_uf = tLest(:,idx_uf(:));
+    tLest_yp = tLest(:,idx_yp(:));
+    tLest_yf = tLest(:,idx_yf(:));
+
+    Lf = (eye(ny*f)-tLest_yf)\[tLest_up tLest_yp tLest_uf];
 end
