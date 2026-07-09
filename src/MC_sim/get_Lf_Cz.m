@@ -1,7 +1,7 @@
 function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,Cases,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
-[nu,ny,p,f] = deal(opts.nu,opts.ny,opts.p,opts.f);
+[nu,ny,p,f,DMCS] = deal(opts.nu,opts.ny,opts.p,opts.f,opts.DMCS);
 nCz = numel(Cases);
-[~,~,Yf_r01] = make_Hankel(y0,p,f);
+Yf_r01 = make_Page(y0(:,p+1:end),f,DMCS);
 
 % make functions to get SPC controllers
 usol_funs = get_solver(opts,Q,R,dR); % structure w/ up2usol, yp2usol, urf2usol, yrf2usol
@@ -27,7 +27,7 @@ for iCz = 1:nCz
 
     % -------------------------- (7) CL-SPC -----------------------------------
     elseif strcmp(Czn, 'CLSPC')
-        Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
+        Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny,DMCS);
 
     % -------------------------- (8) SPC w/ actual Lf -------------------------
     elseif strcmp(Czn, 'actLf')
@@ -36,7 +36,7 @@ for iCz = 1:nCz
 
     % -------------------------- (9) Transient Predictor ----------------------
     elseif strcmp(Czn, 'TrPred')
-        Lf.(Czn) = get_Lf_TransPred(u0,y0,p,f,nu,ny);
+        Lf.(Czn) = get_Lf_TransPred(u0,y0,p,f,nu,ny,DMCS);
     end
 
     % =========================== get controller ==============================
@@ -49,9 +49,9 @@ for iCz = 1:nCz
 end
 end
 
-function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
-    [~,Up,Uf] = make_Hankel(u1,p,1);
-    [~,Yp,Yf] = make_Hankel(y1,p,1);
+function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
+    Upf = make_Page(u1,p+f,DMCS); Up = Upf(1:nu*p,:); Uf = Upf(nu*p+1:nu*(p+1),:);
+    Ypf = make_Page(y1,p+f,DMCS); Yp = Ypf(1:ny*p,:); Yf = Ypf(ny*p+1:ny*(p+1),:);
     L1 = Yf*pinv([Up;Yp;Uf(1:nu,:)]);
     
     C_tKpu_hat = L1(:,1:p*nu);
@@ -71,8 +71,8 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
     Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
 end
 
-function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny)
-    [~,Zp,Zf] = make_Hankel([u1;y1],p,f);
+function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny,DMCS)
+    Zpf = make_Page([u1;y1],p+f,DMCS); Zp = Zpf(1:(nu+ny)*p,:); Zf = Zpf((nu+ny)*p+1:end,:);
 
     [~,R] = qr([Zp;Zf].','econ'); R = R.';
     tLest = zeros(ny*f,(p+f)*(nu+ny));

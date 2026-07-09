@@ -1,4 +1,4 @@
-function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
+function [Uf_2sls,Uf_iv4] = approx_IV_no_controller_info(u,y,w,opts)
 %% Approximates the optimal IVs Uf & Yf without controller information (Algorithm 1 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using no knowledge of the
@@ -13,7 +13,7 @@ function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
 % Resulting composition of data matrix D:
 %       D = [U_{\varrho}; Y_{\varrho}; W_{\nu}; W_f]
 
-[gamma,p,f,nu,ny] = deal(opts.gamma,opts.p,opts.f,opts.nu,opts.ny);
+[gamma,p,f,nu,ny,DMCS] = deal(opts.gamma,opts.p,opts.f,opts.nu,opts.ny,opts.DMCS);
 varrho = max(gamma,p);
 
 [~,Nbar] = size(u);
@@ -21,42 +21,39 @@ validateattributes(u, {'double'},{'size',[nu Nbar]});
 validateattributes(y, {'double'},{'size',[ny Nbar]});
 validateattributes(w, {'double'},{'size',[ny Nbar]});
 
-% create data matrix D and Uf, Yf
-[~,Uv,Uf] = make_Hankel(u,varrho,f);
-[~,Yv,Yf] = make_Hankel(y,varrho,f);
-[~,Wr,Wf] = make_Hankel(w,varrho,f);
+% create data matrix D and Uf
+Uvf = make_Page(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
+Yvf = make_Page(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:);
+Wvf = make_Page(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:);
 Wr = Wr(end-gamma+1:end,:); % select last gamma block rows
 D = [Uv;Yv;Wr;Wf];
 
-%% ------------------------- get closed-loop system ------------------------
-L_cl = [Uf;Yf]*pinv(D); % initial estimate
+%% ------------------------------ 2SLS (IV7) ------------------------------
+L_clu = Uf*pinv(D); % initial estimate
+Uf_2sls = L_clu*D;
 
-% split up into parts
-L_clu = L_cl(1:nu*f,:);     % D -> uf
-L_cly = L_cl(nu*f+1:end,:); % D -> yf
+%% ------------------------------ IV4a ------------------------------------
+% -> attempt to improve L_clu using causality & time invariance
+L_clu1 = L_clu;
+% part for Wf should be causal & time invariant -> impose lower (block-)tril (averaged) structure
+L_clu1(:,end-f*ny+1:end) = blk_tril_avg(L_clu1(:,end-f*ny+1:end),nu,ny);
 
-% modify parts representing influence of Wf (impose causality & average)
-L_clur = L_clu(:,end-f*ny+1:end);
-L_clyr = L_cly(:,end-f*ny+1:end);
+Uf_iv4 = L_clu1*D;
 
+end
+
+function Lpart = blk_tril_avg(Lpart,nrow,ncol)
+[s1,s2] = size(Lpart);
+blkrows = s1/nrow;
+blkcols = s2/ncol; 
+if blkrows~=floor(blkrows) || blkcols~=floor(blkcols)
+    error('The block dimensions do not fit evenly in the provided matrix.');
+elseif blkrows ~= blkcols
+    error('The number of block rows must be equal to the number of block columns');
+end
 % part for Wf should be causal -> impose (block-)tril structure
-L_clur = L_clur.*kron(tril(ones(f)),ones(nu,ny)); % blocks: nu x ny
-L_clyr = L_clyr.*kron(tril(ones(f)),ones(ny,ny)); % blocks: ny x ny
+Lpart = Lpart.*kron(tril(ones(blkrows)),ones(nrow,ncol)); % blocks: nrow x ncol
 
 % take mean of corresponding elements in blocks along diagonals
-L_clur = blk_toeplitz_mean(L_clur,nu,ny);
-L_clyr = blk_toeplitz_mean(L_clyr,ny,ny);
-
-% adjust L_clu & L_cly accordingly
-L_clu(:,end-f*ny+1:end) = L_clur;
-L_cly(:,end-f*ny+1:end) = L_clyr;
-
-% concatenate averaged matrices
-L_cl = [L_clu; L_cly];
-
-%% ------------------------ get approximate IV -----------------------------
-UfYf_iv = L_cl*D;
-Uf_iv = UfYf_iv(1:nu*f,:);
-Yf_iv = UfYf_iv(nu*f+1:end,:);
-
+Lpart = blk_toeplitz_mean(Lpart,nrow,ncol);
 end

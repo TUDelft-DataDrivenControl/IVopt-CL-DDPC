@@ -1,4 +1,4 @@
-function [Uf_iv,Yf_iv] = approx_IV_controller_info(u,y,w,opts,Cz)
+function Uf_iv = approx_IV_controller_info(u,y,w,opts,Cz)
 %% Approximates the optimal IVs Uf & Yf using controller information (Algorithm 2 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using knowledge of the
@@ -10,7 +10,7 @@ function [Uf_iv,Yf_iv] = approx_IV_controller_info(u,y,w,opts,Cz)
 % Resulting composition of data matrix D:
 %       D = [U_{\varrho}; Y_{\varrho}; W_{\nu}; W_f]
 
-[gamma,p,f] = deal(opts.gamma,opts.p,opts.f);
+[gamma,p,f,DMCS] = deal(opts.gamma,opts.p,opts.f,opts.DMCS);
 [nu,Nbar] = size(u);
 ny = size(y,1);
 validateattributes(y, {'double'},{'size',[ny Nbar]});
@@ -26,10 +26,10 @@ varrho = max(gamma,p); % get max of past controller & plant windows
 
 %% ===================== estimating system matrices =======================
 
-% make hankel matrices
-[~,Uv,Uf] = make_Hankel(u,varrho,f);   
-[~,Yv,Yf] = make_Hankel(y,varrho,f); 
-[~,Wr,Wf] = make_Hankel(w,varrho,f); % Wr -> gamma instead of varrho deep
+% make data matrices matrices
+Uvf = make_Page(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
+Yvf = make_Page(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:); Yf = Yvf(ny*varrho+1:end,:);
+Wvf = make_Page(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:); % Wr -> gamma instead of varrho deep
 
 % select specific gamma and p long matrices
 Wr = Wr(end-gamma*ny+1:end,:);
@@ -42,7 +42,6 @@ Rw_rf = [Lce Tcf]*[Wr;Wf] + Lcu*Ur - Lce*Yr; % f*nu x N
 DMr = [Up;Yp;Rw_rf];
 
 iuf = 1:nu*f;
-iyf = f*nu+(1:ny*f);
 pnuy = p*(nu+ny);
 
 %% initial estimate:
@@ -50,19 +49,15 @@ G_0 = [Uf;Yf]*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
 
 % extract Mu & Tuf*Mu estimates
 Mu_0    = G_0(iuf,pnuy+(1:f*nu));   % Mu
-TufMu_0 = G_0(iyf,pnuy+(1:f*nu));   % Tuf*Mu
 
 % block-lower triangularize & average
 Mu_1    = blk_tril_avg(Mu_0,   nu,nu);
-TufMu_1 = blk_tril_avg(TufMu_0,ny,nu);
 
-% re-estimate remaining parameters taking into account contribution of [Mu_1;TufMu_1]*Rw_rf
-G_1 = ([Uf;Yf]-[Mu_1;TufMu_1]*Rw_rf)*pinv([Up;Yp]);
+% re-estimate remaining parameters taking into account contribution of Mu_1*Rw_rf
+G_1 = (Uf-Mu_1*Rw_rf)*pinv([Up;Yp]);
 
-%% estimate Uf_iv & Yf_iv
-UY_iv = [G_1 [Mu_1;TufMu_1]]*DMr;
-Uf_iv = UY_iv(iuf,:);
-Yf_iv = UY_iv(iyf,:);
+%% estimate Uf_iv
+Uf_iv = [G_1 Mu_1]*DMr;
 
 end
 

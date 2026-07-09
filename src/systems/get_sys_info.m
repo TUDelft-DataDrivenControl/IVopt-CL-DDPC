@@ -10,7 +10,7 @@ function [plant,sys_subdir,fn_Cz0] = get_sys_info(opts)
 % Feel free to add new systems by adding new cases to the switch statement below
 
 switch opts.sys
-    case {1,2,3}
+    case {1,2,3,8}
         plant = model_Landau1995();
         sys_subdir = 'Landau1995';
         switch opts.sys
@@ -24,8 +24,11 @@ switch opts.sys
                 fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
             case 3
                 % controller with direct feedthrough, 5 states
-                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apprarent
+                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apparent
                 fn_Cz0 = 'Cz0_Landau1995.mat';
+            case 8
+                % controller with direct feedthrough, 20 states
+                fn_Cz0 = 'Cz0_Landau1995_D0_n20.mat';
         end
     case 4
         plant = model_Bemporad2002(At_poles=[0.95, 0.9]);    

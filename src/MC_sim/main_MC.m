@@ -21,13 +21,12 @@ xcl0_plant = xcl0(size(Cz0.A,1)+1:size(Cz0.A,1)+nx,end);  % get final state of p
 
 % ------------------- simulations without future noise --------------------
 Uf_iv2 = nan(nu*f,N);
-Yf_iv2 = nan(ny*f,N);
+
 tic
 for kN = 1:N
-    kk = p+kN;
-    uy_f_iv_opt = lsim(Tcl0,[yr0(:,kk:kk+f-1);zeros(ny,f)],[],xcl0(:,kk).').';
-    Uf_iv2(:,kN) = reshape(uy_f_iv_opt(1:nu,:),nu*f,1);
-    Yf_iv2(:,kN) = reshape(uy_f_iv_opt(nu+(1:ny),:),ny*f,1);
+    kk = p + 1 + (kN - 1)*opts.DMCS;
+    u_f_iv_opt = lsim(Tcl0(1:nu,:),[yr0(:,kk:kk+f-1);zeros(ny,f)],[],xcl0(:,kk).').';
+    Uf_iv2(:,kN) = reshape(u_f_iv_opt,nu*f,1);
 end
 toc
 
@@ -40,7 +39,7 @@ noSimCases = {}; % cases not to simulate
 nCz = numel(Cases);
 
 % ============================ create IVs =================================
-[Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Yf_iv2,Cases,Descr,opts); % Z is IV_4_DDPC object containing IVs
+[Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Cases,Descr,opts); % Z is IV_4_DDPC object containing IVs
 
 %% Get Subspace Predictive Controllers
 % ---------------------- get (CL-)SPC controllers -------------------------

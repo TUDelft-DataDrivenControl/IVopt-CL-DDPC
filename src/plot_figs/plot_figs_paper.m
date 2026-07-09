@@ -15,9 +15,13 @@ addpath(fullfile(pdir,'bin','crameri_colours')); % add path to Crameri colour ma
 
 % data from main_dRe(sys=1, Re_min=1e-5, Re_max=1e-1, nRe=15) (default settings)
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260327_1942';             % name of subdir1 containing data for all figures
+% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260327_1942';             % name of subdir1 containing data for all figures
+% top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
+% iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
+
+subdir1 = 'Re_5p179475e-02_5p179475e-02_1_p_20_N_1e03_f_20_DMCS_20_20260708_2321';
 top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
-iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
+iX = 1;
 
 %% Figure: example of Monte-Carlo simulation
 ks = 5;           % seed index
@@ -58,7 +62,7 @@ save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
 cd(pdir); 
 
-Cases = {'actLf','iv1','iv6a','iv4a','iv3c','iv3a','TrPred'};
+Cases = {'actLf','iv1','iv6a','iv4a','iv3a','TrPred','iv7','iv5a'};%'iv3c','iv3a','TrPred'};
 notScaledto = 'iv6a'; % <- do not scale colorbar to values hereof
 
 subdir1_path = fullfile(top_dir,subdir1);
@@ -72,12 +76,12 @@ save_fig(save_figs,fig,pdir,'dinkl4.pdf');
 
 %% Figure: yf prediction quality
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
-cd(pdir); 
+cd(pdir);
 
 % ------------------------- settings --------------------------------------
 fig4_dir = fullfile(top_dir,subdir1);
 
-Cases = {'CLSPC','TrPred','actLf','iv4a','iv1','iv3c','iv3a','iv6a'};
+Cases = {'CLSPC','TrPred','actLf','iv4a','iv5a','iv1','iv7'};%'iv1','iv3c','iv3a','iv6a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
 insetYLims = {[-0.80 1], 'free'};    % yLim for top & bottom-axes insets
 insetPos   = {[0.11, 0.61, 0.52, 0.34], ... % [X, Y, W, H] for top-axes inset
