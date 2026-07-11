@@ -1,10 +1,10 @@
-function [Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Cases,Descr,opts)
+function [Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,opts)
 %% creates all of the IVs using the IV_4_DDPC class
 % The main objective of this function is to create an instance of the
 % IV_4_DDPC class in which to save the created IVs
 
 [p,f,DMCS] = deal(opts.p,opts.f,opts.DMCS);
-nCz = numel(Cases);
+nCz = numel(opts.Cases);
 
 %% ========================= calculate IVs ================================
 % some necessary calculations before assigning IVs using IV_4_DDPC class
@@ -29,10 +29,10 @@ Rf_yr0 = make_Page(yr0(:,p+1:end),f,DMCS); % also used for (6)
 
 % ---------------------- (4) w/o controller info. -------------------------
 % w/o -> don't known Cz0 exactly, but know rho & feedback configuration
-[Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u0,y0,yr0,opts,Cases);
+[Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u0,y0,yr0,opts);
 
 % ---------------------- (5) w/ controller info. --------------------------
-[Uf_iv5a,Uf_iv5b,Uf_iv5c,Uf_iv5d] = approx_IV_controller_info(u0,y0,yr0,opts,Cz0,Cases);
+[Uf_iv5a,Uf_iv5b,Uf_iv5c,Uf_iv5d] = approx_IV_controller_info(u0,y0,yr0,opts,Cz0);
 
 %% ========================== assign IVs ==================================
 % using an instance of the IV_4_DDPC class
@@ -42,8 +42,8 @@ Rf_yr0 = make_Page(yr0(:,p+1:end),f,DMCS); % also used for (6)
 Z = IV_4_DDPC(u0,y0,p,f,DMCS); % initializes IV object & makes open-loop IV ('iv1')
 
 for kIV = 1:nCz % loop over Cases (which contains IV names)
-    IV_name = Cases{kIV};    % IV name
-    IV_descr = Descr{kIV};   % IV description
+    IV_name = opts.Cases{kIV};    % IV name
+    IV_descr = opts.CaseDescr{kIV};   % IV description
 
     switch IV_name
 % ---------------------- (2) optimal IV -----------------------------------

@@ -1,4 +1,4 @@
-function [Uf_iv5a, Uf_iv5b, Uf_iv5c, Uf_iv5d] = approx_IV_controller_info(u,y,w,opts,Cz,Cases)
+function [Uf_iv5a, Uf_iv5b, Uf_iv5c, Uf_iv5d] = approx_IV_controller_info(u,y,w,opts,Cz)
 %% Approximates the optimal IVs Uf & Yf using controller information (Algorithm 2 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using knowledge of the
@@ -43,7 +43,7 @@ DMr = [Up;Yp;Rw_rf];
 
 
 iv_names = {'iv5a','iv5b','iv5c','iv5d'};
-iv_names = intersect(iv_names,Cases);
+iv_names = intersect(iv_names,opts.Cases);
 [Uf_iv5a,Uf_iv5b,Uf_iv5c,Uf_iv5d] = deal(nan); % predefine for output
 for kiv = 1:length(iv_names)
 iv_name = iv_names{kiv};

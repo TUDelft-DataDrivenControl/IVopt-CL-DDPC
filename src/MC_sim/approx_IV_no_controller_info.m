@@ -1,4 +1,4 @@
-function [Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u,y,w,opts,Cases)
+function [Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u,y,w,opts)
 %% Approximates the optimal IVs Uf & Yf without controller information (Algorithm 1 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using no knowledge of the
@@ -29,7 +29,7 @@ Wr = Wr(end-gamma+1:end,:); % select last gamma block rows
 D = [Uv;Yv;Wr;Wf];
 
 iv_names = {'iv4a','iv4b','iv4c','iv4d'};
-iv_names = intersect(iv_names,Cases);
+iv_names = intersect(iv_names,opts.Cases);
 [Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = deal(nan); % predefine for output
 for kiv = 1:length(iv_names)
 iv_name = iv_names{kiv};

@@ -1,6 +1,6 @@
-function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,Cases,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
+function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
 [nu,ny,p,f,DMCS] = deal(opts.nu,opts.ny,opts.p,opts.f,opts.DMCS);
-nCz = numel(Cases);
+nCz = numel(opts.Cases);
 Yf_r01 = make_Page(y0(:,p+1:end),f,DMCS);
 
 % make functions to get SPC controllers
@@ -18,7 +18,7 @@ yrf = yr1(:,1:f);        yrf = yrf(:);  % future output references
 
 % create controllers
 for iCz = 1:nCz
-    Czn = Cases{iCz}; % name of controller
+    Czn = opts.Cases{iCz}; % name of controller
 
     % ============================ get Lf (estimate) ==========================
     % -------------------------- (1-6) SPCs based on an IV --------------------

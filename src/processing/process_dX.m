@@ -41,7 +41,7 @@ nX = numel(X_all);
 %  -> expect selection of {'iv1','iv2','iv2b','iv2c','iv3','iv3c','iv4a','iv4b','iv4c','iv4d',...
 %                          'iv5b','iv5c','iv6a','CLSPC','actLf','TrPred'};
 seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
-Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'Cases').Cases;
+Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'opts').opts.Cases;
 num_Cases = numel(Cases);
 
 %% initializing measures
