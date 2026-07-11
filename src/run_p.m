@@ -40,7 +40,7 @@ sE.e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise
 sE.e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % innovation noise
 
 %% run simulations
-[sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl, sE.Cases] ...
+[sE.opts, sE.u0, sE.y0, sE.xcl0, sE.Z, sE.Lf, sE.Cz, sE.Tcl, sE.u_cl, sE.y_cl] ...
     = main_MC(sE.opts,sigs,plant,Cz0,Tcl0,sP.yr0,sE.e0,sP.yr1,sP.ur1,sE.e1);
 
 %% save data
@@ -50,7 +50,7 @@ fn_short = strrep(fn,proj_dir,'');
 fprintf('Saving data to file: \n\t%s \n',fn_short);
 save(fn,"-fromstruct",sE);
 %'opts','e0','e1','u0','y0','xcl0',...
-% 'Z','Lf','Cz','Tcl','u_cl','y_cl','Cases'
+% 'Z','Lf','Cz','Tcl','u_cl','y_cl'
 fprintf('File saved successfully!\n');
 end
 
