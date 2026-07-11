@@ -37,7 +37,10 @@ arguments
     opts.sys    (1,1) double = 1;       % system selection (see get_sys_info.m)
     opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
     opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, >1 = Page) DMCS = Data Matrix Column Shift
+    opts.Cases  (1,:) cell = {'all'};   % Cases to simulate: options: 'all','iv1','CL-SPC','TrPred',etc. see CaseDefinitions.m
+    opts.noSimCases cell = {};          % Cases to exclude from simulation. compatible with opts.Cases = {'all'}
 end
+[opts.Cases,opts.CaseDescr,opts.noSimCases] = findCases2Sim(opts.Cases,opts.noSimCases); % parse Cases
 if opts.Nmin > opts.Nmax % swap if Nmin > Nmax
     [opts.Nmin, opts.Nmax] = deal(opts.Nmax, opts.Nmin);
 elseif opts.Nmin == opts.Nmax

@@ -131,13 +131,16 @@ Important parameters that the user can change for different data sets are
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Re` | 0.01 | Innovation noise variance |
-| `N` | 1000 | Number of columns in Hankel data matrix |
+| `N` | 1000 | Number of columns in Hankel/Page data matrix |
 | `p` | 20 | Past horizon (learning window length) |
 | `f` | 20 | Future horizon (prediction/control window) |
 | `Ncl` | 1500 | Closed-loop simulation length |
 | `seed` | 1 | Random seed for reproducibility |
 | `sys` | 1 | System configuration (1 = Landau1995, primary) |
-| `ref0` | 'prbs' | Initial reference signal type: 'make*' or 'prbs' |
+| `ref0` | 'prbs' | Initial reference signal type: 'make'* or 'prbs' |
+| `DMCS` | 1 | Data Matrix Column Shift (1 = Hankel, >1 = Page matrix configuration) |
+| `Cases` | 'all' | Cases to simulate: 'all', specific method names, or cell array (see `CaseDefinitions.m`) |
+| `noSimCases` | {} | Cases to exclude from simulation (works with `Cases='all'`) |
 | `Qk`, `Rk`, `dRk` | 100, 1, 1 | Controller cost weights |
 
 \*'make' specifies an *initial* reference that is based on the reference used in [<a href="#ref25">25</a>]. The output reference trajectory that is employed by the different controllers is always based on such a reference and not a 'prbs' variant.
