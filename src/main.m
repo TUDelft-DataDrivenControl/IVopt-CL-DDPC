@@ -22,9 +22,13 @@ arguments (Input)
     opts.seed (1,1) double  = 1;        % random seed for reproducibility
     opts.save       logical = true;     % save data
     opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
-    opts.sys  (1,1) double = 1;         % flag for model selection
-    opts.ref0 (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
+    opts.sys    (1,1) double = 1;       % flag for model selection
+    opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
+    opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, >1 = Page) DMCS = Data Matrix Column Shift
+    opts.Cases  (1,:) cell = {'all'};   % Cases to simulate: options: 'all','iv1','CL-SPC','TrPred',etc. see CaseDefinitions.m
+    opts.noSimCases cell = {};          % Cases to exclude from simulation. compatible with opts.Cases = {'all'}
 end
+[opts.Cases,opts.CaseDescr,opts.noSimCases] = findCases2Sim(opts.Cases,opts.noSimCases); % parse Cases
 [Re, p, f, N, Ncl, seed] = deal(opts.Re, opts.p, opts.f, opts.N, opts.Ncl, opts.seed);
 
 rng default;
@@ -69,7 +73,7 @@ e0 = mvnrnd(zeros(ny,1),Re,Nbar).'; % innovation noise for initial closed-loop s
 e1 = mvnrnd(zeros(ny,1),Re,Ncl).';  % subsequent innovation noise
 
 %% run simulations
-[opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases] ...
+[opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl] ...
     = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1);
 
 %% Saving data
@@ -115,7 +119,7 @@ if opts.save
     fprintf('Saving data to file: \n\t%s \n',fn_short);
     save(fn,'opts',...
         'plant','Cz0','Tcl0','yr0','yr1','ur1','e1','e0','u0','y0','xcl0',...
-        'Z','Lf','Cz','Tcl','u_cl','y_cl','Cases');
+        'Z','Lf','Cz','Tcl','u_cl','y_cl');
     fprintf('File saved successfully!\n');
 end
 end

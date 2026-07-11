@@ -9,14 +9,14 @@ m1_UYf_col = zeros(num_Uf_ivs,1);
 for kIVu = 1:num_Uf_ivs
     iv_name = Uf_ivs{kIVu};
     switch iv_name
-        case 'iv2a'
+        case 'iv2'
             % leave zero since this is the optimal IV for Uf
-        case 'iv3a' % IV_Theta: only possible because nu = nlcf (see get_Z.m)
-            Uf_iv = Z.iv3a_(1:ny*f,:);
-            m1_UYf_col(kIVu) = norm(Uf_iv - Z.iv2a_, 'fro');
+        case 'iv3' % IV_Theta: only possible because nu = nlcf (see get_Z.m)
+            Uf_iv = Z.iv3_(1:ny*f,:);
+            m1_UYf_col(kIVu) = norm(Uf_iv - Z.iv2_, 'fro');
         otherwise
             Uf_iv = Z.([iv_name,'_']);
-            m1_UYf_col(kIVu) = norm(Uf_iv - Z.iv2a_, 'fro');
+            m1_UYf_col(kIVu) = norm(Uf_iv - Z.iv2_, 'fro');
     end
 end
 

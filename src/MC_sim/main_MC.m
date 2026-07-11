@@ -1,4 +1,4 @@
-function [opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl, Cases] ... 
+function [opts, u0, y0, xcl0, Z, Lf, Cz, Tcl, u_cl, y_cl] ... 
           = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,e0,yr1,ur1,e1)
 %% This function will run all necessary simulations given input parameters
 [A,~,~,D,~] = plant2ABCDK(plant);
@@ -33,19 +33,14 @@ toc
 %% Instrumental Variable Matrices
 opts.gamma = ss2lag(Cz0); % determine lag of the initial controller
 
-% ============================ define cases ===============================
-noSimCases = {}; % cases not to simulate
-[Cases,Descr] = CaseDefinitions(noSimCases);
-nCz = numel(Cases);
-
 % ============================ create IVs =================================
-[Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,Cases,Descr,opts); % Z is IV_4_DDPC object containing IVs
+[Z,nlcf]= get_Z(u0,y0,yr0,Cz0,Uf_iv2,opts); % Z is IV_4_DDPC object containing IVs
 
 %% Get Subspace Predictive Controllers
 % ---------------------- get (CL-)SPC controllers -------------------------
 fprintf('Obtaining controllers...\n');
 
-[Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,Cases,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs);
+[Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs);
 
 %% Run closed-loop simulations
 fprintf('Running closed-loop simulations...\n');
@@ -54,8 +49,9 @@ fprintf('Running closed-loop simulations...\n');
 Tcl_in  = [sigs.urkf(:)',sigs.yrkf(:)',sigs.ek(:)'];
 Tcl_out = [sigs.uk(:)',sigs.yk(:)'];
 conOpts = connectOptions("Simplify",false);
+nCz = numel(opts.Cases);
 for kCz = 1:nCz
-    Czn = Cases{kCz};
+    Czn = opts.Cases{kCz};
     Tcl.(Czn) = connect(Cz.(Czn),plant,Tcl_in,Tcl_out,conOpts);
 end
 
@@ -66,7 +62,7 @@ x1_0_cl = [x1_0_SPC;x1_0_plant];
 
 % run simulations
 for kCz = 1:nCz
-    Czn = Cases{kCz}; % controller name
+    Czn = opts.Cases{kCz}; % controller name
     uy_cl = lsim(Tcl.(Czn),[ur1(:,f+1:end);yr1(:,f+1:end);e1],[],x1_0_cl).';
     u_cl.(Czn) = uy_cl(1:nu,:);
     y_cl.(Czn) = uy_cl(nu+1:end,:);

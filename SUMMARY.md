@@ -62,23 +62,21 @@ The primary intent of the code is to facilitate reproduction of results presente
 - `make_reference.m` — Replicates reference from [<a href="#ref25">25</a>]
 - `plant2ABCDK.m` — Gets A, B, C, D, and K matrices from the specified plant.
 - `ss2lag.m` — Computes the lag of a state-space system.
+- `findCases2Sim.m` — Parses and validates case specifications.
 
-## Simulated Controllers (17 cases)
+## Simulated Controllers (15 cases)
 
 | ID | Type | Description |
 |----|------|-------------|
 | `iv1` | Baseline | Open-loop IV |
-| `iv2a`, `iv2b`, `iv2c` | Optimal (exact) | Optimal IV with 0, 1, 2 refinement iterations |
-| `iv3a`, `iv3c` | LCF-IV [<a href="#ref6">6</a>] | IV based on the left coprime factorization  |
-| `iv4a`, `iv4b`, `iv4c` | Approx. (no `Cz0` info) | Approximated optimal IV without controller knowledge |
-| `iv5a`, `iv5b`, `iv5c` | Approx. (with `Cz0` info) | Approximated optimal IV with controller knowledge |
-| `iv6a`, `iv6c` | Reference-based | Future reference as IV |
-| `CLSPC` | Benchmark | Standard closed-loop SPC |
-| `actLf` | Oracle | True transfer matrix (upper bound) |
+| `iv2` | Optimal (exact) | Denoised IV |
+| `iv3` | LCF-IV [<a href="#ref6">6</a>] | IV based on the left coprime factorization  |
+| `iv4a`, `iv4b`, `iv4c`, `iv4d` | Approx. (no `Cz0` info) | Approximated optimal IV without controller knowledge (2SLS, 2SLS + causal + time invariance, row-by-row, row-by-row + time invariance) |
+| `iv5a`, `iv5b`, `iv5c`, `iv5d` | Approx. (with `Cz0` info) | Approximated optimal IV without controller knowledge (2SLS, 2SLS + causal + time invariance, row-by-row, row-by-row + time invariance) |
+| `iv6`  | Reference-based | Future reference as IV |
+| `CLSPC` | Benchmark | Closed-loop SPC |
+| `actLf` | Oracle | SPC with true Lf |
 | `TrPred` | Transient | Transient predictor |
-
-IVs with "b" suffix incorporate (approximations of) future denoised outputs $\tilde{Y}_{\mathrm{f}}$<br>
-IVs with "c" suffix are variants that apply 2SLS (two-stage least squares) to the IV preceding it in the table.
 
 ## License
 This code is released under the **MIT License** (see [LICENSE.md](LICENSE.md)).

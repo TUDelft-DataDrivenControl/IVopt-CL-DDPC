@@ -37,7 +37,10 @@ arguments
     opts.sys    (1,1) double = 1;       % system selection (see get_sys_info.m)
     opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
     opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, >1 = Page) DMCS = Data Matrix Column Shift
+    opts.Cases  (1,:) cell = {'all'};   % Cases to simulate: options: 'all','iv1','CL-SPC','TrPred',etc. see CaseDefinitions.m
+    opts.noSimCases cell = {};          % Cases to exclude from simulation. compatible with opts.Cases = {'all'}
 end
+[opts.Cases,opts.CaseDescr,opts.noSimCases] = findCases2Sim(opts.Cases,opts.noSimCases); % parse Cases
 if opts.Re_min > opts.Re_max % swap if Re_min > Re_max
     [opts.Re_min, opts.Re_max] = deal(opts.Re_max, opts.Re_min);
 elseif opts.Re_min == opts.Re_max
@@ -135,7 +138,7 @@ else
         parpool(myCluster,nworker);
     end
     %parfor
-    for ii = 1:nRe*spRe
+    parfor ii = 1:nRe*spRe
         run_Re(ii,opts,spRe,nRe,seeds,Re_all,Ncl,Nbar,ny,plant,subdir1,sigs,Cz0,Tcl0,yr0,yr1,ur1,proj_dir)
     end
 end

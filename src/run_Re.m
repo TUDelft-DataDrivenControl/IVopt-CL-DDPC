@@ -26,7 +26,7 @@ if ~isfolder(subdir2)
 end
 
 %% run simulations
-[s.opts, s.u0, s.y0, s.xcl0, s.Z, s.Lf, s.Cz, s.Tcl, s.u_cl, s.y_cl, s.Cases] ...
+[s.opts, s.u0, s.y0, s.xcl0, s.Z, s.Lf, s.Cz, s.Tcl, s.u_cl, s.y_cl] ...
     = main_MC(opts,sigs,plant,Cz0,Tcl0,yr0,s.e0,yr1,ur1,s.e1);
 
 %% save data
@@ -36,7 +36,7 @@ fn = fullfile(subdir2,fn);
 fn_short = strrep(fn,proj_dir,'');
 fprintf('Saving data to file: \n\t%s \n',fn_short);
 % save(fn,'opts','e0','e1','u0','y0','xcl0',...
-%     'Z','Lf','Cz','Tcl','u_cl','y_cl','Cases');
+%     'Z','Lf','Cz','Tcl','u_cl','y_cl');
 save(fn,"-fromstruct",s)
 fprintf('File saved successfully!\n');
 end

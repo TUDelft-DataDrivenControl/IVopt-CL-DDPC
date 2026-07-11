@@ -19,15 +19,14 @@ data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 % top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
 % iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
 
-subdir1 = 'Re_5p179475e-02_5p179475e-02_1_p_20_N_1e03_f_20_DMCS_20_20260708_2321';
+subdir1 = 'Re_1e-05_5p179475e-02_3_p_20_N_1e03_f_20_DMCS_1_20260709_2227';
 top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
-iX = 1;
+iX = 3;
 
 %% Figure: example of Monte-Carlo simulation
 ks = 5;           % seed index
 marker_interval = 20;
-noPlotCases  = {'iv2a','iv3a','iv5a','TrPred',...
-    'iv2b','iv2c','iv3c','iv4b','iv4c','iv5b','iv5c','iv6c'};
+noPlotCases  = {'iv2','iv3','iv4b','iv4c','iv4d','iv5b','iv5c','iv5d','iv6','TrPred'};
 
 subdir = fullfile(top_dir,subdir1);
 
@@ -46,14 +45,11 @@ cd(pdir);
 % ------------------------- settings --------------------------------------
 fig3_dir = fullfile(top_dir,subdir1);
 
-% determine IVs to show (iv2a and iv2b => 0, so excluded)
-Uf_ivs = {'iv1','iv3a','iv2c','iv3c','iv4a','iv5a','iv6c'}; % see fieldnames(m1.Uf), reflects visible 'groups': 3a, 3c, 1, 2c, {4a, 4c, 5a, 5c}, 6c
-Yf_ivs = {'iv3a','iv4b','iv6a'};                            % see fieldnames(m1.Yf)
+% determine IVs to show (iv2 => 0 so excluded)
+[~,~,Uf_ivs] = CaseDefinitions({'iv2'});
 
-legPosOnAx = {[0.38, 0.05], [0.53 0.05]}; % {[x y]_top, [x y]_bottom}
-legendEntriesPerColumn = {[2 2 3],[2 2]};
-[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,legPosOnAx,legendEntriesPerColumn,Uf_ivs,Yf_ivs);
-axs3(1).YLim(1) = 2e-2;
+[axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,Uf_ivs);
+axs3.YLim(1) = 2e-2;
 
 % conditional save of figure to results folder
 save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
@@ -62,8 +58,8 @@ save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
 clearvars -except pdir save_figs data_type subdir1 top_dir iX
 cd(pdir); 
 
-Cases = {'actLf','iv1','iv6a','iv4a','iv3a','TrPred','iv7','iv5a'};%'iv3c','iv3a','TrPred'};
-notScaledto = 'iv6a'; % <- do not scale colorbar to values hereof
+Cases = {'actLf','iv1','iv2','iv3','iv4a','iv5a','CLSPC','TrPred'};
+notScaledto = {}; % <- do not scale colorbar to values hereof
 
 subdir1_path = fullfile(top_dir,subdir1);
 
@@ -81,7 +77,7 @@ cd(pdir);
 % ------------------------- settings --------------------------------------
 fig4_dir = fullfile(top_dir,subdir1);
 
-Cases = {'CLSPC','TrPred','actLf','iv4a','iv5a','iv1','iv7'};%'iv1','iv3c','iv3a','iv6a'};
+Cases = {'CLSPC','TrPred','actLf','iv3','iv1','iv4a','iv5a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
 insetYLims = {[-0.80 1], 'free'};    % yLim for top & bottom-axes insets
 insetPos   = {[0.11, 0.61, 0.52, 0.34], ... % [X, Y, W, H] for top-axes inset

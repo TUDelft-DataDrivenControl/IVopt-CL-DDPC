@@ -36,13 +36,17 @@ arguments
     opts.Qk     (1,1) double  = 1e2;    % weight penalizing y_k - y_{r,k}
     opts.sys    (1,1) double = 1;       % system selection (see get_sys_info.m)
     opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % type of initial reference: 'prbs' (default) or 'make'
+    opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, >1 = Page) DMCS = Data Matrix Column Shift
+    opts.Cases  (1,:) cell = {'all'};   % Cases to simulate: options: 'all','iv1','CL-SPC','TrPred',etc. see CaseDefinitions.m
+    opts.noSimCases cell = {};          % Cases to exclude from simulation. compatible with opts.Cases = {'all'}
 end
+[opts.Cases,opts.CaseDescr,opts.noSimCases] = findCases2Sim(opts.Cases,opts.noSimCases); % parse Cases
 if opts.Nmin > opts.Nmax % swap if Nmin > Nmax
     [opts.Nmin, opts.Nmax] = deal(opts.Nmax, opts.Nmin);
 elseif opts.Nmin == opts.Nmax
     opts.nN = 1;
 end
-[Re, p, f, Ncl, Nmin, Nmax, nN, spN] = deal(opts.Re, opts.p, opts.f, opts.Ncl, opts.Nmin, opts.Nmax, opts.nN, opts.spN);
+[Re, p, f, Ncl, Nmin, Nmax, nN, spN, DMCS] = deal(opts.Re, opts.p, opts.f, opts.Ncl, opts.Nmin, opts.Nmax, opts.nN, opts.spN, opts.DMCS);
 
 rng default;
 
@@ -71,7 +75,7 @@ if p < p_lb
 end
 
 % Generate yr0 once with maximum length to ensure consistency across runs
-Nbar_max = p + f + Nmax - 1; % maximum simulation length
+Nbar_max = p + f + (Nmax-1)*DMCS; % maximum simulation length
 switch opts.ref0
     case 'make'
         yr0_full = make_reference(Nbar_max,ny);
@@ -133,7 +137,7 @@ end
 %% Local functions
 % set name of subdir 1
 function subdir1 = name_subdir1(Nmin,Nmax,nN,opts)
-[Re, p, f] = deal(opts.Re, opts.p, opts.f);
+[Re, p, f, DMCS] = deal(opts.Re, opts.p, opts.f, opts.DMCS);
 
 % Function to trim to minimal digits in scientific notation
 trimmed_exp = @(x) regexprep(sprintf('%e', x), '(\.\d*?)0+(e[+-]?\d+)', '$1$2'); % trims trailing 0s
@@ -144,7 +148,7 @@ trimmed_exp = @(x) regexprep(trimmed_exp(x), '\.(e)', '$1');
 Nmin_s = trimmed_exp(Nmin);
 Nmax_s = trimmed_exp(Nmax);
 Re_s  = trimmed_exp(Re);
-subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d_f_%d_%s',Nmin_s,Nmax_s,nN,Re_s,p,f,datestr(now,'yyyymmdd_HHMM'));
+subdir1 = sprintf('N_%s_%s_%d_Re_%s_p_%d_f_%d_DMCS_%d_%s',Nmin_s,Nmax_s,nN,Re_s,p,f,DMCS,datestr(now,'yyyymmdd_HHMM'));
 subdir1 = replace(subdir1,'.','p');
 subdir1 = replace(subdir1,'+','');
 end

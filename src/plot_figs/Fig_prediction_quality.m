@@ -54,12 +54,7 @@ for kC = 1:nCases
     CaseName = Cases{kC};
 
     if startsWith(CaseName,'iv')
-        DispName = ['IV',CaseName(3:end)];
-        if strcmp(CaseName,'iv4a')
-            DispName = [DispName, ' (IV2, IV4, IV5)'];
-        elseif strcmp(CaseName,'iv6a')
-            DispName = [DispName, ' (IV6)'];
-        end
+        DispName = ['IV',CaseName(3)]; % iv5a,5b,5c,5d, etc. -> IV5. same for iv4
     elseif strcmp(CaseName,'CLSPC')
         DispName = 'CL-SPC';
     elseif strcmp(CaseName,'TrPred')

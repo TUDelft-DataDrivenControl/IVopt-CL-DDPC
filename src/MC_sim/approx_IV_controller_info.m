@@ -1,4 +1,4 @@
-function Uf_iv = approx_IV_controller_info(u,y,w,opts,Cz)
+function [Uf_iv5a, Uf_iv5b, Uf_iv5c, Uf_iv5d] = approx_IV_controller_info(u,y,w,opts,Cz)
 %% Approximates the optimal IVs Uf & Yf using controller information (Algorithm 2 from the article)
 % This function approximates the IV matrices Uf and Yf that would have
 % been obtained without future noise Ef, using knowledge of the
@@ -41,24 +41,55 @@ Rw_rf = [Lce Tcf]*[Wr;Wf] + Lcu*Ur - Lce*Yr; % f*nu x N
 
 DMr = [Up;Yp;Rw_rf];
 
-iuf = 1:nu*f;
-pnuy = p*(nu+ny);
 
-%% initial estimate:
-G_0 = [Uf;Yf]*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
+iv_names = {'iv5a','iv5b','iv5c','iv5d'};
+iv_names = intersect(iv_names,opts.Cases);
+[Uf_iv5a,Uf_iv5b,Uf_iv5c,Uf_iv5d] = deal(nan); % predefine for output
+for kiv = 1:length(iv_names)
+iv_name = iv_names{kiv};
+switch iv_name
+%% ------------------------------ IV5a (2SLS) -----------------------------
+case 'iv5a'
+L_clu = Uf*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
+Uf_iv5a = L_clu*DMr;
 
-% extract Mu & Tuf*Mu estimates
-Mu_0    = G_0(iuf,pnuy+(1:f*nu));   % Mu
+%% ------------------------------ IV5b (2SLS + causal + time invariant) ---
+case 'iv5b'
+% -> attempt to improve L_clu using causality & time invariance
+L_clu1 = L_clu;
 
-% block-lower triangularize & average
-Mu_1    = blk_tril_avg(Mu_0,   nu,nu);
+% part for Wf should be causal -> impose block-tril structure
+L_clu1(:,end-f*nu+1:end) = make_blk_tril(L_clu1(:,end-f*nu+1:end),[nu,nu]);
 
-% re-estimate remaining parameters taking into account contribution of Mu_1*Rw_rf
-G_1 = (Uf-Mu_1*Rw_rf)*pinv([Up;Yp]);
+% part for Wf should be time invariant -> block-diagonal averaging
+L_clu1(:,end-f*nu+1:end) = blk_toeplitz_mean(L_clu1(:,end-f*nu+1:end),nu,nu);
 
-%% estimate Uf_iv
-Uf_iv = [G_1 Mu_1]*DMr;
+Uf_iv5b = L_clu1*DMr;
 
+%% ----------------------------- IV5c (row-by-row) -------------------------
+case 'iv5c'
+% -> estimate L_clu row by row (-> causal by construction)
+L_clu2 = zeros(nu*f,size(DMr,1));
+rows = 1:nu;
+colend = (nu+ny)*p + nu;
+for k = 1:f
+    L_clu2(rows,1:colend) = Uf(rows,:)*pinv(DMr(1:colend,:));
+    rows = rows + nu;
+    colend = colend + nu;
+end
+
+Uf_iv5c = L_clu2*DMr;
+
+%% ----------------------------- IV4d (row-by-row + time invariant) -----------
+case 'iv5d'
+L_clu3 = L_clu2; % causal by construction
+% part for Wf should be time invariant -> block-diagonal averaging
+L_clu3(:,end-f*nu+1:end) = blk_toeplitz_mean(L_clu3(:,end-f*nu+1:end),nu,nu);
+
+Uf_iv5d = L_clu3*DMr;
+
+end % of switch
+end % of for loop
 end
 
 %% Local functions
@@ -89,10 +120,5 @@ function [Lup,Lyp,Tuf, varargout] = get_lifted_mats(A,B,C,D,K,p,f)
         Hp  = make_blk_tril_toeplitz(A,K,C,eye(nyC),p);
         varargout{2}  = Gamf*tAp_pinv*Hp;
     end
-end
-
-function Mat = blk_tril_avg(Mat,dim1,dim2)
-    Mat = make_blk_tril(Mat, [dim1,dim2]);
-    Mat = blk_toeplitz_mean(Mat,dim1,dim2);
 end
 
