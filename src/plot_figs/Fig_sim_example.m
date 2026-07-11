@@ -51,7 +51,7 @@ end
 noPlotCases = unique(noPlotCases);
 
 % select cases to plot
-Cases  = setdiff(Cases,noPlotCases);
+Cases  = setdiff(opts.Cases,noPlotCases);
 nCases = numel(Cases);
 
 % determine colours to use

@@ -59,16 +59,21 @@ for kIV = 1:num_Uf_ivs
     
     u_iv.(av_name) = m1.Uf.(iv_name).median;
 
-    % determine color
+    % determine color and linestyle/marker based on suffix (a,b,c,d)
     switch iv_name
+        % All 'a' variants: solid line, no marker
         case 'iv4a', label = '$\hat{\widetilde{U}}_{\mathrm{f,4a}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv4b', label = '$\hat{\widetilde{U}}_{\mathrm{f,4b}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = '-';  Marker = 'o';
-        case 'iv4d', label = '$\hat{\widetilde{U}}_{\mathrm{f,4d}}$'; LineStyle = '-';  Marker = '^';
-        case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = ':';  Marker = 'none';
-        case 'iv5b', label = '$\hat{\widetilde{U}}_{\mathrm{f,5b}}$'; LineStyle = '-.'; Marker = 'none';
-        case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = '^';
-        case 'iv5d', label = '$\hat{\widetilde{U}}_{\mathrm{f,5d}}$'; LineStyle = ':';  Marker = 'o';
+        case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = '-';  Marker = 'none';
+        % All 'b' variants: dashed line, no marker
+        case 'iv4b', label = '$\hat{\widetilde{U}}_{\mathrm{f,4b}}$'; LineStyle = '--'; Marker = 'none';
+        case 'iv5b', label = '$\hat{\widetilde{U}}_{\mathrm{f,5b}}$'; LineStyle = '--'; Marker = 'none';
+        % All 'c' variants: dotted line, circle marker
+        case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = ':';  Marker = 'o';
+        case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = 'o';
+        % All 'd' variants: dash-dot line, triangle marker
+        case 'iv4d', label = '$\hat{\widetilde{U}}_{\mathrm{f,4d}}$'; LineStyle = '-.'; Marker = '^';
+        case 'iv5d', label = '$\hat{\widetilde{U}}_{\mathrm{f,5d}}$'; LineStyle = '-.'; Marker = '^';
+        % Baseline methods
         case 'iv1',  label = '$U_{\mathrm{f}}\vphantom{\hat{\widetilde{U}}}$'; LineStyle = '-';  Marker = 'none';
         case 'iv6',  label = '$W_{\mathrm{f}}$';                      LineStyle = '-';  Marker = 'none';
         otherwise,   label = iv_name;                                 LineStyle = '-';  Marker = 'none';
@@ -126,14 +131,12 @@ function color_struct = make_color_struct(IV_names,CrameriColor)
                 col = 1;
             case '2'
                 col = 2;
-            case '3a'
-                col = 3;
             case {'4a','4b','4c','4d'}
-                col = 4;
+                col = 3;
             case {'5a','5b','5c','5d'}
-                col = 5;
+                col = 4;
             case '6'
-                col = 6;
+                col = 5;
             otherwise
                 continue
         end
