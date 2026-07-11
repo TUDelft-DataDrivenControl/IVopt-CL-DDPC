@@ -62,8 +62,9 @@ The primary intent of the code is to facilitate reproduction of results presente
 - `make_reference.m` — Replicates reference from [<a href="#ref25">25</a>]
 - `plant2ABCDK.m` — Gets A, B, C, D, and K matrices from the specified plant.
 - `ss2lag.m` — Computes the lag of a state-space system.
+- `findCases2Sim.m` — Parses and validates case specifications.
 
-## Simulated Controllers (17 cases)
+## Simulated Controllers (15 cases)
 
 | ID | Type | Description |
 |----|------|-------------|
