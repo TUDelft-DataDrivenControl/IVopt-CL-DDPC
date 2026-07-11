@@ -10,7 +10,7 @@ N = N_all(iN);
 sN.opts.N = N;
 
 % ----- initial CL-sim length & reference -----------
-[Nbar, sN.Nbar] = deal(p + f + N -1); % sim. length of initial controller
+[Nbar, sN.Nbar] = deal(p + f + (N-1)*opts2.DMCS); % sim. length of initial controller
 % select initial reference (yr0) from pre-generated full reference
 sN.yr0 = yr0_full(:,1:Nbar);
 
