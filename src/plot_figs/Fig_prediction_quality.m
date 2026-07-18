@@ -1,4 +1,4 @@
-function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
+function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation,nMainCols,nSummaryCols)
 %   insetYLims        : 2-element cell {yLim_top, yLim_bottom} for zoom insets
 %                       only used when 'iv6' is present in Cases; ignored otherwise
 %   insetPos          : 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bottom} inset position
@@ -12,6 +12,18 @@ function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Case
 %                       'west'  - right  of rect  -> left   of inset (inset right)
 %                       'east'  - left   of rect  -> right  of inset (inset left)
 %                       only used when 'iv6' is present in Cases; ignored otherwise
+%   nMainCols         : number of tiledlayout columns used by each main line plot
+%                       columns reserved for main line plots
+%                       default = 3
+%   nSummaryCols      : number of tiledlayout columns used by each summary bar plot
+%                       default = 2
+
+if nargin < 10 || isempty(nMainCols)
+    nMainCols = 3;
+end
+if nargin < 11 || isempty(nSummaryCols)
+    nSummaryCols = 2;
+end
 
 mean_std_ratio = 0; % max. value of abs(mean)/(std. dev.)
 
@@ -25,6 +37,10 @@ iX_str = sprintf('iX%d',iX);
 
 % Get number of cases
 nCases = numel(Cases);
+avgMean = nan(nCases,1);
+avgStd  = nan(nCases,1);
+dispNames = cell(nCases,1);
+dispNamesAxis = cell(nCases,1);
 
 % Define base line styles and markers for variety
 baseLineStyles = {'-', '--', ':', '-.'};
@@ -47,10 +63,11 @@ markers = baseMarkers(mod(0:nCases-1, numel(baseMarkers)) + 1);
 % Create figure with appropriate size for two-column layout
 % Two-column width is typically ~7 inches
 fig = figure('Units', 'inches', 'Position', [1, 1, 7, 7]);
-tiledlayout(2,1,'TileSpacing','tight','Padding','tight');
+nCols = nMainCols + nSummaryCols;
+t = tiledlayout(2,nCols,'TileSpacing','tight','Padding','tight');
 
 % Plot mean
-ax4(1) = nexttile;
+ax4(1) = nexttile(t,1,[1 nMainCols]);
 hold on; box on; grid on;
 h = gobjects(nCases, 1);
 for kC = 1:nCases
@@ -65,9 +82,11 @@ for kC = 1:nCases
     elseif strcmp(CaseName,'actLf')
         DispName = 'actual $L_f$';
     end
+    dispNames{kC} = DispName;
     yfhat0 = m4.yfhat.(CaseName).(iX_str).std;
     yfhat  = m4.yfhat.(CaseName).(iX_str).mean;
-    h(kC) = plot(1:f, yfhat, ...
+    avgMean(kC) = mean(yfhat,'all');
+    plot(1:f, yfhat, ...
         'Color', colors(kC,:), ...
         'LineStyle', lineStyles{kC}, ...
         'Marker', markers{kC}, ...
@@ -78,18 +97,19 @@ for kC = 1:nCases
         'MarkerEdgeColor', colors(kC,:));
     mean_std_ratio = max(mean_std_ratio,max(abs(yfhat./yfhat0),[],'all'));
 end
-ylabel('Mean of $\Delta\hat{y}^*_k$', 'Interpreter', 'latex', 'FontSize', FS_Label);
-set(gca, 'FontSize', FS_Tick);
+% xlabel('Number of time steps ahead ($k$)', 'Interpreter', 'latex', 'FontSize', FS_Label);
+ylabel('$\mathcal{J}_k^{\mu}$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+set(gca, 'FontSize', FS_Tick,'TickLabelInterpreter','latex');
 xlim([1, f]);
 
 % Plot std
-ax4(2) = nexttile;
+ax4(2) = nexttile(t,nCols+1,[1 nMainCols]);
 hold on; box on; grid on;
 for kC = 1:nCases
     CaseName = Cases{kC};
     
     if startsWith(CaseName,'iv')
-        DispName = ['$j=',CaseName(3:end),'$'];
+        DispName = ['IV',CaseName(3)]; % iv5a,5b,5c,5d, etc. -> IV5. same for iv4
     elseif strcmp(CaseName,'CLSPC')
         DispName = 'CL-SPC';
     elseif strcmp(CaseName,'TrPred')
@@ -99,7 +119,8 @@ for kC = 1:nCases
     end
     
     yfhat2  = m4.yfhat.(CaseName).(iX_str).std;
-    plot(1:f, yfhat2, ...
+    avgStd(kC) = mean(yfhat2,'all');
+    h(kC) = plot(1:f, yfhat2, ...
         'Color', colors(kC,:), ...
         'LineStyle', lineStyles{kC}, ...
         'Marker', markers{kC}, ...
@@ -110,8 +131,8 @@ for kC = 1:nCases
         'MarkerEdgeColor', colors(kC,:));
 end
 xlabel('Number of time steps ahead ($k$)', 'Interpreter', 'latex', 'FontSize', FS_Label);
-ylabel('Std. dev. of $\Delta\hat{y}^*_k$', 'Interpreter', 'latex', 'FontSize', FS_Label);
-set(gca, 'FontSize', FS_Tick);
+ylabel('$\mathcal{J}_k^{\sigma}$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+set(gca, 'FontSize', FS_Tick,'TickLabelInterpreter','latex');
 xlim([1, f]);
 
 % Create a shared legend outside the plots
@@ -119,12 +140,52 @@ xlim([1, f]);
 nLegCols = min(5, ceil(nCases/2)); % Max 5 columns, but adaptive
 leg = legend(h, 'Orientation', 'horizontal', ...
     'NumColumns', nLegCols, ...
-    'Location', 'northoutside', ...
+    'Location', 'southoutside', ...
     'FontSize', Fs_Legend, ...
     'Interpreter', 'latex');
 
 % Link x-axes
 linkaxes(ax4, 'x');
+
+%% Add right-side average summary plots
+
+axAvg = gobjects(2,1);
+avgVals = {avgMean, avgStd};
+xCommon = [0.5, nCases+0.5];
+
+for k = 1:2
+    if k == 1
+        axAvg(k) = nexttile(t, nMainCols+1, [1 nSummaryCols]);
+    else
+        axAvg(k) = nexttile(t, nCols+nMainCols+1, [1 nSummaryCols]);
+    end
+    hold(axAvg(k), 'on'); box(axAvg(k), 'on'); grid(axAvg(k), 'on');
+    b = bar(axAvg(k), 1:nCases, avgVals{k}, 0.75, 'FaceColor', 'flat', 'EdgeColor', 'none');
+    b.CData = colors;
+    yline(axAvg(k), 0, ':', 'Color', [0.35 0.35 0.35], 'LineWidth', 0.9);
+    yMin = min([0; avgVals{k}]);
+    yMax = max([0; avgVals{k}]);
+    yPad = 0.10 * max(yMax - yMin, eps);
+    ylim(axAvg(k), [yMin - 0.1*yPad, yMax + yPad]);
+    % axAvg(k).YAxis.Exponent = 0;
+    axAvg(k).XLim = xCommon;
+    axAvg(k).XTick = 1:nCases;
+    axAvg(k).XTickLabel = dispNames;
+    axAvg(k).TickLabelInterpreter = 'latex';
+    % axAvg(k).YAxisLocation = 'right';
+    axAvg(k).YTickMode = 'auto';
+    axAvg(k).YTickLabelMode = 'auto';
+    if k == 1
+        axAvg(k).XAxisLocation = 'top';
+        axAvg(k).XTickLabel = [];
+        ylabel(axAvg(k), '$\overline{\mathcal{J}}\vphantom{\mathcal{J}}^{\mu}$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+    else
+        axAvg(k).XAxisLocation = 'bottom';
+        axAvg(k).XTickLabelRotation = 90;
+        ylabel(axAvg(k), '$\overline{\mathcal{J}}\vphantom{\mathcal{J}}^{\sigma}$', 'Interpreter', 'latex', 'FontSize', FS_Label);
+    end
+    set(axAvg(k), 'FontSize', FS_Tick);    
+end
 
 %% Add zoom insets
 
@@ -202,11 +263,15 @@ insetX = axTop.Position(1) + insetX * axTop.Position(3);
 insetY = axTop.Position(2) + insetY * axTop.Position(4);
 
 % Create inset axes in the same figure
+% Explicitly detach from tiledlayout before assigning Position.
 axInset = axes('Parent', fig1, ...
     'Units', 'normalized', ...
-    'Position', [insetX insetY insetW insetH], ...
     'Box', 'on', ...
     'FontSize', insetTickFontSize);
+if isprop(axInset, 'Layout') && isprop(axInset.Layout, 'Tile')
+    axInset.Layout.Tile = 'none';
+end
+axInset.Position = [insetX insetY insetW insetH];
 grid on;
 
 % Copy all plotted children from top axes into inset axes
