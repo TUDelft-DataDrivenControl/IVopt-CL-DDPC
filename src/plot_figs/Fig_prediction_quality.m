@@ -1,7 +1,9 @@
 function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation)
 %   insetYLims        : 2-element cell {yLim_top, yLim_bottom} for zoom insets
+%                       only used when 'iv6' is present in Cases; ignored otherwise
 %   insetPos          : 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bottom} inset position
 %                       X,Y = bottom-left corner; W,H = size; all as fraction of parent axes
+%                       only used when 'iv6' is present in Cases; ignored otherwise
 %   MainYLims         : 2-element cell {yLim_top, yLim_bottom} for main axes
 %                       each entry is either 'free' or a [ymin ymax] vector
 %   ConnectorLocation : 2-element cell {'loc_top','loc_bottom'}, each one of:
@@ -9,6 +11,7 @@ function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Case
 %                       'north' - bottom of rect  -> top    of inset (inset below)
 %                       'west'  - right  of rect  -> left   of inset (inset right)
 %                       'east'  - left   of rect  -> right  of inset (inset left)
+%                       only used when 'iv6' is present in Cases; ignored otherwise
 
 mean_std_ratio = 0; % max. value of abs(mean)/(std. dev.)
 
@@ -125,63 +128,65 @@ linkaxes(ax4, 'x');
 
 %% Add zoom insets
 
-drawnow; % ensure axes positions and limits are finalised
-xInset = xlim(ax4(1));
-axInsets = gobjects(2,1);
+if any(strcmp(Cases,'iv6'))
+    drawnow; % ensure axes positions and limits are finalised
+    xInset = xlim(ax4(1));
+    axInsets = gobjects(2,1);
 
-for k = 1:2 % do all operations that can adjust axis positioning
-    if strcmp(MainYLims{k},'free')
-        MainYLims{k} = ylim(ax4(k));
+    for k = 1:2 % do all operations that can adjust axis positioning
+        if strcmp(MainYLims{k},'free')
+            MainYLims{k} = ylim(ax4(k));
+        end
+        if strcmp(insetYLims{k},'free')
+            insetYLims{k} = ylim(ax4(k));
+        end
+        ax4(k).YLim = MainYLims{k}; % can adjust positioning
     end
-    if strcmp(insetYLims{k},'free')
-        insetYLims{k} = ylim(ax4(k));
-    end
-    ax4(k).YLim = MainYLims{k}; % can adjust positioning
-end
-for k = 1:2
-    % create flag: which axis limits are tighter
-    yLimsFlag = sign(MainYLims{k}-insetYLims{k});
+    for k = 1:2
+        % create flag: which axis limits are tighter
+        yLimsFlag = sign(MainYLims{k}-insetYLims{k});
 
-    % determine where to draw rectangle and connectors
-    if all(yLimsFlag == [1 -1]) || all(yLimsFlag == [1 0]) || all(yLimsFlag == [0 -1])
-        % main axis limits are tighter than inset limits
-        % -> draw rectangle on inset, skip connectors
-        drawRectangle = 'inset';
-        drawConnectors = false;
-    elseif all(yLimsFlag == [-1 1]) || all(yLimsFlag == [0 1]) || all(yLimsFlag == [-1 0])
-        % inset axis limits are tighter than main limits
-        % -> draw rectangle on main, draw connectors
-        drawRectangle = 'main';
-        drawConnectors = true;
-    else
-        % no clear containment relationship
-        % -> skip rectangle and connectors entirely
-        drawRectangle = 'none';
-        drawConnectors = false;       
-    end
+        % determine where to draw rectangle and connectors
+        if all(yLimsFlag == [1 -1]) || all(yLimsFlag == [1 0]) || all(yLimsFlag == [0 -1])
+            % main axis limits are tighter than inset limits
+            % -> draw rectangle on inset, skip connectors
+            drawRectangle = 'inset';
+            drawConnectors = false;
+        elseif all(yLimsFlag == [-1 1]) || all(yLimsFlag == [0 1]) || all(yLimsFlag == [-1 0])
+            % inset axis limits are tighter than main limits
+            % -> draw rectangle on main, draw connectors
+            drawRectangle = 'main';
+            drawConnectors = true;
+        else
+            % no clear containment relationship
+            % -> skip rectangle and connectors entirely
+            drawRectangle = 'none';
+            drawConnectors = false;
+        end
 
-    % Inset for axes
-    axInsets(k) = add_zoom_inset(ax4(k), fig, FS_Tick-2, ...
-        insetPos{k}(3), insetPos{k}(4), ...  % insetW, insetH  (fraction of parent axes)
-        insetPos{k}(1), insetPos{k}(2), ...  % insetX, insetY  (fraction of parent axes, bottom-left corner)
-        xInset, insetYLims{k});  % xInset, yInset, mainYLim
+        % Inset for axes
+        axInsets(k) = add_zoom_inset(ax4(k), fig, FS_Tick-2, ...
+            insetPos{k}(3), insetPos{k}(4), ...  % insetW, insetH  (fraction of parent axes)
+            insetPos{k}(1), insetPos{k}(2), ...  % insetX, insetY  (fraction of parent axes, bottom-left corner)
+            xInset, insetYLims{k});  % xInset, yInset, mainYLim
 
-    % Drawing rectangle
-    switch drawRectangle
-        case 'main'
-            % Draw rectangle on main
-            zoomBox = rectangle(ax4(k), ...
-                'Position', [xInset(1), insetYLims{k}(1), diff(xInset), diff(insetYLims{k})], ...
-                'EdgeColor', [0.2 0.2 0.2], ...
-                'LineStyle', '--', ...
-                'LineWidth', 1.0);
-        otherwise
-            % skip rectangle entirely
-    end
+        % Drawing rectangle
+        switch drawRectangle
+            case 'main'
+                % Draw rectangle on main
+                zoomBox = rectangle(ax4(k), ...
+                    'Position', [xInset(1), insetYLims{k}(1), diff(xInset), diff(insetYLims{k})], ...
+                    'EdgeColor', [0.2 0.2 0.2], ...
+                    'LineStyle', '--', ...
+                    'LineWidth', 1.0);
+            otherwise
+                % skip rectangle entirely
+        end
 
-    % Draw connectors if needed
-    if drawConnectors
-        draw_connectors(ax4(k), axInsets(k), fig, zoomBox, ConnectorLocation{k});
+        % Draw connectors if needed
+        if drawConnectors
+            draw_connectors(ax4(k), axInsets(k), fig, zoomBox, ConnectorLocation{k});
+        end
     end
 end
 

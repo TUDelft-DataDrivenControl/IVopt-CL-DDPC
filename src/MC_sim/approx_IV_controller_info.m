@@ -100,7 +100,7 @@ function [Lup,Lyp,Tuf, varargout] = get_lifted_mats(A,B,C,D,K,p,f)
         K = zeros(nxA,nyC);
     end
 
-    % make 'effective' controllability matrices
+    % make modified controllability matrices
     tA = A-K*C;
     tB = B-K*D;
     tAp_pinv = tA^p*pinv(make_ext_obsv(A,C,p));

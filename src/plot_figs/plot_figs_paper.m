@@ -19,9 +19,10 @@ data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
 % top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
 % iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
 
-subdir1 = 'Re_1e-05_5p179475e-02_3_p_20_N_1e03_f_20_DMCS_1_20260709_2227';
+subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_20_20260711_1620';
+% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_1_20260711_1614';
 top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
-iX = 3;
+iX = 14;
 
 %% Figure: example of Monte-Carlo simulation
 ks = 5;           % seed index
@@ -46,7 +47,7 @@ cd(pdir);
 fig3_dir = fullfile(top_dir,subdir1);
 
 % determine IVs to show (iv2 => 0 so excluded)
-[~,~,Uf_ivs] = CaseDefinitions({'iv2'});
+[~,~,Uf_ivs] = CaseDefinitions({'iv2','iv6'});
 
 [axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,Uf_ivs);
 axs3.YLim(1) = 2e-2;
@@ -77,7 +78,7 @@ cd(pdir);
 % ------------------------- settings --------------------------------------
 fig4_dir = fullfile(top_dir,subdir1);
 
-Cases = {'CLSPC','TrPred','actLf','iv3','iv1','iv4a','iv5a'};
+Cases = {'CLSPC','TrPred','actLf','iv1','iv2','iv3','iv4a','iv5a'};
 MainYLims  = {[-0.05 0.12],[0     3.0]};    % yLims for main axes; 'free' or [ymin ymax] vector
 insetYLims = {[-0.80 1], 'free'};    % yLim for top & bottom-axes insets
 insetPos   = {[0.11, 0.61, 0.52, 0.34], ... % [X, Y, W, H] for top-axes inset

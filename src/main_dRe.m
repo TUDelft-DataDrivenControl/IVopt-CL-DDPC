@@ -137,7 +137,6 @@ else
         nworker = myCluster.NumWorkers; % (max.) workers per node
         parpool(myCluster,nworker);
     end
-    %parfor
     parfor ii = 1:nRe*spRe
         run_Re(ii,opts,spRe,nRe,seeds,Re_all,Ncl,Nbar,ny,plant,subdir1,sigs,Cz0,Tcl0,yr0,yr1,ur1,proj_dir)
     end

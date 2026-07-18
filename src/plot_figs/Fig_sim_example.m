@@ -95,7 +95,10 @@ lgd.Layout.Tile = 'north';
 ax11r = nexttile(2*nColsPerTile+1,[1 nColsPerTile]);
 AxCopy1 = copyobj(allchild(ax11), ax11r);
 grid on; box on;
-xInset = [2210 2370] + (opts.N-1e3 + opts.p-20 + opts.f-20); yInsetTop = ylim_y1{2};
+Nbar_ref = 20+20+1e3-1;
+xInset = [2210 2370] + Nbar-Nbar_ref;
+
+yInsetTop = ylim_y1{2};
 xlim(ax11r, xInset); ylim(ax11r, yInsetTop);
 ax11r.YAxisLocation = 'right';
 trim_copied_objects(AxCopy1, xInset, yInsetTop);
@@ -119,7 +122,7 @@ ylabel('$u_k$','Interpreter','latex','FontSize',12);
 xlabel('Time step','Interpreter','latex','FontSize',12);
 
 linkaxes([ax11 ax12],'x');
-xlim(ax12,[floor(Nbar*0.8) length(yr0)+length(yr1)-1]);
+xlim(ax12,[Nbar-210 length(yr0)+length(yr1)-1]);
 ylim(ax12,ylim_y2{1});
 
 % focus box:

@@ -86,6 +86,7 @@ for kIV = 1:num_Uf_ivs
     hold on;
 end
 set_ylabel('U');
+set_xlabel();
 grid on;
 
 ax1.FontSize = FS_Tick;
@@ -96,31 +97,13 @@ ax1.XLabel.FontSize = FS_Label;
 leg = legend(ax1, u_plot_handles, u_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
     'NumColumns', 2, 'Box', 'on', 'IconColumnWidth', 15,'Location','north');
 
-% Position the legend where you want it (e.g., bottom right)
-% leg.Position = [x_pos, y_pos, leg.Position(3), leg.Position(4)];
-
-% Create alpha title to the left of the legend
-% vertices: [bottom-left corner; top-left corner] of the legend
+% Create 'alpha =' to the left of the legend
 vertices = [leg.Position(1:2); leg.Position(1), leg.Position(2) + leg.Position(4)];
 h_title = make_alpha_title_left(Fs_Legend + 1, ax1, vertices, 'figure');
-% create 'staircase' legend for Uf_ivs
-% leg1 = create_columnwise_legend(ax1, u_plot_handles, u_labels, legPosOnAx{1},...
-%     legendEntriesPerColumn{1} , 'Interpreter', 'latex', 'FontSize', Fs_Legend,'IconColumnWidth',15);
-
-% leg2 = make_leg2(ax(2), y_plot_handles, y_labels, legPosOnAx{2}, Fs_Legend, 2);
-% vertices = [leg2.Position(1:2); leg2.Position(1) leg2.Position(2)+leg2.Position(4)];
-% h_title = make_alpha_title_left(Fs_Legend+1,ax(2),vertices,'figure');
 
 end
 
 %% Local functions
-function leg2 = make_leg2(ax, y_plot_handles, y_labels, leg2PosOnAx2, Fs_Legend, NumCol)
-    leg2 = legend(ax, y_plot_handles, y_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
-    'NumColumns', NumCol,'Box', 'on','IconColumnWidth',15);
-    leg2PosOnFig = RelPosAx2Fig(ax, leg2PosOnAx2, {'x','y'});
-    leg2.Position([1, 2]) = leg2PosOnFig;
-end
-
 function color_struct = make_color_struct(IV_names,CrameriColor)
     nIVs = numel(IV_names);
     color_types = nan(1,nIVs);
@@ -146,7 +129,11 @@ function color_struct = make_color_struct(IV_names,CrameriColor)
     nColTypes = numel(color_types2);
 
     color_struct = struct;
-    cCram = [crameri(CrameriColor, nColTypes-1); zeros(1,3)]; % colors
+    if contains(IV_names,'iv6')
+        cCram = [crameri(CrameriColor, nColTypes-1); zeros(1,3)]; % colors
+    else
+        cCram = crameri(CrameriColor, nColTypes); % colors
+    end
     for k = 1:nIVs
         if isnan(color_types(k))
             continue
@@ -259,137 +246,4 @@ function h_title = make_alpha_title_left(FontSize,ax,vertices,FigAxMode)
             'VerticalAlignment', 'middle', ...
             'BackgroundColor', 'white', ...
             'EdgeColor', 'none');
-end
-
-% Staircase Legend
-function leg_handles = create_columnwise_legend(ax, handles, labels, xyPos, col_entry_counts, varargin)
-    % Create a staircase-shaped legend with adjacent columns
-    %
-    % Input:
-    %   ax                  - axes object where the legend is placed
-    %   handles             - array of graphics objects to include in legend
-    %   labels              - cell array of legend labels
-    %   xyPos               - [x, y] position relative to axis [0,1]
-    %   col_entry_counts    - vector specifying number of entries per column
-    %                         e.g., [1, 2, 3] creates 3 columns with 1, 2, and 3 entries
-    %   varargin            - additional legend property name-value pairs
-    %
-    % Legends are placed side by side, bottom-aligned. A white background patch
-    % with black perimeter is drawn to create a unified staircase boundary.
-    % Each legend is placed on its own invisible overlay axis.
-    %
-    % Usage: leg_handles = create_staircase_legend(ax, handles, labels, xyPos, col_entry_counts, ...)
-    n_entries = numel(handles);
-    
-    % Validate col_entry_counts
-    if sum(col_entry_counts) ~= n_entries
-        error('Sum of col_entry_counts (%d) must equal number of legend entries (%d)', ...
-              sum(col_entry_counts), n_entries);
-    end
-    
-    % Create individual legends (one per column) with no box
-    % Use overlay axes for each legend (except first which uses original axis)
-    leg_handles = gobjects(numel(col_entry_counts), 1);
-    leg_positions = nan(numel(col_entry_counts), 4);
-    ax_overlay = gobjects(numel(col_entry_counts), 1);
-    ax_overlay(1) = ax; % First legend uses original axis
-    
-    % Get figure and axis position (convert from layout units to figure-absolute units)
-    fig = gcf;
-    % Get pixel position of the axis and convert to normalized figure units
-    ax_pix_pos = getpixelposition(ax);
-    fig_size = getpixelposition(fig);
-    % Convert pixel position to normalized figure coordinates [x, y, width, height]
-    ax_pos = [ax_pix_pos(1)/fig_size(1), ax_pix_pos(2)/fig_size(2), ...
-              ax_pix_pos(3)/fig_size(3), ax_pix_pos(4)/fig_size(4)];
-    
-    entry_idx = 1;
-    
-    for col = 1:numel(col_entry_counts)
-        n_col_entries = col_entry_counts(col);
-        col_handles = handles(entry_idx:entry_idx + n_col_entries - 1);
-        col_labels = labels(entry_idx:entry_idx + n_col_entries - 1);
-        
-        % Create overlay axis for legends 2 onward
-        if col > 1
-            % Create invisible overlay axis as child of figure with same position as original
-            ax_overlay(col) = axes('Parent', fig, 'Position', ax_pos,...
-             'Color','none','XColor','none','YColor','none','ZColor','none',...
-             'XTick',[],'YTick',[],'ZTick',[],'Box','off','HitTest','off');
-            % Match limits of original axis
-            ax_overlay(col).XLim = ax.XLim;
-            ax_overlay(col).YLim = ax.YLim;
-        end
-        
-        % Create single-column legend without box on the appropriate axis
-        leg_handles(col) = legend(ax_overlay(col), col_handles, col_labels, 'Interpreter', 'latex',...
-            'NumColumns', 1, 'Box', 'on', 'Color','white','EdgeColor','white', varargin{:});
-        if col == 1
-            leg_handles(col).Location = 'none';
-            leg_handles(col).Position([1, 2]) = RelPosAx2Fig(ax_overlay(col), xyPos, {'x','y'});
-            leg_positions(col, :) = leg_handles(col).Position;
-            y_bottom = leg_positions(1, 2);
-            current_x = leg_positions(1, 1) + leg_positions(1, 3); % Start to the right of first legend
-        else
-            old_pos = leg_handles(col).Position;
-            leg_handles(col).Position = [current_x, y_bottom, old_pos(3), old_pos(4)];
-            current_x = current_x + old_pos(3);
-            leg_positions(col, :) = leg_handles(col).Position;
-        end
-        
-        entry_idx = entry_idx + n_col_entries;
-    end
-    
-    % Build staircase perimeter vertices
-    function vertices = build_staircase_vertices(leg_positions)
-        y_bottom = min(leg_positions(:,2));
-        vertices = [];
-        
-        % 1. Bottom-left corner of first legend
-        vertices = [vertices; leg_positions(1, 1), y_bottom];
-        
-        % 2. Bottom-right corner of last legend
-        x_last = leg_positions(end, 1);
-        w_last = leg_positions(end, 3);
-        vertices = [vertices; x_last + w_last, y_bottom];
-        
-        % 3. Top-right corner of last legend
-        h_last = leg_positions(end, 4);
-        vertices = [vertices; x_last + w_last, y_bottom + h_last];
-        
-        % Staircase down: go left and step down for each column
-        for col = size(leg_positions,1):-1:2
-            x_col = leg_positions(col, 1);
-            h_col = leg_positions(col, 4);
-            h_prev = leg_positions(col-1, 4);
-            
-            % Step left to right edge of previous column
-            vertices = [vertices; x_col, y_bottom + h_col];
-            % Step down to top of previous column
-            vertices = [vertices; x_col, y_bottom + h_prev];
-        end
-        
-        % 4. Top-left corner of first legend
-        x_first = leg_positions(1, 1);
-        h_first = leg_positions(1, 4);
-        vertices = [vertices; x_first, y_bottom + h_first];
-    end
-    vertices = build_staircase_vertices(leg_positions);
-    
-    % Build annotation lines for staircase perimeter
-    function annoLines = build_annoLines(vertices)
-        % Close the path by returning to the first vertex
-        vertices = [vertices; vertices(1, :)];
-        % Create staircase boundary using annotation line (with respect to axes position)
-        annoLines = gobjects(size(vertices, 1)-1, 1);
-        for k = 1:size(vertices,1)-1
-            annoLines(k) = annotation('line', vertices(k:k+1,1), vertices(k:k+1,2), ...
-                'Color', 'black', 'LineWidth', 0.5);
-        end
-    end
-    annoLines = build_annoLines(vertices);
-
-    % Add title annotation to the left of the staircase legend if title_left is true
-    title_fontsize = leg_handles(1).FontSize + 1;
-    h_title = make_alpha_title_left(title_fontsize,ax_overlay(1),[vertices(1,:);vertices(end,:)],'figure');
 end
