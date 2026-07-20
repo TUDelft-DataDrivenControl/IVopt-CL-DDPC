@@ -165,8 +165,7 @@ for k = 1:2
     yline(axAvg(k), 0, ':', 'Color', [0.35 0.35 0.35], 'LineWidth', 0.9);
     yMin = min([0; avgVals{k}]);
     yMax = max([0; avgVals{k}]);
-    yPad = 0.10 * max(yMax - yMin, eps);
-    ylim(axAvg(k), [yMin - 0.1*yPad, yMax + yPad]);
+
     % axAvg(k).YAxis.Exponent = 0;
     axAvg(k).XLim = xCommon;
     axAvg(k).XTick = 1:nCases;
@@ -175,6 +174,7 @@ for k = 1:2
     % axAvg(k).YAxisLocation = 'right';
     axAvg(k).YTickMode = 'auto';
     axAvg(k).YTickLabelMode = 'auto';
+    enforce_ytick_width(axAvg(k), 3);
     if k == 1
         axAvg(k).XAxisLocation = 'top';
         axAvg(k).XTickLabel = [];
@@ -184,7 +184,24 @@ for k = 1:2
         axAvg(k).XTickLabelRotation = 90;
         ylabel(axAvg(k), '$\overline{\mathcal{J}}\vphantom{\mathcal{J}}^{\sigma}$', 'Interpreter', 'latex', 'FontSize', FS_Label);
     end
-    set(axAvg(k), 'FontSize', FS_Tick);    
+    set(axAvg(k), 'FontSize', FS_Tick);
+
+    % padding top & bottom, avoid adding more room than needed
+    yPad = 0.1*mean(diff(axAvg(k).YTick));
+    yMaxTick = max(axAvg(k).YTick);
+    yMinTick = min(axAvg(k).YTick);
+    if yMax <= yMaxTick
+        yMaxLim = yMaxTick;
+    else
+        yMaxLim = yMax + yPad;
+    end
+    if yMin >= yMinTick
+        yMinLim = yMinTick;
+    else
+        yMinLim = yMin - yPad;
+    end
+    ylim(axAvg(k), [yMinLim, yMaxLim]);
+    
 end
 
 %% Add zoom insets
@@ -254,6 +271,37 @@ end
 end
 
 %% Local functions
+
+function enforce_ytick_width(axh, maxChars)
+% Ensure y-tick labels fit within maxChars by adjusting YAxis.Exponent only when needed.
+drawnow limitrate;
+
+    function TickLengths = getTickLengths(axh)
+        Ticks = axh.YAxis.TickLabels;
+        TickLengths = cellfun(@(x) strlength(strrep(x,'.','')), Ticks);
+    end
+
+yTicks = axh.YTick;
+yTickLengths = getTickLengths(axh);
+minorTicks = 2:2:numel(yTicks);
+majorTicks = 1:2:numel(yTicks);
+idx = 1:numel(yTicks);
+
+if any(yTickLengths(idx) > maxChars)
+% 1) can it be resolved by changing exponent?
+    axh.YAxis.ExponentMode = 'manual';
+    axh.YAxis.Exponent = floor(log10(max(abs(yTicks))));
+    yTickLengths = getTickLengths(axh);
+    if any(yTickLengths(idx) > maxChars)
+    % 2) can it be resolved by removing minor ticks?
+        if all(yTickLengths(majorTicks) <= maxChars)
+            axh.YTick = axh.YTick(majorTicks);
+            idx = 1:numel(axh.YTick);
+        end
+    end
+    
+end
+end
 
 function axInset = add_zoom_inset(axTop, fig1, insetTickFontSize, insetW, insetH, insetX, insetY, xInset, yInset)
 % Define inset size/position relative to plotted area (normalized figure units)

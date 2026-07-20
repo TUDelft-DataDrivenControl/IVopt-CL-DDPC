@@ -10,21 +10,24 @@ save_figs = false;
 cd(fullfile(src_plot_figs_dir,'..','..')); pdir = pwd; % go to project directory and save the path
 addpath(genpath(fullfile(pdir,'src')));          % add src & subdirectories to path
 addpath(fullfile(pdir,'bin','crameri_colours')); % add path to Crameri colour maps for plotting
+iFig = 2;
 
 %% data to be plotted:
 
 % data from main_dRe(sys=1, Re_min=1e-5, Re_max=1e-1, nRe=15) (default settings)
 data_type = 'Re'; % 'N', 'Re', or 'p' represented by X below
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260327_1942';             % name of subdir1 containing data for all figures
-% top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
-% iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
-
-subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_20_20260711_1620';
-% subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_1_20260711_1614';
+for kResults = 1:2
+switch kResults
+    case 1  % s_t = f = 20 (Page future data matrices)
+        subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_20_20260711_1620';
+    case 2  % s_t = 1 (block-Hankel case)
+        subdir1 = 'Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_1_20260711_1614';
+end
 top_dir = fullfile(pdir,'data','sys1','ref0_prbs',['d',data_type]); % parent directory of subdir1
-iX = 14;
+iX = 14; % index of data_type -> determines X (Re, N, or p) below / subdir2
 
 %% Figure: example of Monte-Carlo simulation
+if kResults == 1
 ks = 5;           % seed index
 marker_interval = 20;
 noPlotCases  = {'iv2','iv3','iv4b','iv4c','iv4d','iv5b','iv5c','iv5d','iv6','TrPred'};
@@ -32,31 +35,31 @@ noPlotCases  = {'iv2','iv3','iv4b','iv4c','iv4d','iv5b','iv5c','iv5d','iv6','TrP
 subdir = fullfile(top_dir,subdir1);
 
 % Define y-axis limits: ylim_y = {[main_axis, zoomed_axis]}
-ylim_y1 = {[-14.4 15.2], [8.9 13.4]}; % outputs: general axes and inset zoom
-ylim_y2 = {[-16.0 14.5], [8.5 12.7]}; % inputs: general axes and inset zoom
+ylim_y1 = {[-14.4 15.2], [8.9 12.6]}; % outputs: general axes and inset zoom
+ylim_y2 = {[-16.0 14.5], [8.4 12]}; % inputs: general axes and inset zoom
 
 fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir,marker_interval,ylim_y1,ylim_y2);
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig1,pdir,'dinkl2.pdf');
+iFig = save_fig(save_figs,fig1,pdir,iFig);
 
 %% Figure: approximation of optimal IV
-clearvars -except pdir save_figs data_type subdir1 top_dir iX
+clearvars -except pdir save_figs data_type subdir1 top_dir iX iFig kResults
 cd(pdir); 
 % ------------------------- settings --------------------------------------
 fig3_dir = fullfile(top_dir,subdir1);
 
 % determine IVs to show (iv2 => 0 so excluded)
-[~,~,Uf_ivs] = CaseDefinitions({'iv2','iv6'});
+[~,~,Uf_ivs] = CaseDefinitions({'iv2','iv6','iv4b','iv4c','iv4d','iv5b','iv5c','iv5d'});
 
 [axs3, fig3] = Fig_IV_approx(data_type,fig3_dir,Uf_ivs);
 axs3.YLim(1) = 2e-2;
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig3,pdir,'dinkl3.pdf');
+iFig = save_fig(save_figs,fig3,pdir,iFig);
 
 %% Figure: Lf estimates
-clearvars -except pdir save_figs data_type subdir1 top_dir iX
+clearvars -except pdir save_figs data_type subdir1 top_dir iX iFig kResults
 cd(pdir); 
 
 Cases = {'actLf','iv1','iv2','iv3','iv4a','iv5a','CLSPC','TrPred'};
@@ -69,10 +72,10 @@ load("dRe_settings.mat")
 load("processed_data.mat");
 
 fig = Fig_Lf_estimates(Cases,mLf,iX,opts,notScaledto);
-save_fig(save_figs,fig,pdir,'dinkl4.pdf');
-
+iFig = save_fig(save_figs,fig,pdir,iFig);
+end
 %% Figure: yf prediction quality
-clearvars -except pdir save_figs data_type subdir1 top_dir iX
+clearvars -except pdir save_figs data_type subdir1 top_dir iX iFig kResults
 cd(pdir);
 
 % ------------------------- settings --------------------------------------
@@ -88,18 +91,21 @@ ConnectorLocation = {'south','south'};  % connector side: 'south','north','west'
 % max_ratio reports the maximum ratio of (mean / std. dev.) of the prediction error for all k and selected cases
 
 % conditional save of figure to results folder
-save_fig(save_figs,fig4,pdir,'dinkl5.pdf');
+iFig = save_fig(save_figs,fig4,pdir,iFig);
 
+end
 %% Local functions
 
 % conditional save of figure to results folder
-function save_fig(save_figs,fig,pdir,fig_name)
+function iFig = save_fig(save_figs,fig,pdir,iFig)
 if save_figs
+    fig_name = sprintf('dinkl%d.pdf',iFig);
     set(fig, 'Color', 'w');
     exportgraphics(fig, fullfile(pdir,'results',fig_name), ...
         'BackgroundColor', 'white', ...
         'ContentType', 'vector', ...
         'Resolution', 600);
+    iFig = iFig + 1;
 end
 end
 

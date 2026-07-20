@@ -1,8 +1,8 @@
 function fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval,ylim_y1,ylim_y2)
 
 FS_Tick   = 8;
-FS_Label  = 9;
-Fs_Legend = 7;
+FS_Label  = 11;
+Fs_Legend = 11;
 
 %% navigate to subdir1
 pwd1 = pwd;
@@ -192,7 +192,9 @@ function plot_uycl(Cases,legend_flag,line_styles,marker_styles,cCram,Tsteps1,y_c
                 case 'actLf'
                     DispName = 'actual $L_f$';
                 otherwise
-                    if startsWith(CaseName,'iv')
+                    if startsWith(CaseName,'iv') && endsWith(CaseName,'a')
+                        DispName = ['IV',CaseName(3)];
+                    elseif startsWith(CaseName,'iv')
                         DispName = ['IV',CaseName(3:end)];
                     else
                         DispName = CaseName;

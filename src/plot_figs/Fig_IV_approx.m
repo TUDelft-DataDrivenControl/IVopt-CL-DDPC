@@ -11,7 +11,7 @@ Fs_Legend = 10;
 % Extract and set up optional arguments
 FigPos = [50 50 252 325/2];
 Units = 'points';
-CrameriColor = 'romaO'; % batlow
+CrameriColor = 'batlow'; %'romaO'
 LineWidth = 2;
 MarkerSize = 6;
 
@@ -62,20 +62,20 @@ for kIV = 1:num_Uf_ivs
     % determine color and linestyle/marker based on suffix (a,b,c,d)
     switch iv_name
         % All 'a' variants: solid line, no marker
-        case 'iv4a', label = '$\hat{\widetilde{U}}_{\mathrm{f,4a}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5a}}$'; LineStyle = '-';  Marker = 'none';
+        case 'iv4a', label = '$\hat{\widetilde{U}}_{\mathrm{f,4}}$'; LineStyle = '-';  Marker = 'none';
+        case 'iv5a', label = '$\hat{\widetilde{U}}_{\mathrm{f,5}}$'; LineStyle = '--';  Marker = 'none';
         % All 'b' variants: dashed line, no marker
         case 'iv4b', label = '$\hat{\widetilde{U}}_{\mathrm{f,4b}}$'; LineStyle = '--'; Marker = 'none';
-        case 'iv5b', label = '$\hat{\widetilde{U}}_{\mathrm{f,5b}}$'; LineStyle = '--'; Marker = 'none';
+        case 'iv5b', label = '$\hat{\widetilde{U}}_{\mathrm{f,5b}}$'; LineStyle = '--'; Marker = 's';
         % All 'c' variants: dotted line, circle marker
         case 'iv4c', label = '$\hat{\widetilde{U}}_{\mathrm{f,4c}}$'; LineStyle = ':';  Marker = 'o';
-        case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = 'o';
+        case 'iv5c', label = '$\hat{\widetilde{U}}_{\mathrm{f,5c}}$'; LineStyle = ':';  Marker = 'd';
         % All 'd' variants: dash-dot line, triangle marker
         case 'iv4d', label = '$\hat{\widetilde{U}}_{\mathrm{f,4d}}$'; LineStyle = '-.'; Marker = '^';
-        case 'iv5d', label = '$\hat{\widetilde{U}}_{\mathrm{f,5d}}$'; LineStyle = '-.'; Marker = '^';
+        case 'iv5d', label = '$\hat{\widetilde{U}}_{\mathrm{f,5d}}$'; LineStyle = '-.'; Marker = 'v';
         % Baseline methods
         case 'iv1',  label = '$U_{\mathrm{f}}\vphantom{\hat{\widetilde{U}}}$'; LineStyle = '-';  Marker = 'none';
-        case 'iv6',  label = '$W_{\mathrm{f}}$';                      LineStyle = '-';  Marker = 'none';
+        case 'iv6',  label = '$W_{\mathrm{f}}$';                      LineStyle = '-';  Marker = 'x';
         otherwise,   label = iv_name;                                 LineStyle = '-';  Marker = 'none';
     end
     col = Colors.(iv_name);
@@ -95,7 +95,7 @@ ax1.XLabel.FontSize = FS_Label;
 
 %% create legends
 leg = legend(ax1, u_plot_handles, u_labels, 'Interpreter', 'latex', 'FontSize', Fs_Legend,...
-    'NumColumns', 2, 'Box', 'on', 'IconColumnWidth', 15,'Location','north');
+    'NumColumns', 2, 'Box', 'on', 'IconColumnWidth', 20,'Location','southeast');
 
 % Create 'alpha =' to the left of the legend
 vertices = [leg.Position(1:2); leg.Position(1), leg.Position(2) + leg.Position(4)];
