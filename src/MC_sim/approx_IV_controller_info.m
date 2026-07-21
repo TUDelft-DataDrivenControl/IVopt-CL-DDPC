@@ -1,6 +1,6 @@
 function [Uf_iv5a, Uf_iv5b, Uf_iv5c, Uf_iv5d] = approx_IV_controller_info(u,y,w,opts,Cz)
-%% Approximates the optimal IVs Uf & Yf using controller information (Algorithm 2 from the article)
-% This function approximates the IV matrices Uf and Yf that would have
+%% Approximates the optimal IVs Uf using controller information
+% This function approximates the IV matrix Uf that would have
 % been obtained without future noise Ef, using knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
 % 
@@ -49,6 +49,7 @@ for kiv = 1:length(iv_names)
 iv_name = iv_names{kiv};
 switch iv_name
 %% ------------------------------ IV5a (2SLS) -----------------------------
+% NOTE: this is the algorithm reported as `IV5' in the paper
 case 'iv5a'
 L_clu = Uf*pinv(DMr); % -> estimates [Guu Guy Mu; Gyu Gyy Tuf*Mu]
 Uf_iv5a = L_clu*DMr;
@@ -100,7 +101,7 @@ function [Lup,Lyp,Tuf, varargout] = get_lifted_mats(A,B,C,D,K,p,f)
         K = zeros(nxA,nyC);
     end
 
-    % make 'effective' controllability matrices
+    % make modified controllability matrices
     tA = A-K*C;
     tB = B-K*D;
     tAp_pinv = tA^p*pinv(make_ext_obsv(A,C,p));

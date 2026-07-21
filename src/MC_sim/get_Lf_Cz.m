@@ -50,6 +50,15 @@ end
 end
 
 function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
+    % [1] J. Dong, M. Verhaegen, and E. Holweg, “Closed-loop Subspace
+    %     Predictive Control for Fault Tolerant MPC Design,” in IFAC
+    %     Proceedings Volumes, in 17th IFAC World Congress, vol. 41. 2008,
+    %     pp. 3216–3221. doi: 10.3182/20080706-5-KR-1001.00546.
+    %
+    % Slightly altered w.r.t. [1] to also estimate direct plant
+    % feedthrough, since this is a form of assumed model knowledge that is
+    % not employed by IVs (or the below implmentation of the Transient Predictor)
+    %
     Upf = make_Page(u1,p+f,DMCS); Up = Upf(1:nu*p,:); Uf = Upf(nu*p+1:nu*(p+1),:);
     Ypf = make_Page(y1,p+f,DMCS); Yp = Ypf(1:ny*p,:); Yf = Ypf(ny*p+1:ny*(p+1),:);
     L1 = Yf*pinv([Up;Yp;Uf(1:nu,:)]);
@@ -72,7 +81,14 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
 end
 
 function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny,DMCS)
-    % slightly altered to also estimate direct feedthrough
+    % [2] K. Moffat, F. Dörfler, and A. Chiuso, “The Transient Predictor,”
+    %     in 2024 IEEE 63rd Conference on Decision and Control (CDC), Dec. 
+    %     2024, pp. 1871–1876. doi: 10.1109/CDC56724.2024.10886500.
+    %
+    % Slightly altered w.r.t. Algorithm 1 in [2] to also estimate direct
+    % plant feedthrough. This is not in the original algorithm, but is a
+    % form of assumed model knowledge that is not employed by IVs or the
+    % CL-SPC algorithm (above), so done for a fair comparison
     Zpf = make_Page([u1;y1],p+f,DMCS);
 
     [~,R] = qr(Zpf.','econ'); R = R.';

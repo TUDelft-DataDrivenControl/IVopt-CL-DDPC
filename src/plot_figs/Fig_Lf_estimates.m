@@ -43,6 +43,8 @@ for k = 1:nCases
                 yLabel = 'TP';
             elseif strcmp(Cases{k},'CLSPC')
                 yLabel = 'CL-SPC';
+            elseif endsWith(Cases{k},'a')
+                yLabel = ['IV',Cases{k}(3)];
             else
                 yLabel = ['IV',Cases{k}(3:end)];
             end            

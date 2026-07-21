@@ -49,6 +49,7 @@ pctiles = 0:5:100;
 
 % --- IV definitions
 [~,~,Uf_ivs] = CaseDefinitions({}); Uf_ivs = intersect(Uf_ivs,Cases);
+Uf_ivs = [Uf_ivs,{'iv3'}];
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
 
 % ======================== initialize measure 1 (m1) ======================

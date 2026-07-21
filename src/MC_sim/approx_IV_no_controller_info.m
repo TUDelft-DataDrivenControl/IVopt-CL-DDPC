@@ -1,6 +1,6 @@
 function [Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u,y,w,opts)
-%% Approximates the optimal IVs Uf & Yf without controller information (Algorithm 1 from the article)
-% This function approximates the IV matrices Uf and Yf that would have
+%% Approximates the optimal IVs Uf without controller information
+% This function approximates the IV matrix Uf that would have
 % been obtained without future noise Ef, using no knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
 % 
@@ -35,6 +35,7 @@ for kiv = 1:length(iv_names)
 iv_name = iv_names{kiv};
 switch iv_name
 %% ----------------------------- (2SLS) -----------------------------------
+% NOTE: this is the algorithm reported as `IV4' in the paper
 case 'iv4a' 
 L_clu = Uf*pinv(D); % initial estimate
 Uf_iv4a = L_clu*D;
