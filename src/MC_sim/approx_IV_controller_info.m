@@ -27,9 +27,9 @@ varrho = max(gamma,p); % get max of past controller & plant windows
 %% ===================== estimating system matrices =======================
 
 % make data matrices matrices
-Uvf = make_Page(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
-Yvf = make_Page(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:); Yf = Yvf(ny*varrho+1:end,:);
-Wvf = make_Page(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:); % Wr -> gamma instead of varrho deep
+Uvf = make_TrajMat(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
+Yvf = make_TrajMat(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:); Yf = Yvf(ny*varrho+1:end,:);
+Wvf = make_TrajMat(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:); % Wr -> gamma instead of varrho deep
 
 % select specific gamma and p long matrices
 Wr = Wr(end-gamma*ny+1:end,:);

@@ -1,4 +1,5 @@
 function [fig,mean_std_ratio] = Fig_prediction_quality(fig_dir,iX,data_type,Cases,noPlotCases,insetYLims,insetPos,MainYLims,ConnectorLocation,nMainCols,nSummaryCols)
+%FIG_PREDICTION_QUALITY Plot prediction mean/std trajectories with summary bars and optional zoom insets.
 %   insetYLims        : 2-element cell {yLim_top, yLim_bottom} for zoom insets
 %                       only used when 'iv6' is present in Cases; ignored otherwise
 %   insetPos          : 2-element cell {[X,Y,W,H]_top, [X,Y,W,H]_bottom} inset position
@@ -147,7 +148,7 @@ leg = legend(h, 'Orientation', 'horizontal', ...
 % Link x-axes
 linkaxes(ax4, 'x');
 
-%% Add right-side average summary plots
+%% Right-side average summary plots
 
 axAvg = gobjects(2,1);
 avgVals = {avgMean, avgStd};
@@ -204,7 +205,7 @@ for k = 1:2
     
 end
 
-%% Add zoom insets
+%% Zoom insets
 
 if any(strcmp(Cases,'iv6'))
     drawnow; % ensure axes positions and limits are finalised

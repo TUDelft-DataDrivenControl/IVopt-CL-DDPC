@@ -1,7 +1,7 @@
 function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
 [nu,ny,p,f,DMCS] = deal(opts.nu,opts.ny,opts.p,opts.f,opts.DMCS);
 nCz = numel(opts.Cases);
-Yf_r01 = make_Page(y0(:,p+1:end),f,DMCS);
+Yf_r01 = make_TrajMat(y0(:,p+1:end),f,DMCS);
 
 % make functions to get SPC controllers
 usol_funs = get_solver(opts,Q,R,dR); % structure w/ up2usol, yp2usol, urf2usol, yrf2usol
@@ -59,8 +59,8 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
     % feedthrough, since this is a form of assumed model knowledge that is
     % not employed by IVs (or the below implmentation of the Transient Predictor)
     %
-    Upf = make_Page(u1,p+f,DMCS); Up = Upf(1:nu*p,:); Uf = Upf(nu*p+1:nu*(p+1),:);
-    Ypf = make_Page(y1,p+f,DMCS); Yp = Ypf(1:ny*p,:); Yf = Ypf(ny*p+1:ny*(p+1),:);
+    Upf = make_TrajMat(u1,p+f,DMCS); Up = Upf(1:nu*p,:); Uf = Upf(nu*p+1:nu*(p+1),:);
+    Ypf = make_TrajMat(y1,p+f,DMCS); Yp = Ypf(1:ny*p,:); Yf = Ypf(ny*p+1:ny*(p+1),:);
     L1 = Yf*pinv([Up;Yp;Uf(1:nu,:)]);
     
     C_tKpu_hat = L1(:,1:p*nu);
@@ -89,7 +89,7 @@ function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny,DMCS)
     % plant feedthrough. This is not in the original algorithm, but is a
     % form of assumed model knowledge that is not employed by IVs or the
     % CL-SPC algorithm (above), so done for a fair comparison
-    Zpf = make_Page([u1;y1],p+f,DMCS);
+    Zpf = make_TrajMat([u1;y1],p+f,DMCS);
 
     [~,R] = qr(Zpf.','econ'); R = R.';
     

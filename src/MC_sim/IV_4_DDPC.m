@@ -43,7 +43,7 @@ classdef IV_4_DDPC < dynamicprops
     %   Wp:        Combined past data [Up; Yp] (dependent, hidden)
     %   iv<k>:     Full k-th IV matrix [Wp; iv<k>_] (public, dynamically added)
     %   iv<k>_:    Hidden component of k-th IV below Wp (hidden)
-    %   DMCS:      Data Matrix Column Shift (1 = Hankel, >1 = Page)
+    %   DMCS:      Data Matrix Column Shift (1 = Hankel, f = Page)
     
     properties
         p (1,1) double {mustBeInteger}
@@ -94,18 +94,18 @@ classdef IV_4_DDPC < dynamicprops
         
         %% Get and Set methods (excl. IV matrices)
         function value = get.Up(obj)
-            value = obj.make_Page(obj.u,obj.p+obj.f,obj.DMCS);
+            value = obj.make_TrajMat(obj.u,obj.p+obj.f,obj.DMCS);
             value = value(1:obj.p*obj.nu,1:obj.N);
         end
         function value = get.Yp(obj)
-            value = obj.make_Page(obj.y,obj.p+obj.f,obj.DMCS);
+            value = obj.make_TrajMat(obj.y,obj.p+obj.f,obj.DMCS);
             value = value(1:obj.p*obj.ny,1:obj.N);
         end
         function value = get.Uf(obj)
-            value = obj.make_Page(obj.u(:,obj.p+1:end),obj.f,obj.DMCS);
+            value = obj.make_TrajMat(obj.u(:,obj.p+1:end),obj.f,obj.DMCS);
         end
         function value = get.Yf(obj)
-            value = obj.make_Page(obj.y(:,obj.p+1:end),obj.f,obj.DMCS);
+            value = obj.make_TrajMat(obj.y(:,obj.p+1:end),obj.f,obj.DMCS);
         end
         function value = get.Wp(obj)
             value = [obj.Up;obj.Yp];
@@ -173,8 +173,8 @@ classdef IV_4_DDPC < dynamicprops
             Znew = W*(Q*Q');
         end
 
-        function Page = make_Page(data, s1, s2)
-        % Efficiently constructs Page matrices from input data of the form
+        function TrajMat = make_TrajMat(data, s1, s2)
+        % Efficiently constructs trajectory matrices from input data of the form
         % | u_1    u_{1+s2}  ... u_{1+s2*(N-1)}  |
         % | ...      ...     ...      ...        |
         % | u_{s1} u_{s1+s2} ... u_{s1+s2*(N-1)}a =  |
@@ -186,21 +186,21 @@ classdef IV_4_DDPC < dynamicprops
         %   s1: number of block rows
         %   s2: number of sampes for column shift
         % Outputs:
-        %   Page: (ndata*s1 x (floor((Nbar-s1)/s2)+1) full Page matrix
+        %   TrajMat: (ndata*s1 x (floor((Nbar-s1)/s2)+1) full trajectory matrix
 
         [ndata, Nbar] = size(data);
         N = floor((Nbar-s1)/s2)+1; % determine number of columns
         Nbar2 = s1+s2*(N-1);       % determine max usable data samples
         if Nbar2 ~= Nbar
             error(['Number of provided samples (%d) does not correspond with the number' ...
-                'of samples employed by a Page matrix with the specified dimensions (%d)'],Nbar,Nbar2)
+                'of samples employed by a trajectory matrix with the specified dimensions (%d)'],Nbar,Nbar2)
         end
 
         data = data(:);
-        Page = zeros(s1*ndata,N);
+        TrajMat = zeros(s1*ndata,N);
         idxs = [1 s1*ndata];
         for k = 1:N
-            Page(:,k) = data(idxs(1):idxs(2),1);
+            TrajMat(:,k) = data(idxs(1):idxs(2),1);
             idxs = idxs + s2*ndata;
         end
         end
