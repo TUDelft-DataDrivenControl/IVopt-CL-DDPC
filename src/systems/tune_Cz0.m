@@ -2,7 +2,7 @@
 % uses mixed-sensitivity H-infinity synthesis
 
 close all;
-opts.sys = 7;
+opts.sys = 8;
 save_flag = false;
 rng default;
 
@@ -13,7 +13,7 @@ rng default;
 [ny,nx] = size(C); nu = size(B,2);
 
 switch opts.sys
-    case {1,2,3} % for plant from Landau1995
+    case {1,2,3,8} % for plant from Landau1995
         W1 = makeweight(33,5,0.5);  W1 = c2d(W1,plant.Ts,'tustin');
         W3 = makeweight(0.5,20,20); W3 = c2d(W3,plant.Ts,'tustin');
         W2 = [];
@@ -44,7 +44,7 @@ switch opts.sys
     case 1
         Cz0 = minreal(Cz0);
         nK = 5;
-        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        Cz0 = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,true);
         Cz0 = employ_integrator(Cz0);
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
         if save_flag
@@ -54,7 +54,7 @@ switch opts.sys
     case 2
         Cz0 = minreal(Cz0);
         nK = 50;
-        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,true);
         Cz0 = employ_integrator(Cz0);
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
         if save_flag
@@ -72,7 +72,7 @@ switch opts.sys
     case 4
         Cz0 = minreal(Cz0);
         nK = 4;
-        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,true);
         Cz0 = employ_integrator(Cz0);
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
         if save_flag
@@ -82,7 +82,7 @@ switch opts.sys
     case 5
         Cz0 = minreal(Cz0);
         nK = 7;
-        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,true);
         % Cz0 = employ_integrator(Cz0); % plant already has an integrator
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
         if save_flag
@@ -92,7 +92,7 @@ switch opts.sys
     case 6
         Cz0 = minreal(Cz0);
         nK = 5;
-        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3);
+        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,false);
         Cz0 = employ_integrator(Cz0);
         [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
         if save_flag
@@ -104,6 +104,7 @@ switch opts.sys
         S = feedback(1,G*Cz0);
         KS = Cz0*S;
         T = 1-S;
+
 end
 
 %% closed-loop system
@@ -225,15 +226,24 @@ function [Cz0,gamma] = hinfstruct_wrapper_v1(Cz0,nK,G,plant,W1,W3)
     Cz0 = getBlockValue(CLopt,'K');
 end
 
-function [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3)
-    [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*0,plant.Ts))); num = num{1}; den = den{1};
+function [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,Dis0)
+    if Dis0
+        Dfac = 0;
+    else
+        Dfac = 1;
+    end
+    [num,den] = tfdata(tf(ss(Cz0.A,Cz0.B,Cz0.C,Cz0.D*Dfac,plant.Ts))); num = num{1}; den = den{1};
     nx = size(Cz0.A,1);
     Cz1 = tunableSS('K2',nK,1,1,plant.Ts,'full');
     Cz1.A.Free(1:nK-1,:) = false;
     Cz1.A.Free(end,:) = true;
     Cz1.A.Value(1:nK-1,:) = [zeros(nK-1,1) eye(nK-1)];
     Cz1.B.Free(:) = false; Cz1.B.Value(:,1) = [zeros(nK-1,1); 1];
-    Cz1.D.Value = 0; Cz1.D.Free(:) = false;
+    if Dis0
+        Cz1.D.Value = 0; Cz1.D.Free(:) = false;
+    else
+        Cz1.D.Value = Cz0.D;
+    end
     % ------- initialize rest w/ mixsyn result -----------
     Cz1.C.Value(1,1:nx) = fliplr(num(1,2:end));
     Cz1.A.Value(end,1:nx) = -fliplr(den(1,2:end));

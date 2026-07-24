@@ -1,7 +1,7 @@
-function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,Cases,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
-[nu,ny,p,f] = deal(opts.nu,opts.ny,opts.p,opts.f);
-nCz = numel(Cases);
-[~,~,Yf_r01] = make_Hankel(y0,p,f);
+function [Lf,Cz,x1_0_SPC,sigs] = get_Lf_Cz(Z,plant,u0,y0,ur1,yr1,Q,R,dR,opts,sigs)
+[nu,ny,p,f,DMCS] = deal(opts.nu,opts.ny,opts.p,opts.f,opts.DMCS);
+nCz = numel(opts.Cases);
+Yf_r01 = make_TrajMat(y0(:,p+1:end),f,DMCS);
 
 % make functions to get SPC controllers
 usol_funs = get_solver(opts,Q,R,dR); % structure w/ up2usol, yp2usol, urf2usol, yrf2usol
@@ -18,7 +18,7 @@ yrf = yr1(:,1:f);        yrf = yrf(:);  % future output references
 
 % create controllers
 for iCz = 1:nCz
-    Czn = Cases{iCz}; % name of controller
+    Czn = opts.Cases{iCz}; % name of controller
 
     % ============================ get Lf (estimate) ==========================
     % -------------------------- (1-6) SPCs based on an IV --------------------
@@ -27,7 +27,7 @@ for iCz = 1:nCz
 
     % -------------------------- (7) CL-SPC -----------------------------------
     elseif strcmp(Czn, 'CLSPC')
-        Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny);
+        Lf.(Czn) = get_Lf_CL_SPC(u0,y0,p,f,nu,ny,DMCS);
 
     % -------------------------- (8) SPC w/ actual Lf -------------------------
     elseif strcmp(Czn, 'actLf')
@@ -36,7 +36,7 @@ for iCz = 1:nCz
 
     % -------------------------- (9) Transient Predictor ----------------------
     elseif strcmp(Czn, 'TrPred')
-        Lf.(Czn) = get_Lf_TransPred(u0,y0,p,f,nu,ny);
+        Lf.(Czn) = get_Lf_TransPred(u0,y0,p,f,nu,ny,DMCS);
     end
 
     % =========================== get controller ==============================
@@ -49,9 +49,18 @@ for iCz = 1:nCz
 end
 end
 
-function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
-    [~,Up,Uf] = make_Hankel(u1,p,1);
-    [~,Yp,Yf] = make_Hankel(y1,p,1);
+function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny,DMCS)
+    % [1] J. Dong, M. Verhaegen, and E. Holweg, “Closed-loop Subspace
+    %     Predictive Control for Fault Tolerant MPC Design,” in IFAC
+    %     Proceedings Volumes, in 17th IFAC World Congress, vol. 41. 2008,
+    %     pp. 3216–3221. doi: 10.3182/20080706-5-KR-1001.00546.
+    %
+    % Slightly altered w.r.t. [1] to also estimate direct plant
+    % feedthrough, since this is a form of assumed model knowledge that is
+    % not employed by IVs (or the below implmentation of the Transient Predictor)
+    %
+    Upf = make_TrajMat(u1,p+f,DMCS); Up = Upf(1:nu*p,:); Uf = Upf(nu*p+1:nu*(p+1),:);
+    Ypf = make_TrajMat(y1,p+f,DMCS); Yp = Ypf(1:ny*p,:); Yf = Ypf(ny*p+1:ny*(p+1),:);
     L1 = Yf*pinv([Up;Yp;Uf(1:nu,:)]);
     
     C_tKpu_hat = L1(:,1:p*nu);
@@ -71,28 +80,44 @@ function Lf = get_Lf_CL_SPC(u1,y1,p,f,nu,ny)
     Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
 end
 
-function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny)
-    [~,Zp,Zf] = make_Hankel([u1;y1],p,f);
+function Lf = get_Lf_TransPred(u1,y1,p,f,nu,ny,DMCS)
+    % [2] K. Moffat, F. Dörfler, and A. Chiuso, “The Transient Predictor,”
+    %     in 2024 IEEE 63rd Conference on Decision and Control (CDC), Dec. 
+    %     2024, pp. 1871–1876. doi: 10.1109/CDC56724.2024.10886500.
+    %
+    % Slightly altered w.r.t. Algorithm 1 in [2] to also estimate direct
+    % plant feedthrough. This is not in the original algorithm, but is a
+    % form of assumed model knowledge that is not employed by IVs or the
+    % CL-SPC algorithm (above), so done for a fair comparison
+    Zpf = make_TrajMat([u1;y1],p+f,DMCS);
 
-    [~,R] = qr([Zp;Zf].','econ'); R = R.';
+    [~,R] = qr(Zpf.','econ'); R = R.';
+    
     tLest = zeros(ny*f,(p+f)*(nu+ny));
+    Rinv = inv(R); % only need to invert once this way
+    
+    colsend = p*(nu+ny)+nu;
+    rows1 = 1:ny; rows1 = rows1 + p*(nu+ny)+nu;
+    rows2 = 1:ny;
     for kf = 1:f
-        % get R11 & R21
-        Rzp_idx = 1:(p+kf-1)*(nu+ny)+nu;
-        Ryk_idx = Rzp_idx(end)+(1:ny);
-        R11 = R(Rzp_idx,Rzp_idx);
-        R21 = R(Ryk_idx,Rzp_idx);
-
-        % compute relevant part of tLest matrix
-        rows = (kf-1)*ny+1:kf*ny;
-        cols = 1:p*(nu+ny)+kf*nu+(kf-1)*ny;
-        tLest(rows,cols) =  R21*pinv(R11);
+        theta = R(rows1,1:colsend)*Rinv(1:colsend,1:colsend);
+        tLest(rows2,1:colsend) = theta;
+        rows1 = rows1 + ny + nu;
+        rows2 = rows2 + ny;
+        colsend = colsend + nu + ny;
     end
-    ucols = mod(1:size(tLest,2),nu+ny); ucols(ucols == 0) = nu+ny;
-    msk_u = ucols < nu+1;
-    msk_y = ~msk_u;
-    tLest_u = tLest(:,msk_u);
-    tLest_y = tLest(:,msk_y);
-    tHf = eye(ny*f)-tLest_y(:,end-ny*f+1:end);
-    Lf = tHf\[tLest_u(:,1:p*nu) tLest_y(:,1:p*ny) tLest_u(:,end-nu*f+1:end)];
+    % column indices
+    cols = 1:(p+f)*(nu+ny); cols = reshape(cols,nu+ny,p+f);
+    idx_up = cols(1:nu,1:p);         % multiply up
+    idx_uf = cols(1:nu,p+1:end);     % multiply uf
+    idx_yp = cols(nu+1:end,1:p);     % multiply yp
+    idx_yf = cols(nu+1:end,p+1:end); % multiply yf
+    
+    % components of tLest
+    tLest_up = tLest(:,idx_up(:));
+    tLest_uf = tLest(:,idx_uf(:));
+    tLest_yp = tLest(:,idx_yp(:));
+    tLest_yf = tLest(:,idx_yf(:));
+
+    Lf = (eye(ny*f)-tLest_yf)\[tLest_up tLest_yp tLest_uf];
 end

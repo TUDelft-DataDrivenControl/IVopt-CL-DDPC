@@ -1,4 +1,5 @@
 function fig = Fig_Lf_estimates(Cases,mLf,iX,opts,notScaledto)
+%FIG_LF_ESTIMATES Plot stacked heatmaps of actual Lf and case-wise Lf estimation errors.
 FS_Tick  = 8;
 FS_Label = 9;
 
@@ -43,6 +44,8 @@ for k = 1:nCases
                 yLabel = 'TP';
             elseif strcmp(Cases{k},'CLSPC')
                 yLabel = 'CL-SPC';
+            elseif endsWith(Cases{k},'a')
+                yLabel = ['IV',Cases{k}(3)];
             else
                 yLabel = ['IV',Cases{k}(3:end)];
             end            

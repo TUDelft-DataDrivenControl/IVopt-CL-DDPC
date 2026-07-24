@@ -24,7 +24,7 @@ switch opts.sys
                 fn_Cz0 = 'Cz0_Landau1995_D0_n50.mat';
             case 3
                 % controller with direct feedthrough, 5 states
-                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apprarent
+                % -> CL-SPC and Transient Predictor now employ biased estimates, added value of an IV all the more apparent
                 fn_Cz0 = 'Cz0_Landau1995.mat';
         end
     case 4

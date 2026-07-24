@@ -1,15 +1,14 @@
-function [m1_UYf_iX, mLf_data_iX, m4_data_iX] ...
-    = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName)
+function [m1_Uf_iX, mLf_data_iX, m4_data_iX] ...
+    = process_m_all(Uf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName)
 %% ======================== initialize data containers ======================
 
 num_OutVars = numel(OutVars);
 % initializing max counters needed for nested for loop inside parfor
 num_Uf_ivs       = numel(Uf_ivs); 
-num_Yf_ivs       = numel(Yf_ivs);
 num_Cases        = numel(Cases);
-num_IVs          = num_Uf_ivs + num_Yf_ivs;
+num_IVs          = num_Uf_ivs;
 
-m1_UYf_iX     = zeros(num_IVs, spX);
+m1_Uf_iX     = zeros(num_IVs, spX);
 cols_Lf = (ny+nu)*p+ny*f;
 mLf_data_iX   = zeros(num_Cases,spX,ny*f,cols_Lf);
 
@@ -51,7 +50,7 @@ parfor ks = 1:spX
     % =================================================================
     % m1) how well IV approximates optimal one
         case 'm1'
-            m1_UYf_iX(:, ks) = process_m1_seed(Uf_ivs, Yf_ivs, Z, nu, ny, f);
+            m1_Uf_iX(:, ks) = process_m1_seed(Uf_ivs, Z, nu, ny, f);
 
     % =================================================================
     % mLf) average identified Lf

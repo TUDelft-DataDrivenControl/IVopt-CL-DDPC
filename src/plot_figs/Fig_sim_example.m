@@ -1,8 +1,9 @@
 function fig1 = Fig_sim_example(data_type,iX,ks,noPlotCases,subdir1,marker_interval,ylim_y1,ylim_y2)
+%FIG_SIM_EXAMPLE Plot one simulation example (output/input) with zoom panels for both axes.
 
 FS_Tick   = 8;
-FS_Label  = 9;
-Fs_Legend = 7;
+FS_Label  = 11;
+Fs_Legend = 11;
 
 %% navigate to subdir1
 pwd1 = pwd;
@@ -40,7 +41,6 @@ Ncl = opts.Ncl;
 
 %% Plotting
 
-% determine unstable cases, do not plot those
 fns = fieldnames(Tcl);
 for k = 1:numel(fns)
     fn = fns{k};
@@ -50,20 +50,16 @@ for k = 1:numel(fns)
 end
 noPlotCases = unique(noPlotCases);
 
-% select cases to plot
-Cases  = setdiff(Cases,noPlotCases);
+Cases  = setdiff(opts.Cases,noPlotCases);
 nCases = numel(Cases);
 
-% determine colours to use
 cCram = crameri('batlow', nCases); % colors
 cCram(end,:) = cCram(end,:)/2;     % to improve visibility
 
-% time steps
 Tsteps0 = 0:Nbar-1;
 Tsteps1 = Nbar:Nbar+Ncl-1;
 Tsteps  = [Tsteps0 Tsteps1];
 
-% make figure and tiledlayout
 fig1 = figure();
 fig1.OuterPosition(3:4) = [700 385];
 nColsPerTile = 1;
@@ -71,7 +67,6 @@ nTileCols = nColsPerTile*3;
 nTileRows = 2;
 tl = tiledlayout(nTileRows,nTileCols,'TileSpacing','compact','Padding','tight');
 
-% Define line styles and marker styles to cycle through
 line_styles = {'-'};%, '--', '-.'};
 marker_styles = {'o', 's', 'd', '^', 'none','v', '>', '<', 'p', 'h'};
 % ------------------------------- outputs ----------------------------
@@ -86,16 +81,17 @@ grid on;
 ylabel('$y_k$','Interpreter','latex','FontSize',12);
 ylim(ylim_y1{1});
 
-% add a legend north of the plots
 lgd = legend('Interpreter','latex','Orientation','Horizontal',...
     'NumColumns',8,'FontSize',Fs_Legend,'IconColumnWidth',20);
 lgd.Layout.Tile = 'north';
 
-% focus box:
 ax11r = nexttile(2*nColsPerTile+1,[1 nColsPerTile]);
 AxCopy1 = copyobj(allchild(ax11), ax11r);
 grid on; box on;
-xInset = [2210 2370] + (opts.N-1e3 + opts.p-20 + opts.f-20); yInsetTop = ylim_y1{2};
+Nbar_ref = 20+20+1e3-1;
+xInset = [2210 2370] + Nbar-Nbar_ref;
+
+yInsetTop = ylim_y1{2};
 xlim(ax11r, xInset); ylim(ax11r, yInsetTop);
 ax11r.YAxisLocation = 'right';
 trim_copied_objects(AxCopy1, xInset, yInsetTop);
@@ -119,7 +115,7 @@ ylabel('$u_k$','Interpreter','latex','FontSize',12);
 xlabel('Time step','Interpreter','latex','FontSize',12);
 
 linkaxes([ax11 ax12],'x');
-xlim(ax12,[floor(Nbar*0.8) length(yr0)+length(yr1)-1]);
+xlim(ax12,[Nbar-210 length(yr0)+length(yr1)-1]);
 ylim(ax12,ylim_y2{1});
 
 % focus box:
@@ -189,7 +185,9 @@ function plot_uycl(Cases,legend_flag,line_styles,marker_styles,cCram,Tsteps1,y_c
                 case 'actLf'
                     DispName = 'actual $L_f$';
                 otherwise
-                    if startsWith(CaseName,'iv')
+                    if startsWith(CaseName,'iv') && endsWith(CaseName,'a')
+                        DispName = ['IV',CaseName(3)];
+                    elseif startsWith(CaseName,'iv')
                         DispName = ['IV',CaseName(3:end)];
                     else
                         DispName = CaseName;
@@ -337,15 +335,7 @@ end
 end
 
 function chosenDir = choose_subdir_by_number(subdirs, targetNum)
-% CHOOSE_SUBDIR_BY_NUMBER selects the subdirectory whose trailing integer
-% matches targetNum.
-%
-% Inputs:
-%   subdirs   - cell array of subdirectory names (strings)
-%   targetNum - integer to match at the end of the subdirectory name
-%
-% Output:
-%   chosenDir - matching subdirectory name (string). Empty if no match.
+%CHOOSE_SUBDIR_BY_NUMBER Return subdirectory whose trailing integer matches targetNum.
 
     chosenDir = '';  % default (if no match)
 
@@ -367,14 +357,7 @@ function chosenDir = choose_subdir_by_number(subdirs, targetNum)
 end
 
 function settingsFile = find_settingsFile(dirPath)
-% FIND_MAT_FILES returns all .mat files in the specified directory ending
-% with 'settings.mat'.
-%
-% Inputs:
-%   dirPath - path to the directory (string). Defaults to pwd.
-%
-% Outputs:
-%   settingsFiles - cell array of full paths to .mat files ending with 'settings.mat'
+%FIND_SETTINGSFILE Return the unique *settings.mat file name in dirPath.
 
     if nargin < 1
         dirPath = pwd;  % default to current directory
@@ -393,8 +376,7 @@ function settingsFile = find_settingsFile(dirPath)
 end
 
 function chosenDir = choose_subdir_by_iX(subdirs, iX)
-% CHOOSE_SUBDIR_BY_IX selects the subdirectory whose leading zero-padded number matches iX.
-% Example: for iX=3, matches '003_someName' if present.
+%CHOOSE_SUBDIR_BY_IX Return subdirectory whose leading number matches iX.
     chosenDir = '';
     for i = 1:numel(subdirs)
         dirName = subdirs{i};
