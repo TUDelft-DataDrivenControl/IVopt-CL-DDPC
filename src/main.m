@@ -24,7 +24,7 @@ arguments (Input)
     opts.raw_dir    cell;               % subdirectory of raw data directory in which to save files
     opts.sys    (1,1) double = 1;       % flag for model selection
     opts.ref0   (1,:) char {mustBeMember(opts.ref0,{'make','prbs'})} = 'prbs'; % 'make' or 'prbs'
-    opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, >1 = Page) DMCS = Data Matrix Column Shift
+    opts.DMCS   (1,1) double {mustBePositive,mustBeInteger} = 1; % number of samples shift between data matrix columns (1 = Hankel, f = Page) DMCS = Data Matrix Column Shift
     opts.Cases  (1,:) cell = {'all'};   % Cases to simulate: options: 'all','iv1','CL-SPC','TrPred',etc. see CaseDefinitions.m
     opts.noSimCases cell = {};          % Cases to exclude from simulation. compatible with opts.Cases = {'all'}
 end

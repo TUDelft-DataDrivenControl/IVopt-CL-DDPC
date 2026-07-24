@@ -104,16 +104,6 @@ switch opts.sys
         S = feedback(1,G*Cz0);
         KS = Cz0*S;
         T = 1-S;
-    
-    case 8
-        Cz0 = minreal(Cz0);
-        nK = 20;
-        [Cz0,gamma] = hinfstruct_wrapper_v2(Cz0,nK,G,plant,W1,W2,W3,true);
-        Cz0 = employ_integrator(Cz0);
-        [S,KS,T,Ms] = get_sensitivities(Cz0,G,W1,W2,W3);
-        if save_flag
-            save(fullfile(sys_dir,'Landau1995','Cz0_Landau1995_D0_n20.mat'),'Cz0');
-        end
 
 end
 

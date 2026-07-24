@@ -71,7 +71,7 @@ From the project directory in MATLAB, run:
 addpath(genpath('src'));
 ```
 
-#### Step 2: SLURM Configuration (optional)
+#### Step 2: SLURM Configuration
 Specify the following parameters in MATLAB and save them to `src/SlurmSettings.mat`:
 ```matlab
 ProfileName = ''; % Enter profile name used for the SLURM cluster (e.g., 'MyClusterProfile')
@@ -113,16 +113,20 @@ The code project uses **CasADi v3.6.7**:
 - step 1) Run `main_dRe()`
   - This generates a batch of Monte Carlo simulations for varying Re (innovation noise variance).
   - The parent directory for all of this data should be of the form <br>
-    `data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_YYYYMMDD_HHmm/`
+    `data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_1_YYYYMMDD_HHmm/`
 - step 2) Run `main_processing`
   - This produces a `processed_data.mat` file in the parent directory mentioned directly above.
 - step 3) Edit the timestamp of the repository referenced by the `subdir1` variable in  `plot_figs_paper.m`.
-- step 4) Run `plot_figs_paper`
+- step 4) Repeat steps 1-3 using `main_dRe(DMCS=20)` in step 1.
+- step 5) Run `plot_figs_paper`
   - This will produce all of the plots from the paper.
 
 **Option B: Download (Processed) Data -> Visualize results**
 - step 1) Download raw & processed data from Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19595055.svg)](https://doi.org/10.5281/zenodo.19595055)
-- step 2) Create the folder data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_20260327_1942 and extract the contents of the zipfile thereto.
+- step 2) Create the folders 
+  - data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_1_20260711_1614
+  - data/sys1/ref0_prbs/dRe/Re_1e-05_1e-01_15_p_20_N_1e03_f_20_DMCS_20_20260711_1620
+  <br> and extract the contents of the zipfiles to the corresponding folders above
 - step 3) Run `plot_figs_paper`
 
 ### Generating other results
@@ -131,24 +135,24 @@ Important parameters that the user can change for different data sets are
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Re` | 0.01 | Innovation noise variance |
-| `N` | 1000 | Number of columns in Hankel/Page data matrix |
+| `N` | 1000 | Number of columns in trajectory data matrix |
 | `p` | 20 | Past horizon (learning window length) |
 | `f` | 20 | Future horizon (prediction/control window) |
 | `Ncl` | 1500 | Closed-loop simulation length |
 | `seed` | 1 | Random seed for reproducibility |
 | `sys` | 1 | System configuration (1 = Landau1995, primary) |
 | `ref0` | 'prbs' | Initial reference signal type: 'make'* or 'prbs' |
-| `DMCS` | 1 | Data Matrix Column Shift (1 = Hankel, >1 = Page matrix configuration) |
+| `DMCS` | 1 | Data Matrix Column Shift (1 = Hankel, f = Page `future' data matrix configuration) |
 | `Cases` | 'all' | Cases to simulate: 'all', specific method names, or cell array (see `CaseDefinitions.m`) |
 | `noSimCases` | {} | Cases to exclude from simulation (works with `Cases='all'`) |
 | `Qk`, `Rk`, `dRk` | 100, 1, 1 | Controller cost weights |
 
-\*'make' specifies an *initial* reference that is based on the reference used in [<a href="#ref25">25</a>]. The output reference trajectory that is employed by the different controllers is always based on such a reference and not a 'prbs' variant.
+\*'make' specifies an *initial* reference that is based on the reference used in [<a href="#ref30">30</a>]. The output reference trajectory that is employed by the different controllers is always based on such a reference and not a 'prbs' variant.
 
 A single Monte Carlo simulation can be run using the `main` function. Alternatively, batches of Monte Carlo simulations that perform a parameter sweep are performed by the functions
 - `main_dRe` - Parameter sweep over Re (innovation noise variance).
 - `main_dp` - Parameter sweep over p (past window length).
-- `main_dN` - Parameter sweep over N (number of Hankel matrix columns).
+- `main_dN` - Parameter sweep over N (number of data matrix columns).
 
 Each of the `main_d<X>` functions by default performs 100 Monte Carlo simulations per value of Re, p, or N.<br>
 
@@ -161,4 +165,4 @@ For execution on a SLURM cluster:
 ---
 
 ## References
-<a id="ref25"></a>[25] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, "Harnessing uncertainty for a separation principle in direct data-driven predictive control," *Automatica*, vol. 173, p. 112070, Mar. 2025, doi: [10.1016/j.automatica.2024.112070](https://doi.org/10.1016/j.automatica.2024.112070).
+<a id="ref30"></a>[30] A. Chiuso, M. Fabris, V. Breschi, and S. Formentin, "Harnessing uncertainty for a separation principle in direct data-driven predictive control," *Automatica*, vol. 173, p. 112070, Mar. 2025, doi: [10.1016/j.automatica.2024.112070](https://doi.org/10.1016/j.automatica.2024.112070).

@@ -11,8 +11,8 @@ nCz = numel(opts.Cases);
 fprintf('Obtaining IVs...\n');
 
 % create data matrices
-Uf_r01 = make_Page(u0(:,p+1:end),f,DMCS); % - data w/ noise
-Yf_r01 = make_Page(y0(:,p+1:end),f,DMCS); % - data w/ noise
+Uf_r01 = make_TrajMat(u0(:,p+1:end),f,DMCS); % - data w/ noise
+Yf_r01 = make_TrajMat(y0(:,p+1:end),f,DMCS); % - data w/ noise
 
 % ---------------------- (3) LCF-IV ---------------------------------------
 % see "Data-Driven Predictive Control Using  Closed-Loop Data: An
@@ -25,7 +25,7 @@ IV_Theta = Hcv*Uf_r01 + Hcu*Yf_r01;
 nlcf = size(Vc.C,1); % needed to get IV_Theta from Z later
 % -> also, if nlcf = ny, lets interpret IV_Theta as an IV resembling noiseless future outputs
 
-Rf_yr0 = make_Page(yr0(:,p+1:end),f,DMCS); % also used for (6)
+Rf_yr0 = make_TrajMat(yr0(:,p+1:end),f,DMCS); % also used for (6)
 
 % ---------------------- (4) w/o controller info. -------------------------
 % w/o -> don't known Cz0 exactly, but know rho & feedback configuration

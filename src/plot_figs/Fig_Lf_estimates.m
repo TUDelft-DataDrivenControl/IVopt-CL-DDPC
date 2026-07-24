@@ -1,4 +1,5 @@
 function fig = Fig_Lf_estimates(Cases,mLf,iX,opts,notScaledto)
+%FIG_LF_ESTIMATES Plot stacked heatmaps of actual Lf and case-wise Lf estimation errors.
 FS_Tick  = 8;
 FS_Label = 9;
 

@@ -22,9 +22,9 @@ validateattributes(y, {'double'},{'size',[ny Nbar]});
 validateattributes(w, {'double'},{'size',[ny Nbar]});
 
 % create data matrix D and Uf
-Uvf = make_Page(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
-Yvf = make_Page(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:);
-Wvf = make_Page(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:);
+Uvf = make_TrajMat(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
+Yvf = make_TrajMat(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:);
+Wvf = make_TrajMat(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:);
 Wr = Wr(end-gamma+1:end,:); % select last gamma block rows
 D = [Uv;Yv;Wr;Wf];
 
