@@ -1,6 +1,6 @@
-function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
-%% Approximates the optimal IVs Uf & Yf without controller information (Algorithm 1 from the article)
-% This function approximates the IV matrices Uf and Yf that would have
+function [Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = approx_IV_no_controller_info(u,y,w,opts)
+%% Approximates the optimal IVs Uf without controller information
+% This function approximates the IV matrix Uf that would have
 % been obtained without future noise Ef, using no knowledge of the
 % functional form of the 1 DOF feedback controller C_{fb}:
 % 
@@ -13,7 +13,7 @@ function [Uf_iv,Yf_iv] = approx_IV_no_controller_info(u,y,w,opts)
 % Resulting composition of data matrix D:
 %       D = [U_{\varrho}; Y_{\varrho}; W_{\nu}; W_f]
 
-[gamma,p,f,nu,ny] = deal(opts.gamma,opts.p,opts.f,opts.nu,opts.ny);
+[gamma,p,f,nu,ny,DMCS] = deal(opts.gamma,opts.p,opts.f,opts.nu,opts.ny,opts.DMCS);
 varrho = max(gamma,p);
 
 [~,Nbar] = size(u);
@@ -21,42 +21,61 @@ validateattributes(u, {'double'},{'size',[nu Nbar]});
 validateattributes(y, {'double'},{'size',[ny Nbar]});
 validateattributes(w, {'double'},{'size',[ny Nbar]});
 
-% create data matrix D and Uf, Yf
-[~,Uv,Uf] = make_Hankel(u,varrho,f);
-[~,Yv,Yf] = make_Hankel(y,varrho,f);
-[~,Wr,Wf] = make_Hankel(w,varrho,f);
+% create data matrix D and Uf
+Uvf = make_Page(u,varrho+f,DMCS); Uv = Uvf(1:nu*varrho,:); Uf = Uvf(nu*varrho+1:end,:);   
+Yvf = make_Page(y,varrho+f,DMCS); Yv = Yvf(1:ny*varrho,:);
+Wvf = make_Page(w,varrho+f,DMCS); Wr = Wvf(1:ny*varrho,:); Wf = Wvf(ny*varrho+1:end,:);
 Wr = Wr(end-gamma+1:end,:); % select last gamma block rows
 D = [Uv;Yv;Wr;Wf];
 
-%% ------------------------- get closed-loop system ------------------------
-L_cl = [Uf;Yf]*pinv(D); % initial estimate
+iv_names = {'iv4a','iv4b','iv4c','iv4d'};
+iv_names = intersect(iv_names,opts.Cases);
+[Uf_iv4a,Uf_iv4b,Uf_iv4c,Uf_iv4d] = deal(nan); % predefine for output
+for kiv = 1:length(iv_names)
+iv_name = iv_names{kiv};
+switch iv_name
+%% ----------------------------- (2SLS) -----------------------------------
+% NOTE: this is the algorithm reported as `IV4' in the paper
+case 'iv4a' 
+L_clu = Uf*pinv(D); % initial estimate
+Uf_iv4a = L_clu*D;
 
-% split up into parts
-L_clu = L_cl(1:nu*f,:);     % D -> uf
-L_cly = L_cl(nu*f+1:end,:); % D -> yf
+%% ----------------------- (2SLS + causal + time invariant) ---------------
+case 'iv4b'
+% -> attempt to improve L_clu using causality & time invariance
+L_clu1 = L_clu;
 
-% modify parts representing influence of Wf (impose causality & average)
-L_clur = L_clu(:,end-f*ny+1:end);
-L_clyr = L_cly(:,end-f*ny+1:end);
+% part for Wf should be causal -> impose block-tril structure
+L_clu1(:,end-f*ny+1:end) = make_blk_tril(L_clu1(:,end-f*ny+1:end),[nu,ny]);
 
-% part for Wf should be causal -> impose (block-)tril structure
-L_clur = L_clur.*kron(tril(ones(f)),ones(nu,ny)); % blocks: nu x ny
-L_clyr = L_clyr.*kron(tril(ones(f)),ones(ny,ny)); % blocks: ny x ny
+% part for Wf should be time invariant -> block-diagonal averaging
+L_clu1(:,end-f*ny+1:end) = blk_toeplitz_mean(L_clu1(:,end-f*ny+1:end),nu,ny);
 
-% take mean of corresponding elements in blocks along diagonals
-L_clur = blk_toeplitz_mean(L_clur,nu,ny);
-L_clyr = blk_toeplitz_mean(L_clyr,ny,ny);
+Uf_iv4b = L_clu1*D;
 
-% adjust L_clu & L_cly accordingly
-L_clu(:,end-f*ny+1:end) = L_clur;
-L_cly(:,end-f*ny+1:end) = L_clyr;
+%% ------------------------- (row-by-row) ---------------------------------
+case 'iv4c'
+% -> estimate L_clu row by row (-> causal by construction)
+L_clu2 = zeros(nu*f,size(D,1));
+rows = 1:nu;
+colend = (nu+ny)*varrho + ny*gamma + ny;
+for k = 1:f
+    L_clu2(rows,1:colend) = Uf(rows,:)*pinv(D(1:colend,:));
+    rows = rows + nu;
+    colend = colend + ny;
+end
 
-% concatenate averaged matrices
-L_cl = [L_clu; L_cly];
+Uf_iv4c = L_clu2*D;
 
-%% ------------------------ get approximate IV -----------------------------
-UfYf_iv = L_cl*D;
-Uf_iv = UfYf_iv(1:nu*f,:);
-Yf_iv = UfYf_iv(nu*f+1:end,:);
+%% ---------------------- (row-by-row + time invariant) -------------------
+case 'iv4d'
+L_clu3 = L_clu2; % causal by construction
+% part for Wf should be time invariant -> block-diagonal averaging
+L_clu3(:,end-f*ny+1:end) = blk_toeplitz_mean(L_clu3(:,end-f*ny+1:end),nu,ny);
+
+Uf_iv4d = L_clu3*D;
+
+end % of switch
+end % of for loop
 
 end

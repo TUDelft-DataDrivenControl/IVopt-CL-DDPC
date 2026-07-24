@@ -38,20 +38,19 @@ subdir2s = subdir2s(~cellfun(@isempty, regexp(subdir2s, '^[0-9]+_')));
 nX = numel(X_all);
 
 % find Cases used
-%  -> expect selection of {'iv1','iv2a','iv2b','iv2c','iv3a','iv3c','iv4a','iv4b','iv4c',...
-%                          'iv5a','iv5b','iv5c','iv6a','iv6c','CLSPC','actLf','TrPred'};
+%  -> expect selection of {'iv1','iv2','iv2b','iv2c','iv3','iv3c','iv4a','iv4b','iv4c','iv4d',...
+%                          'iv5b','iv5c','iv6a','CLSPC','actLf','TrPred'};
 seed_mat_files = dir(fullfile(pwd,subdir2s{1},'seed_*.mat'));
-Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'Cases').Cases;
+Cases = load(fullfile(pwd,subdir2s{1},seed_mat_files(1).name),'opts').opts.Cases;
 num_Cases = numel(Cases);
 
 %% initializing measures
 pctiles = 0:5:100;
 
 % --- IV definitions
-Uf_ivs = {'iv1','iv2a','iv2c','iv3a','iv3c','iv4a','iv4c','iv5a','iv5c','iv6c'}; Uf_ivs = intersect(Uf_ivs,Cases);
-Yf_ivs = {'iv2b','iv3a','iv4b','iv5b','iv6a'};                            Yf_ivs = intersect(Yf_ivs,Cases);
+[~,~,Uf_ivs] = CaseDefinitions({}); Uf_ivs = intersect(Uf_ivs,Cases);
+Uf_ivs = [Uf_ivs,{'iv3'}];
 num_Uf_ivs = numel(Uf_ivs); % needed for nested for loop inside parfor
-num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 
 % ======================== initialize measure 1 (m1) ======================
 % -> how well IV approximates optimal IV
@@ -65,8 +64,7 @@ num_Yf_ivs = numel(Yf_ivs); % needed for nested for loop inside parfor
 %    m1_Yf_data(num_Yf_ivs, nX, spX)
 
 % --- Preallocate "sliced" containers ---
-% Combine Uf and Yf into a single array for easier handling: (num_Uf_ivs+num_Yf_ivs) x nX x spX
-m1_UYf = zeros(num_Uf_ivs + num_Yf_ivs, nX, spX);
+m1_Uf = zeros(num_Uf_ivs, nX, spX);
 mLf_data = cell(nX,1); % to save Lf matrices. each cell of size num_Cases,spX,size(Lf,1),size(Lf,2)
 
 % ======================== measure 4 (prediction error) ===================
@@ -128,8 +126,8 @@ for iX = 1:nX
     fprintf('Processing %s index [%d/%d] (%s = %g) in subdir: %s\n', data_type, iX, nX, data_type, X, subdir2);
     
     % iterates over noise realizations
-    [m1_UYf(:, iX, :), mLf_data{iX}, m4_data(iX,:,:,:,:)] ...
-     = process_m_all(Uf_ivs,Yf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName);
+    [m1_Uf(:, iX, :), mLf_data{iX}, m4_data(iX,:,:,:,:)] ...
+     = process_m_all(Uf_ivs,Cases,iX,nu,ny,p,f,seeds,spX,Hf,OutVars,ProfileName);
 
     cd(subdir1);
 end
@@ -144,8 +142,8 @@ for k = 1:numel(OutVars)
         
         % ----- m1 (quality of the approximation of the optimal IV) ---------
         case 'm1'
-            m1 = m1_data2struct(m1_UYf, Uf_ivs, Yf_ivs,pctiles);
-            clear m1_UYf;
+            m1 = m1_data2struct(m1_Uf, Uf_ivs, pctiles);
+            clear m1_Uf;
         
         % ----- mLf (Lf values) ---------------------------------------------
         case 'mLf'

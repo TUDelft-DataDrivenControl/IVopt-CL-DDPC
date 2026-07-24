@@ -26,7 +26,7 @@ classdef IV_4_DDPC < dynamicprops
     %   - object.Wp             : Cached [Up; Yp] component (all IVs share this)
     %
     % EXAMPLE:
-    %   Z = IV_4_DDPC(u, y, p, f);
+    %   Z = IV_4_DDPC(u, y, p, f, DMCS);
     %   Z.iv1   Returns [Z.Wp; Z.iv1_]
     %   Z.iv1_  Returns only the Uf component (future inputs)
     %
@@ -43,6 +43,7 @@ classdef IV_4_DDPC < dynamicprops
     %   Wp:        Combined past data [Up; Yp] (dependent, hidden)
     %   iv<k>:     Full k-th IV matrix [Wp; iv<k>_] (public, dynamically added)
     %   iv<k>_:    Hidden component of k-th IV below Wp (hidden)
+    %   DMCS:      Data Matrix Column Shift (1 = Hankel, >1 = Page)
     
     properties
         p (1,1) double {mustBeInteger}
@@ -53,6 +54,7 @@ classdef IV_4_DDPC < dynamicprops
         Nbar (1,1) double {mustBeInteger}
         IV_names cell
         IV_descr cell
+        DMCS (1,1) double {mustBeInteger,mustBePositive} = 1; % Data Matrix Column Shift
     end
     properties (Hidden)
         u double {mustBeNumeric,mustBeMatrix}
@@ -71,13 +73,14 @@ classdef IV_4_DDPC < dynamicprops
     end
     
     methods
-        function obj = IV_4_DDPC(u,y,p,f) % class constructor
+        function obj = IV_4_DDPC(u,y,p,f,DMCS) % class constructor
 
             % set properties
             [obj.u,obj.y,obj.p,obj.f] = deal(u,y,p,f); % set properties
             [obj.nu,obj.Nbar] = size(u);
             obj.ny = size(y,1);
-            obj.N = obj.Nbar - (p+f) + 1;
+            obj.DMCS = DMCS;
+            obj.N = (obj.Nbar - (p+f))/DMCS + 1;
 
             % validate size of data
             validateattributes(y,{'double'},{'size',[NaN,obj.Nbar]});
@@ -91,18 +94,18 @@ classdef IV_4_DDPC < dynamicprops
         
         %% Get and Set methods (excl. IV matrices)
         function value = get.Up(obj)
-            value = obj.make_Hankel(obj.u,obj.p);
-            value = value(:,1:obj.N);
+            value = obj.make_Page(obj.u,obj.p+obj.f,obj.DMCS);
+            value = value(1:obj.p*obj.nu,1:obj.N);
         end
         function value = get.Yp(obj)
-            value = obj.make_Hankel(obj.y,obj.p);
-            value = value(:,1:obj.N);
+            value = obj.make_Page(obj.y,obj.p+obj.f,obj.DMCS);
+            value = value(1:obj.p*obj.ny,1:obj.N);
         end
         function value = get.Uf(obj)
-            value = obj.make_Hankel(obj.u(:,obj.p+1:end),obj.f);
+            value = obj.make_Page(obj.u(:,obj.p+1:end),obj.f,obj.DMCS);
         end
         function value = get.Yf(obj)
-            value = obj.make_Hankel(obj.y(:,obj.p+1:end),obj.f);
+            value = obj.make_Page(obj.y(:,obj.p+1:end),obj.f,obj.DMCS);
         end
         function value = get.Wp(obj)
             value = [obj.Up;obj.Yp];
@@ -123,7 +126,6 @@ classdef IV_4_DDPC < dynamicprops
                 obj
                 IVname char
                 Z0 double {mustBeMatrix}
-                opt.method double {mustBeMember(opt.method,[0,1])} = 0;
                 opt.descr char = '';
             end
             
@@ -142,12 +144,6 @@ classdef IV_4_DDPC < dynamicprops
             P1=addprop(obj,IVname);  % visible property
             P2=addprop(obj,IVname_); % hidden property
             P2.Hidden = true;
-            
-            % extra method to apply to Z0?
-            switch opt.method
-                case 1 % do 2SLS
-                    Z0 = obj.TSLS(obj.Uf,Z0);
-            end
 
             obj.(IVname_) = Z0; % set hidden property
             P1.GetMethod = @(obj) [obj.Wp; obj.(IVname_)];
@@ -177,23 +173,36 @@ classdef IV_4_DDPC < dynamicprops
             Znew = W*(Q*Q');
         end
 
-        function Hs = make_Hankel(data, s)
-        % Efficiently constructs past-future Hankel matrices from input data
+        function Page = make_Page(data, s1, s2)
+        % Efficiently constructs Page matrices from input data of the form
+        % | u_1    u_{1+s2}  ... u_{1+s2*(N-1)}  |
+        % | ...      ...     ...      ...        |
+        % | u_{s1} u_{s1+s2} ... u_{s1+s2*(N-1)}a =  |
+        % 
+        % where N is the number of columns
+        %
         % Inputs:
         %   data: (ndata x Nbar) time series data matrix
-        %   s: number of block rows
+        %   s1: number of block rows
+        %   s2: number of sampes for column shift
         % Outputs:
-        %   Hs: (ndata*s x (Nbar - s + 1)) Hankel matrix
-        
+        %   Page: (ndata*s1 x (floor((Nbar-s1)/s2)+1) full Page matrix
+
         [ndata, Nbar] = size(data);
-        num_cols = Nbar - s + 1;
-        
-        Hs = zeros(ndata * s, num_cols);
-        
-        for i = 1:s
-            Hs((i-1)*ndata+1:i*ndata, :) = data(:, i:i+num_cols-1);
+        N = floor((Nbar-s1)/s2)+1; % determine number of columns
+        Nbar2 = s1+s2*(N-1);       % determine max usable data samples
+        if Nbar2 ~= Nbar
+            error(['Number of provided samples (%d) does not correspond with the number' ...
+                'of samples employed by a Page matrix with the specified dimensions (%d)'],Nbar,Nbar2)
         end
 
+        data = data(:);
+        Page = zeros(s1*ndata,N);
+        idxs = [1 s1*ndata];
+        for k = 1:N
+            Page(:,k) = data(idxs(1):idxs(2),1);
+            idxs = idxs + s2*ndata;
+        end
         end
     
     end
